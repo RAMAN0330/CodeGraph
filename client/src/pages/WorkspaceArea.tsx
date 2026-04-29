@@ -241,50 +241,49 @@ export default function WorkspaceArea(){
         }).finally(function(){setBranchLoading(false);});
     }
 
-    function pollTask(taskId: string) {
-        const interval = setInterval(async () => {
-            try {
-                const res = await fetch(`${import.meta.env.VITE_API_URL??'http://localhost:5000'}/api/tasks/${taskId}`,{credentials:'include'});
-                const data = await res.json();
-                if (data.status === 'completed') {
-                    clearInterval(interval);
-                    setData(data.result);
-                    setLoading(false);
-                    setProgress('');
-                } else if (data.status === 'failed') {
-                    clearInterval(interval);
-                    setLoading(false);
-                } else if (data.progress) {
-                    setProgress(`Processing: ${data.progress}%`);
-                }
-            } catch (e) {
-                clearInterval(interval);
-            }
-        }, 2000);
+    function triggerDjangoIntrospection(branchOverride?: any) {
+        const API = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+        fetch(`${API}/api/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: repoUrl, token, branch: branchOverride || currentBranch || 'main' })
+        }).then(res => res.json()).then(resp => {
+            if (!resp.task_id) return;
+            const interval = setInterval(async () => {
+                try {
+                    const r = await fetch(`${API}/api/tasks/${resp.task_id}`, { credentials: 'include' });
+                    const d = await r.json();
+                    if (d.status === 'completed' && d.result?.models?.length > 0) {
+                        clearInterval(interval);
+                        // Convert Django models → dbSchema format
+                        var tables = d.result.models.map(function(m: any) {
+                            return {
+                                name: m.name,
+                                app: m.file ? m.file.split('/')[0] : 'django',
+                                columns: m.fields.map(function(f: any) {
+                                    return { name: f.name, type: f.type, nullable: true };
+                                }),
+                                foreignKeys: d.result.relationships
+                                    .filter(function(r: any) { return r.source === m.name; })
+                                    .map(function(r: any) { return { column: r.field, references: { table: r.target, column: 'id' } }; })
+                            };
+                        });
+                        setDbSchema({ source: 'django', tables });
+                        setDbSchemaDetected(true);
+                    } else if (d.status === 'failed' || d.status === 'completed') {
+                        clearInterval(interval);
+                    }
+                } catch { clearInterval(interval); }
+            }, 2000);
+        }).catch(() => {});
     }
 
     function analyze(branchOverride?: any) {
         if (branchOverride && typeof branchOverride !== 'string') branchOverride = undefined;
-        const p = parseUrl(repoUrl);
-        if (p) {
-            setLoading(true);
-            setProgress('Requesting deep analysis...');
-            fetch(`${import.meta.env.VITE_API_URL??'http://localhost:5000'}/api/analyze`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: repoUrl, token, branch: branchOverride || currentBranch || 'main' })
-            }).then(res => res.json())
-            .then(data => {
-                if (data.task_id) {
-                    pollTask(data.task_id);
-                } else {
-                    internal_analyze(branchOverride);
-                }
-            }).catch(() => {
-                internal_analyze(branchOverride);
-            });
-        } else {
-            internal_analyze(branchOverride);
+        // Always run the main JS analysis; trigger Django introspection in parallel
+        internal_analyze(branchOverride);
+        if (parseUrl(repoUrl)) {
+            triggerDjangoIntrospection(branchOverride);
         }
     }
 
