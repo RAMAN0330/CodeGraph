@@ -2263,53 +2263,18 @@ export default function WorkspaceArea(){
     },[dbSchema,dbSearchQuery,dbAppFilter,selectedDbTable]);
 
     return React.createElement('div',{className:'app',style:{paddingTop:'56px'}},
-        React.createElement(WorkspaceHeader,{login:authUser?.login??'',avatarUrl:authUser?.avatar_url??'',repoUrl:repoUrl}),
-        React.createElement('div',{className:'topbar'},
-            React.createElement('div',{className:'topbar-group'},
-                React.createElement('div',{className:'logo',onClick:function(){navigate('/');}},
-                    React.createElement('div',{className:'logo-mark'},React.createElement(Icon,{name:'logo',size:'l'})),
-                    React.createElement('span',{className:'logo-text'},'CodeFlow')
-                ),
-                data&&React.createElement('div',{className:'workspace-title'},
-                    React.createElement('span',{className:'workspace-sep'},'/'),
-                    React.createElement('span',null,(data as any).name||'Workspace')
-                )
-            ),
-            React.createElement('div',{className:'topbar-group flex'},
-                React.createElement('div',{className:'repo-search-container'},
-                    React.createElement(Icon,{name:'search',size:'m',className:'search-icon'}),
-                    React.createElement('input',{
-                        className:'repo-search-input',
-                        placeholder:'Search or analyze repository...',
-                        value:repoUrl,
-                        onChange:function(e: any){setRepoUrl(e.target.value);},
-                        onKeyDown:function(e: any){if(e.key==='Enter'&&!loading)analyze();}
-                    }),
-                    !loading&&repoUrl&&React.createElement('button',{className:'search-action-btn',onClick:analyze},'Analyze')
-                )
-            ),
-            React.createElement('div',{className:'topbar-group'},
-                data&&React.createElement(React.Fragment,null,
-                    React.createElement('button',{className:'header-tool-btn',onClick:function(){setShowPR(true);}},
-                        React.createElement(Icon,{name:'pull-request',size:'m'}),
-                        React.createElement('span',null,'PR Review')
-                    ),
-                    React.createElement('button',{className:'header-tool-btn'+(dbSchemaDetected?' active':''),onClick:function(){openDbSchema();}},
-                        React.createElement(Icon,{name:'database',size:'m'}),
-                        React.createElement('span',null,'DB Map')
-                    )
-                ),
-                authUser&&React.createElement('div',{className:'user-profile-chip'},
-                    authUser.avatar_url
-                        ?React.createElement('img',{src:authUser.avatar_url,alt:authUser.login,style:{width:'28px',height:'28px',borderRadius:'50%',border:'1px solid #30363d'}})
-                        :React.createElement('div',{className:'user-avatar'},React.createElement(Icon,{name:'github',size:'m'})),
-                    React.createElement('div',{className:'user-info'},
-                        React.createElement('div',{className:'user-name'},authUser.login),
-                        React.createElement('div',{className:'user-status'},'GitHub')
-                    )
-                )
-            )
-        ),
+        React.createElement(WorkspaceHeader,{
+            login:authUser?.login??'',
+            avatarUrl:authUser?.avatar_url??'',
+            repoUrl:repoUrl,
+            onRepoUrlChange:function(url: any){setRepoUrl(url);},
+            onAnalyze:analyze,
+            loading:loading,
+            hasData:!!data,
+            dbSchemaDetected:dbSchemaDetected,
+            onPRReview:function(){setShowPR(true);},
+            onDbMap:function(){openDbSchema();},
+        }),
         React.createElement('div',{className:'main',style:{'--sidebar-w':sidebarWidth+'px','--panel-w':rightPanelWidth+'px'}},
             React.createElement('div',{className:'sidebar',style:{width:sidebarWidth}},
                 React.createElement('div',{className:'resize-handle',onMouseDown:function(e: any){
