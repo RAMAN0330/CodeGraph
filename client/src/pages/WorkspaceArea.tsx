@@ -2266,7 +2266,7 @@ export default function WorkspaceArea(){
         });
     },[dbSchema,dbSearchQuery,dbAppFilter,selectedDbTable]);
 
-    return React.createElement('div',{className:'app',style:{paddingTop:'64px',paddingLeft:'48px'}},
+    return React.createElement('div',{className:'app',style:{paddingTop:'64px',paddingLeft:'60px'}},
         React.createElement(WorkspaceSidebar,{
             activeSection:activeSection,
             onSectionChange:function(s: any){setActiveSection(s);},

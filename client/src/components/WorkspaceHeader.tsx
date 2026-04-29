@@ -43,7 +43,7 @@ export default function WorkspaceHeader({
   return (
     <header style={{
       position: 'fixed',
-      top: '10px', left: '58px', right: '10px',
+      top: '10px', left: '60px', right: '10px',
       height: '46px',
       background: 'rgba(22,27,34,0.92)',
       backdropFilter: 'blur(12px)',

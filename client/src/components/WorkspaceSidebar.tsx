@@ -49,18 +49,22 @@ export default function WorkspaceSidebar({ activeSection, onSectionChange, hasDa
   return (
     <aside style={{
       position: 'fixed',
-      top: '56px',
-      left: 0,
-      bottom: 0,
-      width: '48px',
-      background: '#161b22',
-      borderRight: '1px solid #30363d',
+      top: '64px',
+      left: '8px',
+      bottom: '8px',
+      width: '44px',
+      background: 'rgba(22,27,34,0.92)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      border: '1px solid #30363d',
+      borderRadius: '12px',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       paddingTop: '8px',
       zIndex: 900,
       gap: '2px',
+      boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
     }}>
       {NAV_ITEMS.map(item => {
         const disabled = !!(item.requiresData && !hasData);
