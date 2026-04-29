@@ -2280,8 +2280,20 @@ export default function WorkspaceArea(){
             activeSection:activeSection,
             onSectionChange:function(s: any){setActiveSection(s);},
         }),
-        activeSection==='branches'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px'}},
-            React.createElement(BranchDiff,{token:token,repoUrl:repoUrl})
+        activeSection==='branches'&&(repoInfo
+            ?React.createElement('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},
+                React.createElement(BranchDiff,{
+                    owner:repoInfo.owner,
+                    repo:repoInfo.repo,
+                    branches:branches&&branches.length?branches:[{name:currentBranch||'main'}],
+                    currentBranch:currentBranch||'main',
+                    onClose:function(){setActiveSection('explorer');},
+                })
+            )
+            :React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#8b949e',flexDirection:'column',gap:'12px'}},
+                React.createElement('div',{style:{fontSize:'32px'}},'🌿'),
+                React.createElement('p',null,'Analyze a repository first to view branches.')
+            )
         ),
         activeSection==='database'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',height:'calc(100vh - 80px)'}},
             dbSchema
