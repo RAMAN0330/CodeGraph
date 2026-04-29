@@ -43,16 +43,20 @@ export default function WorkspaceHeader({
   return (
     <header style={{
       position: 'fixed',
-      top: 0, left: 0, right: 0,
-      height: '56px',
-      background: '#0d1117',
-      borderBottom: '1px solid #30363d',
+      top: '10px', left: '58px', right: '10px',
+      height: '46px',
+      background: 'rgba(22,27,34,0.92)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      border: '1px solid #30363d',
+      borderRadius: '12px',
       display: 'flex',
       alignItems: 'center',
       gap: '12px',
-      padding: '0 16px',
+      padding: '0 14px',
       zIndex: 1000,
       boxSizing: 'border-box',
+      boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
     }}>
       {/* Left: Logo */}
       <button
