@@ -2268,7 +2268,7 @@ export default function WorkspaceArea(){
             React.createElement('div',{className:'topbar-group'},
                 React.createElement('div',{className:'logo',onClick:function(){navigate('/');}},
                     React.createElement('div',{className:'logo-mark'},React.createElement(Icon,{name:'logo',size:'l'})),
-                    React.createElement('span',{className:'logo-text'},'RepoScope')
+                    React.createElement('span',{className:'logo-text'},'CodeFlow')
                 ),
                 data&&React.createElement('div',{className:'workspace-title'},
                     React.createElement('span',{className:'workspace-sep'},'/'),
@@ -2299,11 +2299,13 @@ export default function WorkspaceArea(){
                         React.createElement('span',null,'DB Map')
                     )
                 ),
-                React.createElement('div',{className:'user-profile-chip'},
-                    React.createElement('div',{className:'user-avatar'},React.createElement(Icon,{name:'github',size:'m'})),
+                authUser&&React.createElement('div',{className:'user-profile-chip'},
+                    authUser.avatar_url
+                        ?React.createElement('img',{src:authUser.avatar_url,alt:authUser.login,style:{width:'28px',height:'28px',borderRadius:'50%',border:'1px solid #30363d'}})
+                        :React.createElement('div',{className:'user-avatar'},React.createElement(Icon,{name:'github',size:'m'})),
                     React.createElement('div',{className:'user-info'},
-                        React.createElement('div',{className:'user-name'},'Raman Sharma'),
-                        React.createElement('div',{className:'user-status'},'Pro Plan')
+                        React.createElement('div',{className:'user-name'},authUser.login),
+                        React.createElement('div',{className:'user-status'},'GitHub')
                     )
                 )
             )

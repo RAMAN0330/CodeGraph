@@ -203,7 +203,7 @@ app.get('/auth/github', passport.authenticate('github'));
 app.get('/auth/github/callback',
   passport.authenticate('github', { failureRedirect: `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/?auth=failed` }),
   (_req: any, res: any) => {
-    res.redirect(`${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/workspace`);
+    res.redirect(`${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/select-repo`);
   }
 );
 
@@ -219,6 +219,27 @@ app.get('/auth/logout', (req: any, res: any) => {
       res.json({ ok: true });
     });
   });
+});
+
+// Fetch authenticated user's repos
+app.get('/api/github/repos', async (req: any, res: any) => {
+  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+  try {
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'CodeFlow-App',
+      Authorization: `token ${req.user.token}`,
+    };
+    const response = await fetch(
+      'https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator',
+      { headers }
+    );
+    if (!response.ok) throw new Error(`GitHub API error: ${response.statusText}`);
+    const repos = await response.json();
+    res.json({ repos });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
