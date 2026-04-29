@@ -2523,8 +2523,8 @@ export default function WorkspaceArea(){
                             React.createElement('span',{className:'legend-toggle'},'▼')
                         ),
                         React.createElement('div',{className:'legend-content'},
-                            colorMode==='folder'&&(data as any).folders.slice(0,12).map(function(f: any, i: any){return React.createElement('div',{key:f,className:'legend-item'+(folderFilter===f?' active':''),onClick:function(e: any){e.stopPropagation();filterByFolder(f);}},React.createElement('div',{className:'legend-color',style:{background:colorMap[f]||COLORS[i%COLORS.length]}}),f||'root');}),
-                            colorMode==='folder'&&(data as any).folders.length>12&&React.createElement('div',{style:{fontSize:9,color:'var(--t3)',marginTop:4}},'+',(data as any).folders.length-12,' more'),
+                            colorMode==='folder'&&(((data as any).folders)||[]).slice(0,12).map(function(f: any, i: any){return React.createElement('div',{key:f,className:'legend-item'+(folderFilter===f?' active':''),onClick:function(e: any){e.stopPropagation();filterByFolder(f);}},React.createElement('div',{className:'legend-color',style:{background:colorMap[f]||COLORS[i%COLORS.length]}}),f||'root');}),
+                            colorMode==='folder'&&(((data as any).folders)||[]).length>12&&React.createElement('div',{style:{fontSize:9,color:'var(--t3)',marginTop:4}},'+',(((data as any).folders)||[]).length-12,' more'),
                             colorMode==='layer'&&Object.entries(LAYER_COLORS).map(function(e: any){return React.createElement('div',{key:e[0],className:'legend-item'},React.createElement('div',{className:'legend-color',style:{background:e[1]}}),e[0]=== 'modules' ? 'Modules' : e[0]=== 'forms' ? 'UserForms' : e[0]=== 'classes' ? 'Classes' : e[0]);}),
                             colorMode==='churn'&&React.createElement(React.Fragment,null,React.createElement('div',{className:'legend-item'},React.createElement('div',{className:'legend-color',style:{background:'#ff5f5f'}}),'High (7+ commits)'),React.createElement('div',{className:'legend-item'},React.createElement('div',{className:'legend-color',style:{background:'#ff9f43'}}),'Medium (4-6)'),React.createElement('div',{className:'legend-item'},React.createElement('div',{className:'legend-color',style:{background:'#22c55e'}}),'Low (0-3)'))
                         )
@@ -2543,7 +2543,7 @@ export default function WorkspaceArea(){
                 data?React.createElement(React.Fragment,null,
                     React.createElement('div',{className:'panel-tabs'},
                         React.createElement('button',{className:'panel-tab'+(rightTab==='details'?' active':''),onClick:function(){setRightTab('details');setDrillDown(null);}},selected?iconLabel('file','FILE'):iconLabel('search','ISSUES')),
-                        React.createElement('button',{className:'panel-tab'+(rightTab==='patterns'?' active':''),onClick:function(){setRightTab('patterns');setDrillDown(null);}},iconLabel('puzzle','PATTERNS'),' ',React.createElement('span',{className:'badge badge-default'},(data as any).patterns.length)),
+                        React.createElement('button',{className:'panel-tab'+(rightTab==='patterns'?' active':''),onClick:function(){setRightTab('patterns');setDrillDown(null);}},iconLabel('puzzle','PATTERNS'),' ',React.createElement('span',{className:'badge badge-default'},((data as any).patterns||[]).length)),
                         React.createElement('button',{className:'panel-tab'+(rightTab==='security'?' active':''),onClick:function(){setRightTab('security');setDrillDown(null);}},iconLabel('security','SECURITY'),(data as any).stats.security>0&&React.createElement('span',{className:'view-mode-badge',style:{marginLeft:4}},(data as any).stats.security)),
                         React.createElement('button',{className:'panel-tab'+(rightTab==='suggestions'?' active':''),onClick:function(){setRightTab('suggestions');setDrillDown(null);}},iconLabel('action','ACTIONS'),(data as any).suggestions&&(data as any).suggestions.length>0&&React.createElement('span',{className:'view-mode-badge',style:{marginLeft:4}},(data as any).suggestions.length))
                     ),
@@ -2714,9 +2714,9 @@ export default function WorkspaceArea(){
                                 )
                             )
                         ):React.createElement(React.Fragment,null,
-                            React.createElement('div',{style:{fontSize:12,fontWeight:600,marginBottom:12}},React.createElement(Icon,{name:'search',size:'m'}),' Architecture Issues (',(data as any).issues.length,')'),
-                            (data as any).issues.length===0?React.createElement('div',{style:{textAlign:'center',padding:20}},React.createElement(Icon,{name:'spark',size:'xxl',className:'empty-icon'}),React.createElement('div',{style:{color:'var(--green)'}},'No issues detected!')):
-                            (data as any).issues.map(function(issue: any, i: any){return React.createElement('div',{key:i,className:'security-item '+(issue.type==='critical'?'high':'medium'),style:{cursor:'pointer'},onClick:function(){setDrillDown({type:'issue',data:issue});}},
+                            React.createElement('div',{style:{fontSize:12,fontWeight:600,marginBottom:12}},React.createElement(Icon,{name:'search',size:'m'}),' Architecture Issues (',(((data as any).issues)||[]).length,')'),
+                            (((data as any).issues)||[]).length===0?React.createElement('div',{style:{textAlign:'center',padding:20}},React.createElement(Icon,{name:'spark',size:'xxl',className:'empty-icon'}),React.createElement('div',{style:{color:'var(--green)'}},'No issues detected!')):
+                            (((data as any).issues)||[]).map(function(issue: any, i: any){return React.createElement('div',{key:i,className:'security-item '+(issue.type==='critical'?'high':'medium'),style:{cursor:'pointer'},onClick:function(){setDrillDown({type:'issue',data:issue});}},
                                 React.createElement('div',{className:'security-header'},
                                     React.createElement(StatusDot,{color:issue.type==='critical'?'var(--red)':'var(--orange)'}),
                                     React.createElement('span',{className:'security-title'},issue.title)
@@ -2727,8 +2727,8 @@ export default function WorkspaceArea(){
                         )),
                         rightTab==='patterns'&&React.createElement(React.Fragment,null,
                             React.createElement('div',{style:{fontSize:12,fontWeight:600,marginBottom:12}},React.createElement(Icon,{name:'puzzle',size:'m'}),' Design Patterns & Anti-Patterns'),
-                            (data as any).patterns.length===0?React.createElement('div',{style:{textAlign:'center',padding:20,color:'var(--t3)'}},React.createElement(Icon,{name:'puzzle',size:'xxl',className:'empty-icon'}),React.createElement('div',null,'No patterns detected'),React.createElement('div',{style:{fontSize:10,marginTop:8}},'Patterns are detected based on code structure')):
-                            (data as any).patterns.map(function(p: any, i: any){return React.createElement('div',{key:i,className:'pattern-item'+(p.isAnti?' anti':''),style:{cursor:'pointer'},onClick:function(){setDrillDown({type:'pattern',data:p});}},
+                            (((data as any).patterns)||[]).length===0?React.createElement('div',{style:{textAlign:'center',padding:20,color:'var(--t3)'}},React.createElement(Icon,{name:'puzzle',size:'xxl',className:'empty-icon'}),React.createElement('div',null,'No patterns detected'),React.createElement('div',{style:{fontSize:10,marginTop:8}},'Patterns are detected based on code structure')):
+                            (((data as any).patterns)||[]).map(function(p: any, i: any){return React.createElement('div',{key:i,className:'pattern-item'+(p.isAnti?' anti':''),style:{cursor:'pointer'},onClick:function(){setDrillDown({type:'pattern',data:p});}},
                                 React.createElement('div',{className:'pattern-header'},
                                     React.createElement(Icon,{name:p.icon,size:'m',className:'pattern-icon'}),
                                     React.createElement('span',{className:'pattern-name'},p.name),
@@ -2740,14 +2740,14 @@ export default function WorkspaceArea(){
                         ),
                         rightTab==='security'&&React.createElement(React.Fragment,null,
                             React.createElement('div',{style:{fontSize:12,fontWeight:600,marginBottom:12}},React.createElement(Icon,{name:'security',size:'m'}),' Security Analysis'),
-                            (data as any).securityIssues.length===0?React.createElement('div',{style:{textAlign:'center',padding:20}},React.createElement(Icon,{name:'security',size:'xxl',className:'empty-icon'}),React.createElement('div',{style:{color:'var(--green)',fontWeight:600}},'No security issues found!'),React.createElement('div',{style:{fontSize:10,color:'var(--t3)',marginTop:8}},'Your code passed all security checks')):
+                            (((data as any).securityIssues)||[]).length===0?React.createElement('div',{style:{textAlign:'center',padding:20}},React.createElement(Icon,{name:'security',size:'xxl',className:'empty-icon'}),React.createElement('div',{style:{color:'var(--green)',fontWeight:600}},'No security issues found!'),React.createElement('div',{style:{fontSize:10,color:'var(--t3)',marginTop:8}},'Your code passed all security checks')):
                             React.createElement(React.Fragment,null,
                                 React.createElement('div',{style:{display:'flex',gap:8,marginBottom:12}},
-                                    React.createElement('div',{className:'badge badge-danger'},(data as any).securityIssues.filter(function(i: any){return i.severity==='high';}).length,' High'),
-                                    React.createElement('div',{className:'badge badge-warning'},(data as any).securityIssues.filter(function(i: any){return i.severity==='medium';}).length,' Medium'),
-                                    React.createElement('div',{className:'badge badge-info'},(data as any).securityIssues.filter(function(i: any){return i.severity==='low';}).length,' Low')
+                                    React.createElement('div',{className:'badge badge-danger'},(((data as any).securityIssues)||[]).filter(function(i: any){return i.severity==='high';}).length,' High'),
+                                    React.createElement('div',{className:'badge badge-warning'},(((data as any).securityIssues)||[]).filter(function(i: any){return i.severity==='medium';}).length,' Medium'),
+                                    React.createElement('div',{className:'badge badge-info'},(((data as any).securityIssues)||[]).filter(function(i: any){return i.severity==='low';}).length,' Low')
                                 ),
-                                (data as any).securityIssues.map(function(issue: any, i: any){return React.createElement('div',{key:i,className:'security-item '+issue.severity,style:{cursor:'pointer'},onClick:function(){setDrillDown({type:'security',data:issue});}},
+                                (((data as any).securityIssues)||[]).map(function(issue: any, i: any){return React.createElement('div',{key:i,className:'security-item '+issue.severity,style:{cursor:'pointer'},onClick:function(){setDrillDown({type:'security',data:issue});}},
                                     React.createElement('div',{className:'security-header'},
                                         React.createElement(StatusDot,{color:getSeverityColor(issue.severity)}),
                                         React.createElement('span',{className:'security-title'},issue.title)
