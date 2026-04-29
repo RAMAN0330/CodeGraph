@@ -50,7 +50,7 @@ export default function WorkspaceSidebar({ activeSection, onSectionChange, hasDa
     <aside style={{
       position: 'fixed',
       top: '64px',
-      left: '8px',
+      left: '-9999px',
       bottom: '8px',
       width: '44px',
       background: 'rgba(22,27,34,0.92)',

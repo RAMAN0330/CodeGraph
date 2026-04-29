@@ -2266,12 +2266,7 @@ export default function WorkspaceArea(){
         });
     },[dbSchema,dbSearchQuery,dbAppFilter,selectedDbTable]);
 
-    return React.createElement('div',{className:'app',style:{paddingTop:'64px',paddingLeft:'60px'}},
-        React.createElement(WorkspaceSidebar,{
-            activeSection:activeSection,
-            onSectionChange:function(s: any){setActiveSection(s);},
-            hasData:!!data,
-        }),
+    return React.createElement('div',{className:'app',style:{paddingTop:'64px'}},
         React.createElement(WorkspaceHeader,{
             login:authUser?.login??'',
             avatarUrl:authUser?.avatar_url??'',
@@ -2283,6 +2278,8 @@ export default function WorkspaceArea(){
             dbSchemaDetected:dbSchemaDetected,
             onPRReview:function(){setActiveSection('pullrequests');},
             onDbMap:function(){setActiveSection('database');},
+            activeSection:activeSection,
+            onSectionChange:function(s: any){setActiveSection(s);},
         }),
         activeSection==='branches'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px'}},
             React.createElement(BranchDiff,{token:token,repoUrl:repoUrl})
