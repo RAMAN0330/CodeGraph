@@ -313,9 +313,10 @@ export default function WorkspaceArea(){
         GitHub.appId=null;
         GitHub.privateKey=null;
         GitHub.installationToken=null;
-        
-        if(authMethod==='pat'){
-            GitHub.token=token;
+
+        if(authMethod==='pat'||authMethod==='none'){
+            // 'none' means OAuth session auth — token is set from /auth/me
+            GitHub.token=token||null;
         }else if(authMethod==='github_app'){
             GitHub.appId=appId;
             GitHub.privateKey=privateKey;
