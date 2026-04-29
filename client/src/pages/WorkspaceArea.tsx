@@ -2283,6 +2283,11 @@ export default function WorkspaceArea(){
             dbSchemaDetected:dbSchemaDetected,
             onPRReview:function(){setActiveSection('pullrequests');},
             onDbMap:function(){setActiveSection('database');},
+            rightTab:rightTab,
+            onRightTabChange:function(t: any){setRightTab(t);setDrillDown(null);},
+            securityCount:data?(data as any).stats?.security||0:0,
+            suggestionsCount:data&&(data as any).suggestions?(data as any).suggestions.length:0,
+            patternsCount:data?(data as any).patterns?.length||0:0,
         }),
         activeSection==='branches'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px'}},
             React.createElement(BranchDiff,{token:token,repoUrl:repoUrl})
@@ -2533,12 +2538,6 @@ export default function WorkspaceArea(){
                     document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
                 }}),
                 data?React.createElement(React.Fragment,null,
-                    React.createElement('div',{className:'panel-tabs'},
-                        React.createElement('button',{className:'panel-tab'+(rightTab==='details'?' active':''),onClick:function(){setRightTab('details');setDrillDown(null);}},selected?iconLabel('file','FILE'):iconLabel('search','ISSUES')),
-                        React.createElement('button',{className:'panel-tab'+(rightTab==='patterns'?' active':''),onClick:function(){setRightTab('patterns');setDrillDown(null);}},iconLabel('puzzle','PATTERNS'),' ',React.createElement('span',{className:'badge badge-default'},(data as any).patterns.length)),
-                        React.createElement('button',{className:'panel-tab'+(rightTab==='security'?' active':''),onClick:function(){setRightTab('security');setDrillDown(null);}},iconLabel('security','SECURITY'),(data as any).stats.security>0&&React.createElement('span',{className:'view-mode-badge',style:{marginLeft:4}},(data as any).stats.security)),
-                        React.createElement('button',{className:'panel-tab'+(rightTab==='suggestions'?' active':''),onClick:function(){setRightTab('suggestions');setDrillDown(null);}},iconLabel('action','ACTIONS'),(data as any).suggestions&&(data as any).suggestions.length>0&&React.createElement('span',{className:'view-mode-badge',style:{marginLeft:4}},(data as any).suggestions.length))
-                    ),
                     React.createElement('div',{className:'panel-content'},
                         rightTab==='details'&&(selected?React.createElement(React.Fragment,null,
                             React.createElement('button',{className:'top-btn',style:{width:'100%',marginBottom:12},onClick:function(){setSelected(null);setBlastRadius(null);if(nodesRef.current){nodesRef.current.selectAll('.nc').transition().duration(200).attr('opacity',1).attr('fill',getNodeColor);}if(linksRef.current){linksRef.current.transition().duration(200).attr('stroke-opacity',0.4).attr('stroke',theme==='light'?'#ccc':'#333');}}},'← Back to Issues'),
