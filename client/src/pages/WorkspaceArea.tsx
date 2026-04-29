@@ -244,7 +244,7 @@ export default function WorkspaceArea(){
     function pollTask(taskId: string) {
         const interval = setInterval(async () => {
             try {
-                const res = await fetch(`http://localhost:8000/api/tasks/${taskId}`);
+                const res = await fetch(`${import.meta.env.VITE_API_URL??'http://localhost:5000'}/api/tasks/${taskId}`,{credentials:'include'});
                 const data = await res.json();
                 if (data.status === 'completed') {
                     clearInterval(interval);
@@ -269,7 +269,7 @@ export default function WorkspaceArea(){
         if (p) {
             setLoading(true);
             setProgress('Requesting deep analysis...');
-            fetch('http://localhost:8000/api/analyze', {
+            fetch(`${import.meta.env.VITE_API_URL??'http://localhost:5000'}/api/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: repoUrl, token, branch: branchOverride || currentBranch || 'main' })
