@@ -1,0 +1,15 @@
+{
+  "name": "codeflow-root",
+  "version": "1.0.0",
+  "description": "CodeGraph Root Project",
+  "scripts": {
+    "dev": "concurrently --names \"node,client,fastapi,celery\" --prefix-colors \"cyan,green,yellow,magenta\" \"npm run dev --prefix server\" \"npm run dev --prefix client\" \"uvicorn server.app.main:app --port 8000 --reload\" \"celery -A server.app.worker.celery_app worker --loglevel=warning\"",
+    "dev:node": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "build": "npm run build --prefix client && npm run build --prefix server",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "install:python": "pip install -r server/requirements.txt"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
