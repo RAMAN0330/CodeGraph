@@ -56,16 +56,16 @@ export default function DatabaseVisualizer() {
   const repoNameRef = useRef('');
   const repoBranchRef = useRef('main');
 
-  const fkCount = schema?.tables.reduce((s, t) => s + t.foreignKeys.length, 0) ?? 0;
+  const fkCount = schema?.tables?.reduce((s, t) => s + t.foreignKeys.length, 0) ?? 0;
   const appOptions = useMemo(() => {
     const apps = new Set<string>();
-    schema?.tables.forEach(t => { if (t.app) apps.add(t.app); });
+    schema?.tables?.forEach(t => { if (t.app) apps.add(t.app); });
     return Array.from(apps).sort();
   }, [schema]);
   const visibleSchema = useMemo(() => {
     if (!schema) return null;
     const q = graphSearch.trim().toLowerCase();
-    const tables = schema.tables.filter(t => {
+    const tables = (schema.tables ?? []).filter(t => {
       if (selectedApp !== 'all' && t.app !== selectedApp) return false;
       if (!q) return true;
       return t.name.toLowerCase().includes(q) || t.columns.some(c => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q));
@@ -74,7 +74,7 @@ export default function DatabaseVisualizer() {
   }, [schema, graphSearch, selectedApp]);
   const migrationApps = useMemo(() => {
     const apps = new Set<string>();
-    schema?.tables.forEach(t => { if (t.app) apps.add(t.app); });
+    schema?.tables?.forEach(t => { if (t.app) apps.add(t.app); });
     return Array.from(apps).sort();
   }, [schema]);
   const migrationSource = useMemo(() => {
@@ -119,7 +119,7 @@ export default function DatabaseVisualizer() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Failed to parse SQL');
-      if (!data.schema.tables.length) throw new Error('No CREATE TABLE statements found in file');
+      if (!data.schema?.tables?.length) throw new Error('No CREATE TABLE statements found in file');
       setSchema(data.schema);
     } catch (e: any) {
       setError(e.message);
@@ -595,7 +595,7 @@ function modelLiteral(tableName: string) {
 }
 
 function generateDjangoMigration(schema: Schema, app: string, name: string) {
-  const tables = schema.tables.filter(t => app === 'all' || t.app === app);
+  const tables = (schema.tables ?? []).filter(t => app === 'all' || t.app === app);
   const migrationName = normalizeMigrationName(name);
   const apps = Array.from(new Set(tables.map(t => t.app).filter(Boolean))).join(', ') || 'parsed apps';
   const operations = tables.map(table => {

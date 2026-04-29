@@ -31,7 +31,10 @@ const LANG_COLORS: Record<string, string> = {
 };
 
 function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+  if (!dateStr) return 'unknown';
+  const ts = new Date(dateStr).getTime();
+  if (isNaN(ts)) return 'unknown';
+  const diff = Date.now() - ts;
   const days = Math.floor(diff / 86400000);
   if (days === 0) return 'today';
   if (days === 1) return 'yesterday';
