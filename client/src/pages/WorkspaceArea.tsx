@@ -2347,7 +2347,7 @@ export default function WorkspaceArea(){
                     React.createElement('div',{className:'empty-state-glow'}),
                     React.createElement('div',{className:'empty-state-content'},
                         React.createElement(Icon,{name:'logo',size:'xxl',className:'empty-icon'}),
-                        React.createElement('div',{className:'empty-title'},'RepoScope'),
+                        React.createElement('div',{className:'empty-title'},'CodeFlow'),
                         React.createElement('div',{className:'empty-desc'},'High-performance repository introspection and database visualization.\nEnter a GitHub URL above or open a local folder to get started.'),
                         React.createElement('div',{className:'empty-features'},
                             React.createElement('span',{className:'empty-feature'},React.createElement(Icon,{name:'graph',size:'s'}),' Dependency Graph'),
