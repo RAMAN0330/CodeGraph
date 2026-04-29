@@ -23,7 +23,7 @@ function iconLabel(name, label, size, className) {
 }
 
 export default function WorkspaceArea(){
-    var _a=useState<any>(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'),theme=_a[0],setTheme=_a[1];
+    var _a=useState<any>('dark'),theme=_a[0],setTheme=_a[1];
     var _b=useState<any>(''),repoUrl=_b[0],setRepoUrl=_b[1];
     var _c=useState<any>(''),token=_c[0],setToken=_c[1];
     var _auth=useState<any>(null),authUser=_auth[0],setAuthUser=_auth[1];
