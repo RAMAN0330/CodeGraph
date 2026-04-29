@@ -9,6 +9,7 @@ import { VirtualizedRepoTree } from '../components/ui/VirtualizedRepoTree';
 import { Parser, COLORS, LAYER_COLORS, IGNORE, DEFAULT_EXCLUDE_CHIPS, compileExcludePatterns, parseExcludePatterns, shouldExcludeFile, shouldIgnoreDirectory, getSeverityColor, getAccentBlockStyle, getFilePreviewIconName, getDialogTone, buildAppUrl, renderTooltipHtml, escapeHtml } from '../lib/parser';
 import { GitHub, buildTree, calcBlast, calcHealth, calcPRRisk, findSuggestedReviewers, findTestImpact, findDependencyChains } from '../lib/github';
 import WorkspaceHeader from '../components/WorkspaceHeader';
+import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { dbSchemaToFlowSchema, parseDbSchema } from '../lib/dbParser';
 import ERDiagramGraph from '../components/ERDiagramGraph';
 import BranchDiff from '../components/BranchDiff';
@@ -74,6 +75,8 @@ export default function WorkspaceArea(){
     var _bdiff=useState<any>(false),showBranchDiff=_bdiff[0],setShowBranchDiff=_bdiff[1];
     // DB schema auto-detected badge
     var _dbdet=useState<any>(false),dbSchemaDetected=_dbdet[0],setDbSchemaDetected=_dbdet[1];
+    // Active sidebar section
+    var _sec=useState<any>('explorer'),activeSection=_sec[0],setActiveSection=_sec[1];
     // DB Schema state
     var _dbs=useState<any>(false),showDbSchema=_dbs[0],setShowDbSchema=_dbs[1];
     var _dbflow=useState<any>('table'),dbViewMode=_dbflow[0],setDbViewMode=_dbflow[1];
@@ -2263,7 +2266,12 @@ export default function WorkspaceArea(){
         });
     },[dbSchema,dbSearchQuery,dbAppFilter,selectedDbTable]);
 
-    return React.createElement('div',{className:'app',style:{paddingTop:'56px'}},
+    return React.createElement('div',{className:'app',style:{paddingTop:'56px',paddingLeft:'48px'}},
+        React.createElement(WorkspaceSidebar,{
+            activeSection:activeSection,
+            onSectionChange:function(s: any){setActiveSection(s);},
+            hasData:!!data,
+        }),
         React.createElement(WorkspaceHeader,{
             login:authUser?.login??'',
             avatarUrl:authUser?.avatar_url??'',
@@ -2273,10 +2281,79 @@ export default function WorkspaceArea(){
             loading:loading,
             hasData:!!data,
             dbSchemaDetected:dbSchemaDetected,
-            onPRReview:function(){setShowPR(true);},
-            onDbMap:function(){openDbSchema();},
+            onPRReview:function(){setActiveSection('pullrequests');},
+            onDbMap:function(){setActiveSection('database');},
         }),
-        React.createElement('div',{className:'main',style:{'--sidebar-w':sidebarWidth+'px','--panel-w':rightPanelWidth+'px'}},
+        activeSection==='branches'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px'}},
+            React.createElement(BranchDiff,{token:token,repoUrl:repoUrl})
+        ),
+        activeSection==='database'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',height:'calc(100vh - 80px)'}},
+            dbSchema
+                ?React.createElement(ERDiagramGraph,{schema:dbSchemaToFlowSchema(filteredDbSchema||dbSchema),selectedTable:selectedDbTable})
+                :React.createElement('div',{style:{color:'#8b949e',textAlign:'center',paddingTop:'80px'}},
+                    React.createElement('div',{style:{fontSize:'48px',marginBottom:'16px'}},'🗄️'),
+                    React.createElement('p',null,'No database schema detected yet.'),
+                    React.createElement('p',{style:{fontSize:'13px'}},'Analyze a Django repository to see the ER diagram here.')
+                )
+        ),
+        activeSection==='pullrequests'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',maxWidth:'600px',margin:'24px auto'}},
+            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'PR Review'),
+            React.createElement('input',{
+                type:'text',
+                placeholder:'GitHub PR URL (e.g. https://github.com/owner/repo/pull/123)',
+                value:prUrl,
+                onChange:function(e: any){setPrUrl(e.target.value);},
+                style:{width:'100%',padding:'10px 14px',background:'#161b22',border:'1px solid #30363d',borderRadius:'6px',color:'#f0f6fc',fontSize:'14px',boxSizing:'border-box'}
+            }),
+            React.createElement('button',{
+                onClick:function(){setShowPR(true);},
+                style:{marginTop:'12px',padding:'8px 20px',background:'#238636',color:'#fff',border:'none',borderRadius:'6px',cursor:'pointer',fontSize:'14px'}
+            },'Load PR')
+        ),
+        activeSection==='migrations'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',textAlign:'center'}},
+            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Migrations'),
+            React.createElement('p',{style:{color:'#8b949e',marginBottom:'24px'}},'View and manage Django migrations in the Database Visualizer.'),
+            React.createElement('a',{
+                href:'/db',
+                style:{padding:'10px 24px',background:'#1f6feb',color:'#fff',borderRadius:'6px',textDecoration:'none',fontSize:'14px'}
+            },'Open Database Visualizer')
+        ),
+        activeSection==='security'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px'}},
+            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Security'),
+            data
+                ?React.createElement('div',null,
+                    React.createElement('p',{style:{color:'#8b949e',marginBottom:'8px'}},'Security issues detected by static analysis:'),
+                    (data as any).issues&&(data as any).issues.filter(function(i: any){return i.type==='security';}).length>0
+                        ?(data as any).issues.filter(function(i: any){return i.type==='security';}).map(function(issue: any,idx: number){
+                            return React.createElement('div',{key:idx,style:{background:'#161b22',border:'1px solid #da3633',borderRadius:'6px',padding:'12px',marginBottom:'8px'}},
+                                React.createElement('div',{style:{color:'#f85149',fontWeight:600,marginBottom:'4px'}},issue.title||issue.message),
+                                React.createElement('div',{style:{color:'#8b949e',fontSize:'13px'}},issue.file||'')
+                            );
+                        })
+                        :React.createElement('p',{style:{color:'#3fb950'}},'✓ No security issues detected.')
+                )
+                :React.createElement('p',{style:{color:'#8b949e'}},'Analyze a repository to see security findings.')
+        ),
+        activeSection==='settings'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',maxWidth:'480px'}},
+            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Settings'),
+            React.createElement('div',{style:{background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',padding:'16px'}},
+                React.createElement('h3',{style:{color:'#f0f6fc',marginBottom:'12px',fontSize:'14px'}},'Graph Configuration'),
+                ['showLabels','curvedLinks'].map(function(key: any){
+                    return React.createElement('label',{key:key,style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',color:'#c9d1d9',cursor:'pointer'}},
+                        React.createElement('input',{type:'checkbox',checked:(graphConfig as any)[key],onChange:function(e: any){setGraphConfig(function(c: any){return Object.assign({},c,{[key]:e.target.checked});});}}),
+                        key==='showLabels'?'Show Labels':'Curved Links'
+                    );
+                }),
+                React.createElement('div',{style:{marginTop:'12px',color:'#8b949e',fontSize:'13px'}},'View Mode: ',
+                    ['force','tree','radial'].map(function(mode: any){
+                        return React.createElement('button',{key:mode,onClick:function(){setGraphConfig(function(c: any){return Object.assign({},c,{viewMode:mode});});},
+                            style:{marginLeft:'6px',padding:'3px 10px',background:graphConfig.viewMode===mode?'#1f6feb':'#21262d',color:'#f0f6fc',border:'1px solid #30363d',borderRadius:'4px',cursor:'pointer',fontSize:'12px'}
+                        },mode);
+                    })
+                )
+            )
+        ),
+        activeSection==='explorer'&&React.createElement('div',{className:'main',style:{'--sidebar-w':sidebarWidth+'px','--panel-w':rightPanelWidth+'px'}},
             React.createElement('div',{className:'sidebar',style:{width:sidebarWidth}},
                 React.createElement('div',{className:'resize-handle',onMouseDown:function(e: any){
                     e.preventDefault();
