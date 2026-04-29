@@ -14,11 +14,6 @@ interface WorkspaceHeaderProps {
   dbSchemaDetected: boolean;
   onPRReview: () => void;
   onDbMap: () => void;
-  rightTab?: string;
-  onRightTabChange?: (tab: string) => void;
-  securityCount?: number;
-  suggestionsCount?: number;
-  patternsCount?: number;
 }
 
 function parseRepo(url: string): { owner: string; repo: string } | null {
@@ -30,16 +25,8 @@ function parseRepo(url: string): { owner: string; repo: string } | null {
   return null;
 }
 
-const TABS = [
-  { id: 'details', label: 'Issues' },
-  { id: 'patterns', label: 'Patterns' },
-  { id: 'security', label: 'Security' },
-  { id: 'suggestions', label: 'Actions' },
-];
-
 export default function WorkspaceHeader({
   login, avatarUrl, repoUrl, onRepoUrlChange, onAnalyze, loading, hasData, dbSchemaDetected, onPRReview, onDbMap,
-  rightTab, onRightTabChange, securityCount = 0, suggestionsCount = 0, patternsCount = 0,
 }: WorkspaceHeaderProps) {
   const navigate = useNavigate();
   const parsed = parseRepo(repoUrl);
@@ -127,46 +114,6 @@ export default function WorkspaceHeader({
           </span>
         )}
       </div>
-
-      {/* Tab strip (only when data loaded) */}
-      {hasData && onRightTabChange && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: '#0d1117', borderRadius: '8px', padding: '3px', flexShrink: 0 }}>
-          {TABS.map(tab => {
-            const badge = tab.id === 'security' ? securityCount : tab.id === 'suggestions' ? suggestionsCount : tab.id === 'patterns' ? patternsCount : 0;
-            const active = rightTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onRightTabChange(tab.id)}
-                style={{
-                  background: active ? '#21262d' : 'transparent',
-                  border: active ? '1px solid #30363d' : '1px solid transparent',
-                  color: active ? '#f0f6fc' : '#8b949e',
-                  borderRadius: '6px',
-                  padding: '4px 10px',
-                  fontSize: '0.78rem',
-                  fontWeight: active ? 600 : 400,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#f0f6fc'; }}
-                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = '#8b949e'; }}
-              >
-                {tab.label}
-                {badge > 0 && (
-                  <span style={{ background: tab.id === 'security' ? '#da3633' : '#6e7681', color: '#fff', borderRadius: '10px', padding: '0 5px', fontSize: '0.7rem', fontWeight: 700, lineHeight: '16px' }}>
-                    {badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* Action buttons (only when data loaded) */}
       {hasData && (
