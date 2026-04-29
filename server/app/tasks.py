@@ -1,0 +1,129 @@
+import os
+import json
+import shutil
+import tempfile
+import redis
+from git import Repo
+from .worker import celery_app
+
+_redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+TASK_TTL = 3600  # 1 hour
+
+
+def _set(task_id: str, data: dict):
+    _redis.setex(f"cf:task:{task_id}", TASK_TTL, json.dumps(data))
+
+
+def get_task_status(task_id: str):
+    raw = _redis.get(f"cf:task:{task_id}")
+    return json.loads(raw) if raw else None
+
+
+@celery_app.task(name="analyze_repo_task")
+def analyze_repo_task(task_id, repo_url, token=None, branch="main"):
+    _set(task_id, {"status": "processing", "progress": 0})
+
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        auth_url = repo_url
+        if token:
+            auth_url = repo_url.replace("https://", f"https://{token}@")
+
+        _set(task_id, {"status": "processing", "progress": 20})
+        Repo.clone_from(auth_url, tmp_dir, branch=branch)
+
+        _set(task_id, {"status": "processing", "progress": 50})
+        analysis = perform_introspection(tmp_dir)
+
+        _set(task_id, {"status": "completed", "progress": 100, "result": analysis})
+    except Exception as e:
+        _set(task_id, {"status": "failed", "error": str(e)})
+    finally:
+        if os.path.exists(tmp_dir):
+            shutil.rmtree(tmp_dir)
+
+import ast
+
+def perform_introspection(path):
+    results = {
+        "models": [],
+        "views": [],
+        "urls": [],
+        "relationships": [],
+        "stats": {
+            "files": 0,
+            "loc": 0
+        }
+    }
+    
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if file.endswith(".py"):
+                results["stats"]["files"] += 1
+                file_path = os.path.join(root, file)
+                rel_path = os.path.relpath(file_path, path)
+                
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                        lines = content.splitlines()
+                        results["stats"]["loc"] += len(lines)
+                        
+                        tree = ast.parse(content)
+                        
+                        # Introspect Django models
+                        if file == "models.py" or "/models/" in rel_path:
+                            for node in ast.walk(tree):
+                                if isinstance(node, ast.ClassDef):
+                                    model_info = {
+                                        "name": node.name,
+                                        "file": rel_path,
+                                        "fields": []
+                                    }
+                                    for item in node.body:
+                                        if isinstance(item, ast.Assign) and isinstance(item.targets[0], ast.Name):
+                                            field_name = item.targets[0].id
+                                            if isinstance(item.value, ast.Call):
+                                                # Check for Django fields
+                                                func = item.value.func
+                                                field_type = ""
+                                                if isinstance(func, ast.Attribute):
+                                                    field_type = func.attr
+                                                elif isinstance(func, ast.Name):
+                                                    field_type = func.id
+                                                
+                                                if "Field" in field_type or field_type in ["ForeignKey", "OneToOneField", "ManyToManyField"]:
+                                                    model_info["fields"].append({
+                                                        "name": field_name,
+                                                        "type": field_type
+                                                    })
+                                                    
+                                                    # Track relationships
+                                                    if field_type in ["ForeignKey", "OneToOneField", "ManyToManyField"]:
+                                                        target = ""
+                                                        if item.value.args:
+                                                            arg = item.value.args[0]
+                                                            if isinstance(arg, ast.Constant):
+                                                                target = arg.value
+                                                            elif isinstance(arg, ast.Name):
+                                                                target = arg.id
+                                                        
+                                                        results["relationships"].append({
+                                                            "source": node.name,
+                                                            "target": target,
+                                                            "type": field_type,
+                                                            "field": field_name
+                                                        })
+                                    results["models"].append(model_info)
+                        
+                        elif file == "views.py":
+                            results["views"].append(rel_path)
+                        elif file == "urls.py":
+                            results["urls"].append(rel_path)
+                except:
+                    continue
+                    
+    return results
+
+def get_task_status(task_id):
+    return task_results.get(task_id)
