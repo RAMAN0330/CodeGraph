@@ -1,248 +1,141 @@
-import { motion } from 'framer-motion';
-import { Database, Sparkles, Layout, Shield, ArrowRight } from 'lucide-react';
-import { Icon } from '../components/ui/Icon';
+import { useNavigate } from 'react-router-dom';
+import { Database, GitBranch, Shield, Zap, GitMerge, Eye } from 'lucide-react';
+
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
 export default function LandingPage() {
-  const handleGitHubAuth = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL ?? 'http://localhost:5000'}/auth/github`;
+  const navigate = useNavigate();
+
+  const handleAuth = () => {
+    window.location.href = `${API}/auth/github`;
   };
 
   return (
-    <div className="landing-container" style={{
-      minHeight: '100vh',
-      background: 'var(--bg-main)',
-      color: 'var(--text-primary)',
-      overflowX: 'hidden',
-      position: 'relative'
-    }}>
-      {/* Background Decor */}
-      <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: '600px', height: '600px', background: 'radial-gradient(circle, var(--accent-glow) 0%, transparent 70%)', zIndex: 0, opacity: 0.5 }} />
-      <div style={{ position: 'absolute', bottom: '-10%', left: '-5%', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)', zIndex: 0, opacity: 0.5 }} />
-
-      {/* Grid Overlay */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        backgroundImage: `linear-gradient(var(--border-glass) 1px, transparent 1px), linear-gradient(90deg, var(--border-glass) 1px, transparent 1px)`,
-        backgroundSize: '50px 50px',
-        maskImage: 'radial-gradient(ellipse at center, black, transparent 90%)',
-        opacity: 0.1,
-        zIndex: 1
-      }} />
-
-      {/* Navbar */}
-      <nav style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '24px 60px',
-        position: 'relative',
-        zIndex: 20,
-        backdropFilter: 'blur(8px)',
-        borderBottom: '1px solid var(--border-glass)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', display: 'flex' }}>
-            <Icon name="logo" size="m" className="text-white" />
+    <div style={{ minHeight: '100vh', background: '#0d1117', color: '#f0f6fc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      {/* Nav */}
+      <nav style={{ borderBottom: '1px solid #30363d', padding: '0 48px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'rgba(13,17,23,0.95)', backdropFilter: 'blur(8px)', zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '32px', height: '32px', background: '#238636', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="white"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           </div>
-          <span style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.03em' }}>CodeFlow</span>
+          <span style={{ fontWeight: 700, fontSize: '1.1rem', letterSpacing: '-0.02em' }}>CodeFlow</span>
         </div>
-        <div style={{ display: 'flex', gap: '40px', fontSize: '0.9rem', fontWeight: 500 }}>
-          {['Features', 'Docs', 'Pricing', 'Security'].map(item => (
-            <a
-              key={item}
-              href={`#${item.toLowerCase()}`}
-              style={{ cursor: 'pointer', color: 'var(--text-secondary)', transition: 'color 0.2s', textDecoration: 'none' }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-            >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {(['Features', 'Docs', 'Security'] as const).map(item => (
+            <a key={item} href={`#${item.toLowerCase()}`} style={{ color: '#8b949e', fontSize: '0.875rem', textDecoration: 'none', padding: '6px 12px', borderRadius: '6px', transition: 'color 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#f0f6fc')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#8b949e')}>
               {item}
             </a>
           ))}
+          <button onClick={handleAuth} style={{ background: '#238636', border: '1px solid #2ea043', color: 'white', padding: '7px 16px', borderRadius: '6px', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
+            Sign in with GitHub
+          </button>
         </div>
-        <button
-          onClick={handleGitHubAuth}
-          style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', padding: '10px 20px', borderRadius: '10px', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}
-        >
-          Sign In
-        </button>
       </nav>
 
-      {/* Hero Section */}
-      <main style={{ position: 'relative', zIndex: 10, maxWidth: '1200px', margin: '0 auto', padding: '100px 20px', textAlign: 'center' }}>
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-        >
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 20px',
-            background: 'rgba(16, 185, 129, 0.1)',
-            borderRadius: '100px',
-            border: '1px solid rgba(16, 185, 129, 0.2)',
-            marginBottom: '32px',
-            color: 'var(--accent-primary)',
-            fontSize: '0.85rem',
-            fontWeight: 600
-          }}>
-            <Sparkles size={14} />
-            <span>Introducing the Ghost File System v2.0</span>
-          </div>
-
-          <h1 style={{ fontSize: 'clamp(3rem, 10vw, 5.5rem)', fontWeight: 850, lineHeight: 0.95, marginBottom: '28px', letterSpacing: '-0.04em' }}>
-            The OS for Your <br/>
-            <span style={{ background: 'linear-gradient(to right, #10b981, #3b82f6, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Code Infrastructure</span>
-          </h1>
-
-          <p style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', maxWidth: '750px', margin: '0 auto 48px', lineHeight: 1.6 }}>
-            Bridges the gap between heavy Git engines and live introspection.
-            Map dependencies, visualize databases, and explore your architecture with zero latency.
-          </p>
-
-          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '120px' }}>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleGitHubAuth}
-              style={{
-                background: 'var(--accent-primary)',
-                color: 'white',
-                padding: '18px 40px',
-                borderRadius: '14px',
-                fontSize: '1.15rem',
-                fontWeight: 700,
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                boxShadow: '0 20px 40px rgba(16, 185, 129, 0.2)'
-              }}
-            >
-              <Icon name="github" size="m" /> Get Started Free
-            </motion.button>
-            <button style={{
-              background: 'transparent',
-              color: 'var(--text-primary)',
-              padding: '18px 40px',
-              borderRadius: '14px',
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              border: '1px solid var(--border-glass)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}>
-              View Demo <ArrowRight size={18} />
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Features Showcase */}
-        <div id="features" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px' }}>
-          {[
-            {
-              icon: <Database size={28} />,
-              title: "Live DB Introspection",
-              desc: "Automatically map Django, SQLAlchemy, and Prisma schemas into interactive ER diagrams directly from your source code.",
-              color: "#3b82f6",
-              tryLink: true
-            },
-            {
-              icon: <Layout size={28} />,
-              title: "Ghost File System",
-              desc: "Proprietary virtualization engine that handles 50,000+ files at 60fps using Decoupled Asynchronous State Architecture.",
-              color: "#10b981",
-              tryLink: false
-            },
-            {
-              icon: <Shield size={28} />,
-              title: "Security Intelligence",
-              desc: "Identify security regressions and sensitive data leaks before they reach production with automated PR scanning.",
-              color: "#f59e0b",
-              tryLink: false
-            }
-          ].map((f, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 + i * 0.15 }}
-              style={{
-                padding: '40px',
-                background: 'var(--bg-glass)',
-                borderRadius: '28px',
-                border: '1px solid var(--border-glass)',
-                textAlign: 'left',
-                backdropFilter: 'blur(12px)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-            >
-              <div style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '16px',
-                background: `${f.color}15`,
-                color: f.color,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: '28px'
-              }}>
-                {f.icon}
-              </div>
-              <h3 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '16px' }}>{f.title}</h3>
-              <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, fontSize: '1.05rem' }}>{f.desc}</p>
-              {f.tryLink && (
-                <a
-                  href="/db"
-                  style={{ display: 'inline-block', marginTop: '16px', color: '#3b82f6', fontSize: '0.9rem', fontWeight: 600, textDecoration: 'none' }}
-                >
-                  Try it →
-                </a>
-              )}
-
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: '100px',
-                height: '100px',
-                background: `radial-gradient(circle at top right, ${f.color}10, transparent 70%)`
-              }} />
-            </motion.div>
-          ))}
+      {/* Hero */}
+      <section style={{ maxWidth: '960px', margin: '0 auto', padding: '96px 24px 80px', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#161b22', border: '1px solid #30363d', borderRadius: '20px', padding: '5px 14px', fontSize: '0.8rem', color: '#8b949e', marginBottom: '32px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#238636', display: 'inline-block' }} />
+          Open source · Built for developers
         </div>
+        <h1 style={{ fontSize: 'clamp(2.5rem, 6vw, 4rem)', fontWeight: 800, lineHeight: 1.1, marginBottom: '24px', letterSpacing: '-0.03em', color: '#f0f6fc' }}>
+          A Git UI built for<br />
+          <span style={{ color: '#58a6ff' }}>deep code intelligence</span>
+        </h1>
+        <p style={{ fontSize: '1.125rem', color: '#8b949e', maxWidth: '600px', margin: '0 auto 40px', lineHeight: 1.7 }}>
+          Visualize repository architecture, explore database schemas, review branches, and scan for security issues — all in one place.
+        </p>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button onClick={handleAuth} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#238636', border: '1px solid #2ea043', color: 'white', padding: '12px 24px', borderRadius: '8px', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="white"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            Sign in with GitHub
+          </button>
+          <button onClick={() => navigate('/db')} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: '1px solid #30363d', color: '#f0f6fc', padding: '12px 24px', borderRadius: '8px', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = '#58a6ff')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = '#30363d')}>
+            <Database size={18} />
+            Database Visualizer
+          </button>
+        </div>
+      </section>
 
-        {/* Stats Section */}
-        <div id="pricing" style={{ marginTop: '120px', padding: '60px', background: 'var(--bg-glass)', borderRadius: '32px', border: '1px solid var(--border-glass)', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '40px' }}>
-          {[
-            { label: 'Files Handled', value: '1M+' },
-            { label: 'Analysis Speed', value: '250ms' },
-            { label: 'Active Teams', value: '450+' },
-            { label: 'Frameworks', value: '12' }
-          ].map((stat, i) => (
-            <div key={i}>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>{stat.value}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{stat.label}</div>
+      {/* Stats */}
+      <section style={{ borderTop: '1px solid #30363d', borderBottom: '1px solid #30363d', background: '#161b22' }}>
+        <div style={{ maxWidth: '960px', margin: '0 auto', padding: '32px 24px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', textAlign: 'center' }}>
+          {[{ v: '1M+', l: 'Files handled' }, { v: '250ms', l: 'Analysis speed' }, { v: '10k+', l: 'Files at 60fps' }, { v: '12', l: 'Frameworks' }].map(s => (
+            <div key={s.l}>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#f0f6fc', marginBottom: '4px' }}>{s.v}</div>
+              <div style={{ fontSize: '0.8rem', color: '#8b949e', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.l}</div>
             </div>
           ))}
         </div>
-      </main>
+      </section>
 
-      <footer style={{ padding: '80px 60px 40px', borderTop: '1px solid var(--border-glass)', marginTop: '80px', textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginBottom: '32px' }}>
-          <Icon name="logo" size="m" />
-          <span style={{ fontSize: '1.2rem', fontWeight: 800 }}>CodeFlow</span>
+      {/* Features */}
+      <section id="features" style={{ maxWidth: '960px', margin: '0 auto', padding: '80px 24px' }}>
+        <h2 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '48px', textAlign: 'center', color: '#f0f6fc' }}>Everything you need to understand your codebase</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+          {[
+            { icon: <GitBranch size={20} />, title: 'Branch Diff & Merge', desc: 'Compare branches, stage files, and resolve conflicts with a visual diff editor.', color: '#58a6ff' },
+            { icon: <Database size={20} />, title: 'DB Schema Visualizer', desc: 'Auto-detect Django, SQLAlchemy, and Prisma schemas into interactive ER diagrams.', color: '#3fb950' },
+            { icon: <Shield size={20} />, title: 'Security Intelligence', desc: 'Scan for secrets, vulnerable patterns, and security regressions before they ship.', color: '#f0883e' },
+            { icon: <Zap size={20} />, title: 'Ghost File System', desc: 'Virtualized tree renders 10,000+ files at 60fps with zero main-thread lag.', color: '#d2a8ff' },
+            { icon: <GitMerge size={20} />, title: 'Migration Maker', desc: 'Generate Django migrations from detected schema changes using AST introspection.', color: '#ffa657' },
+            { icon: <Eye size={20} />, title: 'Code Ownership', desc: 'Identify who owns what — blast radius, PR risk, and suggested reviewers.', color: '#79c0ff' },
+          ].map(f => (
+            <div key={f.title} style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '10px', padding: '24px', transition: 'border-color 0.15s', cursor: 'default' }}
+              onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = f.color)}
+              onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.borderColor = '#30363d')}>
+              <div style={{ color: f.color, marginBottom: '12px' }}>{f.icon}</div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '8px', color: '#f0f6fc', margin: '0 0 8px' }}>{f.title}</h3>
+              <p style={{ fontSize: '0.875rem', color: '#8b949e', lineHeight: 1.6, margin: 0 }}>{f.desc}</p>
+            </div>
+          ))}
         </div>
-        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-          © 2026 CodeFlow Systems. All rights reserved.
+      </section>
+
+      {/* Security section */}
+      <section id="security" style={{ background: '#161b22', borderTop: '1px solid #30363d', borderBottom: '1px solid #30363d' }}>
+        <div style={{ maxWidth: '960px', margin: '0 auto', padding: '64px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '48px', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '260px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <Shield size={20} style={{ color: '#f0883e' }} />
+              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#f0883e', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Security</span>
+            </div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '16px', color: '#f0f6fc', margin: '0 0 16px' }}>Built with security in mind</h2>
+            <p style={{ color: '#8b949e', lineHeight: 1.7, margin: 0 }}>Your GitHub token stays server-side in an encrypted session. We never store credentials or repo contents — analysis runs in memory and is discarded when your session ends.</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '240px' }}>
+            {['OAuth 2.0 — token never exposed to browser', 'Server-side sessions with 24h expiry', 'No repo content stored on disk', 'Analysis runs in isolated worker'].map(item => (
+              <div key={item} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.875rem', color: '#8b949e' }}>
+                <span style={{ color: '#3fb950', flexShrink: 0 }}>✓</span> {item}
+              </div>
+            ))}
+          </div>
         </div>
+      </section>
+
+      {/* CTA */}
+      <section style={{ maxWidth: '640px', margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '16px', color: '#f0f6fc', margin: '0 0 16px' }}>Ready to explore your codebase?</h2>
+        <p style={{ color: '#8b949e', marginBottom: '32px' }}>Sign in with GitHub and start analyzing any repository in seconds.</p>
+        <button onClick={handleAuth} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#238636', border: '1px solid #2ea043', color: 'white', padding: '12px 28px', borderRadius: '8px', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="white"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Get started free
+        </button>
+      </section>
+
+      {/* Footer */}
+      <footer id="docs" style={{ borderTop: '1px solid #30363d', padding: '32px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '24px', height: '24px', background: '#238636', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="white"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          </div>
+          <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>CodeFlow</span>
+        </div>
+        <span style={{ color: '#8b949e', fontSize: '0.8rem' }}>© 2026 CodeFlow · Built for developers</span>
       </footer>
     </div>
   );
