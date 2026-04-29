@@ -8,10 +8,14 @@ import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 
 dotenv.config();
+if (!process.env.SESSION_SECRET) {
+  console.warn('WARNING: SESSION_SECRET is not set. Using insecure dev default.');
+}
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -20,7 +24,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 },
+  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 },
 }));
 
 app.use(passport.initialize());
@@ -30,7 +34,7 @@ passport.use(new GitHubStrategy(
   {
     clientID: process.env.GITHUB_CLIENT_ID!,
     clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    callbackURL: 'http://localhost:5000/auth/github/callback',
+    callbackURL: process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/auth/github/callback',
     scope: ['user', 'repo'],
   },
   (_accessToken: string, _refreshToken: string, profile: any, done: Function) => {
@@ -104,8 +108,9 @@ app.post('/api/db/connect/postgres', async (req, res) => {
 // --- MySQL ---
 app.post('/api/db/connect/mysql', async (req, res) => {
   const { host, port, database, user, password } = req.body;
+  let conn: Awaited<ReturnType<typeof mysql.createConnection>> | undefined;
   try {
-    const conn = await mysql.createConnection({ host, port: parseInt(port, 10) || 3306, database, user, password, connectTimeout: 8000 });
+    conn = await mysql.createConnection({ host, port: parseInt(port, 10) || 3306, database, user, password, connectTimeout: 8000 });
 
     const [tableRows]: any = await conn.execute(
       `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME`,
@@ -113,10 +118,10 @@ app.post('/api/db/connect/mysql', async (req, res) => {
 
     const tables: SchemaTable[] = await Promise.all((tableRows as any[]).map(async (row: any) => {
       const tbl = row.TABLE_NAME;
-      const [colRows]: any = await conn.execute(
+      const [colRows]: any = await conn!.execute(
         `SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME=? ORDER BY ORDINAL_POSITION`,
         [database, tbl]);
-      const [fkRows]: any = await conn.execute(
+      const [fkRows]: any = await conn!.execute(
         `SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=? AND TABLE_NAME=? AND REFERENCED_TABLE_NAME IS NOT NULL`,
         [database, tbl]);
       return {
@@ -129,6 +134,7 @@ app.post('/api/db/connect/mysql', async (req, res) => {
     await conn.end();
     res.json({ success: true, schema: { tables } });
   } catch (error: any) {
+    try { if (conn) await conn.end(); } catch {}
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -181,7 +187,7 @@ app.post('/api/github/repo', async (req, res) => {
   const { owner, repo, token } = req.body;
   try {
     const headers: Record<string, string> = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'CodeFlow-App' };
-    if (token) headers['Authorization'] = `token ${token}`;
+    if (token && /^[A-Za-z0-9_\-.]+$/.test(String(token))) headers['Authorization'] = `token ${token}`;
     const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`, { headers });
     if (!response.ok) throw new Error(`GitHub API error: ${response.statusText}`);
     const data = await response.json();
@@ -195,9 +201,9 @@ app.post('/api/github/repo', async (req, res) => {
 app.get('/auth/github', passport.authenticate('github'));
 
 app.get('/auth/github/callback',
-  passport.authenticate('github', { failureRedirect: 'http://localhost:5173/?auth=failed' }),
+  passport.authenticate('github', { failureRedirect: `${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/?auth=failed` }),
   (_req: any, res: any) => {
-    res.redirect('http://localhost:5173/workspace');
+    res.redirect(`${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/workspace`);
   }
 );
 
@@ -208,7 +214,8 @@ app.get('/auth/me', (req: any, res: any) => {
 
 app.get('/auth/logout', (req: any, res: any) => {
   req.logout(() => {
-    req.session.destroy(() => {
+    req.session.destroy((err: any) => {
+      if (err) console.error('Session destroy error:', err);
       res.json({ ok: true });
     });
   });

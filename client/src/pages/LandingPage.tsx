@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion';
-import { Database, Code2, Sparkles, Layout, Shield, Zap, ArrowRight } from 'lucide-react';
+import { Database, Sparkles, Layout, Shield, ArrowRight } from 'lucide-react';
 import { Icon } from '../components/ui/Icon';
 
 export default function LandingPage() {
   const handleGitHubAuth = () => {
-    window.location.href = 'http://localhost:5000/auth/github';
+    window.location.href = `${import.meta.env.VITE_API_URL ?? 'http://localhost:5000'}/auth/github`;
   };
 
   return (

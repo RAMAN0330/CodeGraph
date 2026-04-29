@@ -20,7 +20,11 @@ export default function WorkspaceHeader({ login, avatarUrl, repoUrl }: Workspace
   const parsed = parseRepo(repoUrl);
 
   async function handleSignOut() {
-    await fetch('http://localhost:5000/auth/logout', { credentials: 'include' });
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:5000'}/auth/logout`, { credentials: 'include' });
+    } catch {
+      // best-effort logout; navigate away regardless
+    }
     navigate('/');
   }
 
