@@ -251,7 +251,7 @@ async function proxyToFastAPI(req: any, res: any) {
     const fetchRes = await fetch(url, {
       method: req.method,
       headers: { 'Content-Type': 'application/json' },
-      body: ['POST', 'PUT', 'PATCH'].includes(req.method) ? JSON.stringify(req.body) : undefined,
+      body: ['POST', 'PUT', 'PATCH'].includes(req.method) ? JSON.stringify(req.body ?? {}) : undefined,
     });
     const text = await fetchRes.text();
     try {

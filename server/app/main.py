@@ -26,9 +26,13 @@ async def root():
 @app.post("/api/analyze")
 async def trigger_analysis(request: RepoAnalysisRequest):
     task_id = str(uuid.uuid4())
-    # In a real setup, we'd use celery.delay()
-    # For this demo, we'll simulate the async trigger
-    analyze_repo_task.delay(task_id, request.url, request.token, request.branch)
+    try:
+        analyze_repo_task.delay(task_id, request.url, request.token, request.branch)
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Task queue unavailable (Celery/Redis may be down): {e}"
+        )
     return {"task_id": task_id, "status": "queued"}
 
 @app.get("/api/tasks/{task_id}")

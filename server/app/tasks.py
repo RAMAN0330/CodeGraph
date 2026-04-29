@@ -11,12 +11,21 @@ TASK_TTL = 3600  # 1 hour
 
 
 def _set(task_id: str, data: dict):
-    _redis.setex(f"cf:task:{task_id}", TASK_TTL, json.dumps(data))
+    try:
+        _redis.setex(f"cf:task:{task_id}", TASK_TTL, json.dumps(data))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Redis _set failed for task %s: %s", task_id, e)
 
 
 def get_task_status(task_id: str):
-    raw = _redis.get(f"cf:task:{task_id}")
-    return json.loads(raw) if raw else None
+    try:
+        raw = _redis.get(f"cf:task:{task_id}")
+        return json.loads(raw) if raw else None
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Redis get_task_status failed for task %s: %s", task_id, e)
+        return None
 
 
 @celery_app.task(name="analyze_repo_task")
@@ -125,6 +134,3 @@ def perform_introspection(path):
                     
     return results
 
-def get_task_status(task_id: str):
-    raw = _redis.get(f"cf:task:{task_id}")
-    return json.loads(raw) if raw else None
