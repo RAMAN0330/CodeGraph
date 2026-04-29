@@ -242,21 +242,29 @@ app.get('/api/github/repos', async (req: any, res: any) => {
   }
 });
 
-// Proxy /api/analyze and /api/tasks/* → FastAPI on port 8000
+// Proxy → FastAPI on port 8000
 const FASTAPI = process.env.FASTAPI_URL || 'http://localhost:8000';
-app.use(['/api/analyze', '/api/tasks'], async (req: any, res: any) => {
+async function proxyToFastAPI(req: any, res: any) {
   try {
     const url = `${FASTAPI}${req.originalUrl}`;
+    console.log(`[proxy] ${req.method} ${url}`);
     const fetchRes = await fetch(url, {
       method: req.method,
       headers: { 'Content-Type': 'application/json' },
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+      body: ['POST', 'PUT', 'PATCH'].includes(req.method) ? JSON.stringify(req.body) : undefined,
     });
-    const data = await fetchRes.json();
-    res.status(fetchRes.status).json(data);
+    const text = await fetchRes.text();
+    try {
+      res.status(fetchRes.status).json(JSON.parse(text));
+    } catch {
+      res.status(fetchRes.status).send(text);
+    }
   } catch (err: any) {
+    console.error('[proxy] error:', err.message);
     res.status(502).json({ error: 'FastAPI unreachable', detail: err.message });
   }
-});
+}
+app.all('/api/analyze', proxyToFastAPI);
+app.all('/api/tasks/:taskId', proxyToFastAPI);
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

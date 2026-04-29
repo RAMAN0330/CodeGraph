@@ -125,5 +125,6 @@ def perform_introspection(path):
                     
     return results
 
-def get_task_status(task_id):
-    return task_results.get(task_id)
+def get_task_status(task_id: str):
+    raw = _redis.get(f"cf:task:{task_id}")
+    return json.loads(raw) if raw else None
