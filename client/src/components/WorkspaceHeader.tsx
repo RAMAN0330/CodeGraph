@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
+import BookmarkDropdown from './BookmarkDropdown';
 
 const API = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
@@ -16,6 +17,7 @@ interface WorkspaceHeaderProps {
   onDbMap: () => void;
   activeSection: string;
   onSectionChange: (section: string) => void;
+  onBookmarkSelect: (url: string) => void;
 }
 
 const NAV_TABS = [
@@ -39,7 +41,7 @@ function parseRepo(url: string): { owner: string; repo: string } | null {
 
 export default function WorkspaceHeader({
   login, avatarUrl, repoUrl, onRepoUrlChange, onAnalyze, loading, hasData,
-  dbSchemaDetected, onPRReview, onDbMap, activeSection, onSectionChange,
+  dbSchemaDetected, onPRReview, onDbMap, activeSection, onSectionChange, onBookmarkSelect,
 }: WorkspaceHeaderProps) {
   const navigate = useNavigate();
   const parsed = parseRepo(repoUrl);
@@ -119,32 +121,35 @@ export default function WorkspaceHeader({
       <span style={{ color: '#30363d', flexShrink: 0 }}>|</span>
 
       {/* Search bar */}
-      <div style={{ flex: 1, minWidth: 0, maxWidth: '400px', position: 'relative', display: 'flex', alignItems: 'center' }}>
-        <Search size={13} style={{ position: 'absolute', left: '9px', color: '#8b949e', pointerEvents: 'none', flexShrink: 0 }} />
-        <input
-          value={repoUrl}
-          onChange={e => onRepoUrlChange(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !loading) onAnalyze(); }}
-          placeholder={parsed ? `${parsed.owner}/${parsed.repo}` : 'owner/repo or GitHub URL…'}
-          style={{
-            width: '100%',
-            background: '#0d1117',
-            border: '1px solid #30363d',
-            borderRadius: '8px',
-            padding: '5px 72px 5px 30px',
-            color: '#f0f6fc',
-            fontSize: '0.8rem',
-            outline: 'none',
-            fontFamily: 'monospace',
-            boxSizing: 'border-box',
-          }}
-        />
-        {repoUrl && !loading && (
-          <button onClick={onAnalyze} style={{ position: 'absolute', right: '5px', background: '#238636', border: 'none', borderRadius: '5px', color: 'white', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
-            Analyze
-          </button>
-        )}
-        {loading && <span style={{ position: 'absolute', right: '9px', color: '#8b949e', fontSize: '0.75rem' }}>Loading…</span>}
+      <div style={{ flex: 1, minWidth: 0, maxWidth: '440px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <BookmarkDropdown onSelect={onBookmarkSelect} />
+        <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <Search size={13} style={{ position: 'absolute', left: '9px', color: '#8b949e', pointerEvents: 'none', flexShrink: 0 }} />
+          <input
+            value={repoUrl}
+            onChange={e => onRepoUrlChange(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !loading) onAnalyze(); }}
+            placeholder={parsed ? `${parsed.owner}/${parsed.repo}` : 'owner/repo or GitHub URL…'}
+            style={{
+              width: '100%',
+              background: '#0d1117',
+              border: '1px solid #30363d',
+              borderRadius: '8px',
+              padding: '5px 72px 5px 30px',
+              color: '#f0f6fc',
+              fontSize: '0.8rem',
+              outline: 'none',
+              fontFamily: 'monospace',
+              boxSizing: 'border-box',
+            }}
+          />
+          {repoUrl && !loading && (
+            <button onClick={onAnalyze} style={{ position: 'absolute', right: '5px', background: '#238636', border: 'none', borderRadius: '5px', color: 'white', padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
+              Analyze
+            </button>
+          )}
+          {loading && <span style={{ position: 'absolute', right: '9px', color: '#8b949e', fontSize: '0.75rem' }}>Loading…</span>}
+        </div>
       </div>
 
       {/* Action buttons */}

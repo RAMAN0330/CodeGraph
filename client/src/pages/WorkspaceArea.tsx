@@ -13,6 +13,7 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { dbSchemaToFlowSchema, parseDbSchema } from '../lib/dbParser';
 import ERDiagramGraph from '../components/ERDiagramGraph';
 import BranchDiff from '../components/BranchDiff';
+import { saveBookmark } from '../lib/bookmarks';
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -586,6 +587,13 @@ export default function WorkspaceArea(){
                 var dataObj={files:analyzed,functions:allFns,connections:conns,fnStats:fnStats,folders:folders,tree:tree,issues:issues,patterns:patterns,securityIssues:securityIssues,duplicates:duplicates,layerViolations:layerViolations,deadFunctions:deadFns.map(function(x: any){var codeLines=x[1].code?x[1].code.split('\n').length:0;return{name:x[0],file:x[1].file,folder:x[1].folder,line:x[1].line,code:x[1].code,codeLines:codeLines,ext:x[1].file.split('.').pop()};}),excludePatterns:currentExcludePatterns.map(function(x: any){return x.raw;}),stats:{files:analyzed.length,functions:allFns.length,connections:conns.length,dead:deadFns.length,patterns:patterns.length,security:securityIssues.filter(function(i: any){return i.severity==='high';}).length,duplicates:duplicates.length,violations:layerViolations.length,loc:totalLoc,languages:langArray}};
                 dataObj.suggestions=Parser.generateSuggestions(dataObj);
                 setData(dataObj);
+                // Save to bookmarks
+                var _repoKey = (p.owner+'/'+p.repo);
+                saveBookmark(_repoKey, 'https://github.com/'+_repoKey, {
+                  files: dataObj.stats.files,
+                  language: (dataObj.stats.languages&&dataObj.stats.languages[0]&&dataObj.stats.languages[0].name)||'Unknown',
+                  functions: dataObj.stats.functions,
+                });
                 setExpandedPaths(new Set(['']));
                 window.history.replaceState({},'',buildAppUrl(p.owner+'/'+p.repo,false));
                 // Auto-detect Django/SQL schema files
@@ -2279,6 +2287,7 @@ export default function WorkspaceArea(){
             onDbMap:function(){setActiveSection('database');},
             activeSection:activeSection,
             onSectionChange:function(s: any){setActiveSection(s);},
+            onBookmarkSelect:function(url: any){setRepoUrl(url);setTimeout(function(){analyze();},0);},
         }),
         activeSection==='branches'&&(repoInfo
             ?React.createElement('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},
