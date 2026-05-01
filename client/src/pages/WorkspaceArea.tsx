@@ -20,6 +20,8 @@ import { saveBookmark } from '../lib/bookmarks';
 import CommandPalette from '../components/CommandPalette';
 import StaleCodeRadar from '../components/StaleCodeRadar';
 import CodeOwnershipMap from '../components/CodeOwnershipMap';
+import ReleaseNotesGenerator from '../components/ReleaseNotesGenerator';
+import TechDebtTimeline from '../components/TechDebtTimeline';
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -2424,7 +2426,20 @@ export default function WorkspaceArea(){
           token: token,
           files: ((data as any).files)||[],
         } as any),
-        activeSection==='settings'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',maxWidth:'480px'}},
+        activeSection==='releases' && repoInfo && React.createElement(ReleaseNotesGenerator, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          token: token,
+        } as any)
+
+        ,activeSection==='debt' && data && React.createElement(TechDebtTimeline, {
+          owner: repoInfo ? repoInfo.owner : '',
+          repo: repoInfo ? repoInfo.repo : '',
+          token: token,
+          currentData: data,
+        } as any)
+
+        ,activeSection==='settings'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',maxWidth:'480px'}},
             React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Settings'),
             React.createElement('div',{style:{background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',padding:'16px'}},
                 React.createElement('h3',{style:{color:'#f0f6fc',marginBottom:'12px',fontSize:'14px'}},'Graph Configuration'),

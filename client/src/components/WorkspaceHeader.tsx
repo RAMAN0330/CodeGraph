@@ -32,6 +32,8 @@ const NAV_TABS = [
   { id: 'security',     label: 'Security' },
   { id: 'radar',        label: 'Stale Radar' },
   { id: 'ownership',    label: 'Ownership' },
+  { id: 'releases',     label: 'Releases' },
+  { id: 'debt',         label: 'Tech Debt' },
   { id: 'settings',     label: 'Settings' },
 ];
 
@@ -96,7 +98,7 @@ export default function WorkspaceHeader({
       <nav style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
         {NAV_TABS.map(tab => {
           const active = activeSection === tab.id;
-          const requiresData = ['branches','contributors','commits','pullrequests','database','migrations','security','radar','ownership'].includes(tab.id);
+          const requiresData = ['branches','contributors','commits','pullrequests','database','migrations','security','radar','ownership','releases','debt'].includes(tab.id);
           const disabled = requiresData && !hasData;
           return (
             <button
