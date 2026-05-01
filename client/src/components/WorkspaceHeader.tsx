@@ -18,6 +18,7 @@ interface WorkspaceHeaderProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
   onBookmarkSelect: (url: string) => void;
+  onPaletteOpen: () => void;
 }
 
 const NAV_TABS = [
@@ -41,7 +42,7 @@ function parseRepo(url: string): { owner: string; repo: string } | null {
 
 export default function WorkspaceHeader({
   login, avatarUrl, repoUrl, onRepoUrlChange, onAnalyze, loading, hasData,
-  dbSchemaDetected, onPRReview, onDbMap, activeSection, onSectionChange, onBookmarkSelect,
+  dbSchemaDetected, onPRReview, onDbMap, activeSection, onSectionChange, onBookmarkSelect, onPaletteOpen,
 }: WorkspaceHeaderProps) {
   const navigate = useNavigate();
   const parsed = parseRepo(repoUrl);
@@ -117,6 +118,15 @@ export default function WorkspaceHeader({
           );
         })}
       </nav>
+
+      <button
+        onClick={onPaletteOpen}
+        title="Search (Ctrl+K)"
+        style={{ background: 'transparent', border: '1px solid #30363d', borderRadius: '6px', color: '#8b949e', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', flexShrink: 0 }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <kbd style={{ fontSize: '0.65rem', color: '#484f58' }}>Ctrl K</kbd>
+      </button>
 
       <span style={{ color: '#30363d', flexShrink: 0 }}>|</span>
 

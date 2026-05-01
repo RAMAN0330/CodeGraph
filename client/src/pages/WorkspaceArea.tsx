@@ -14,6 +14,7 @@ import { dbSchemaToFlowSchema, parseDbSchema } from '../lib/dbParser';
 import ERDiagramGraph from '../components/ERDiagramGraph';
 import BranchDiff from '../components/BranchDiff';
 import { saveBookmark } from '../lib/bookmarks';
+import CommandPalette from '../components/CommandPalette';
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -78,6 +79,7 @@ export default function WorkspaceArea(){
     var _dbdet=useState<any>(false),dbSchemaDetected=_dbdet[0],setDbSchemaDetected=_dbdet[1];
     // Active sidebar section
     var _sec=useState<any>('explorer'),activeSection=_sec[0],setActiveSection=_sec[1];
+    var _pal=useState<any>(false),showPalette=_pal[0],setShowPalette=_pal[1];
     // DB Schema state
     var _dbs=useState<any>(false),showDbSchema=_dbs[0],setShowDbSchema=_dbs[1];
     var _dbflow=useState<any>('table'),dbViewMode=_dbflow[0],setDbViewMode=_dbflow[1];
@@ -137,6 +139,17 @@ export default function WorkspaceArea(){
         document.addEventListener('keydown',onKeyDown);
         return function(){document.removeEventListener('keydown',onKeyDown);};
     },[confirmDialog]);
+
+    useEffect(function(){
+      function handleKey(e: any){
+        if((e.ctrlKey||e.metaKey)&&e.key==='k'){
+          e.preventDefault();
+          if(data) setShowPalette(true);
+        }
+      }
+      document.addEventListener('keydown', handleKey);
+      return function(){ document.removeEventListener('keydown', handleKey); };
+    }, [data]);
 
     useEffect(function(){
         var params=new URLSearchParams(window.location.search);
@@ -2288,6 +2301,7 @@ export default function WorkspaceArea(){
             activeSection:activeSection,
             onSectionChange:function(s: any){setActiveSection(s);},
             onBookmarkSelect:function(url: any){setRepoUrl(url);setTimeout(function(){analyze();},0);},
+            onPaletteOpen: function(){ if(data) setShowPalette(true); },
         }),
         activeSection==='branches'&&(repoInfo
             ?React.createElement('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},
@@ -3379,5 +3393,26 @@ export default function WorkspaceArea(){
                 )
             )
         )
+        ,showPalette && data && React.createElement(CommandPalette, {
+          files: ((data as any).files)||[],
+          functions: ((data as any).functions)||[],
+          folders: ((data as any).folders)||[],
+          onSelectFile: function(file: any){
+            setActiveSection('explorer');
+            setSelected(file);
+            setShowPalette(false);
+          },
+          onSelectFunction: function(fn: any){
+            setActiveSection('explorer');
+            var matchFile = (((data as any).files)||[]).find(function(f: any){ return f.path===fn.file; });
+            if(matchFile) setSelected(matchFile);
+            setShowPalette(false);
+          },
+          onSelectFolder: function(folder: any){
+            setActiveSection('explorer');
+            setShowPalette(false);
+          },
+          onClose: function(){ setShowPalette(false); },
+        })
     );
 }
