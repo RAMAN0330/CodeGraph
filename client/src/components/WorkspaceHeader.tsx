@@ -24,6 +24,8 @@ interface WorkspaceHeaderProps {
 const NAV_TABS = [
   { id: 'explorer',     label: 'Explorer' },
   { id: 'branches',     label: 'Branches' },
+  { id: 'contributors', label: 'Contributors' },
+  { id: 'commits',      label: 'Commits' },
   { id: 'pullrequests', label: 'Pull Requests' },
   { id: 'database',     label: 'Database' },
   { id: 'migrations',   label: 'Migrations' },
@@ -92,7 +94,7 @@ export default function WorkspaceHeader({
       <nav style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
         {NAV_TABS.map(tab => {
           const active = activeSection === tab.id;
-          const requiresData = ['branches','pullrequests','database','migrations','security'].includes(tab.id);
+          const requiresData = ['branches','contributors','commits','pullrequests','database','migrations','security'].includes(tab.id);
           const disabled = requiresData && !hasData;
           return (
             <button

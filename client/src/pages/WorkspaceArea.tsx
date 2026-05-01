@@ -13,6 +13,9 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import { dbSchemaToFlowSchema, parseDbSchema } from '../lib/dbParser';
 import ERDiagramGraph from '../components/ERDiagramGraph';
 import BranchDiff from '../components/BranchDiff';
+import ContributorInsights from '../components/ContributorInsights';
+import CommitTimeline from '../components/CommitTimeline';
+import BlameHeatmap from '../components/BlameHeatmap';
 import { saveBookmark } from '../lib/bookmarks';
 import CommandPalette from '../components/CommandPalette';
 
@@ -2318,6 +2321,18 @@ export default function WorkspaceArea(){
                 React.createElement('p',null,'Analyze a repository first to view branches.')
             )
         ),
+        activeSection==='contributors' && repoInfo && React.createElement(ContributorInsights, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          token: token,
+          folders: ((data as any).folders)||[],
+        } as any),
+        activeSection==='commits' && repoInfo && React.createElement(CommitTimeline, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          token: token,
+          branch: currentBranch||'main',
+        } as any),
         activeSection==='database'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',height:'calc(100vh - 80px)'}},
             dbSchema
                 ?React.createElement(ERDiagramGraph,{schema:dbSchemaToFlowSchema(filteredDbSchema||dbSchema),selectedTable:selectedDbTable})
@@ -2582,6 +2597,12 @@ export default function WorkspaceArea(){
                                     React.createElement('button',{className:'view-file-btn',onClick:function(){openFilePreview(selected.path);}},iconLabel('eye','View Source'))
                                 )
                             ),
+                            repoInfo && selected && React.createElement(BlameHeatmap, {
+                              owner: repoInfo.owner,
+                              repo: repoInfo.repo,
+                              token: token,
+                              filePath: (selected as any).path,
+                            } as any),
                             blastRadius&&React.createElement('div',{className:'card',style:{marginBottom:12}},
                                 React.createElement('div',{className:'card-header',onClick:function(){toggleCard('blast');}},React.createElement('div',{className:'card-title'},React.createElement('span',{className:'card-toggle'+(expandedCards.has('blast')?' open':'')},'▶'),React.createElement(Icon,{name:'impact',size:'s'}),' Impact Analysis'),React.createElement('span',{className:'badge badge-'+(blastRadius.level==='low'?'success':blastRadius.level==='medium'?'warning':'danger')},blastRadius.level.toUpperCase())),
                                 expandedCards.has('blast')&&React.createElement('div',{className:'card-body'},
