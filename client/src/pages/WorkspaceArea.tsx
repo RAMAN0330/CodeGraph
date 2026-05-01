@@ -90,6 +90,7 @@ export default function WorkspaceArea(){
     var _dbflow=useState<any>('table'),dbViewMode=_dbflow[0],setDbViewMode=_dbflow[1];
     var _dbsd=useState<any>(null),dbSchema=_dbsd[0],setDbSchema=_dbsd[1];
     var _dbq=useState<any>(''),dbSearchQuery=_dbq[0],setDbSearchQuery=_dbq[1];
+    var _rc=useState<any>({}),revertCounts=_rc[0],setRevertCounts=_rc[1];
     var _dbapp=useState<any>('all'),dbAppFilter=_dbapp[0],setDbAppFilter=_dbapp[1];
     var _dbtbl=useState<any>(null),selectedDbTable=_dbtbl[0],setSelectedDbTable=_dbtbl[1];
     var svgRef=useRef(null);
@@ -167,6 +168,34 @@ export default function WorkspaceArea(){
             }
         }
     },[]);
+
+    useEffect(function(){
+        if(!prData||!prData.files||!prData.files.length||!repoInfo)return;
+        var cancelled=false;
+        (async function(){
+            var counts={};
+            for(var i=0;i<prData.files.length&&!cancelled;i++){
+                var f=prData.files[i];
+                var fp=f.filename||f.path||'';
+                if(!fp)continue;
+                try{
+                    var res=await fetch(
+                        'https://api.github.com/repos/'+repoInfo.owner+'/'+repoInfo.repo+'/commits?per_page=20&path='+encodeURIComponent(fp),
+                        {headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}}
+                    );
+                    if(res.ok){
+                        var commits=await res.json();
+                        if(Array.isArray(commits)){
+                            var reverts=commits.filter(function(c){return (c.commit&&c.commit.message||'').toLowerCase().startsWith('revert');}).length;
+                            if(reverts>0)(counts as any)[fp]=reverts;
+                        }
+                    }
+                }catch(e){}
+            }
+            if(!cancelled)setRevertCounts(counts);
+        })();
+        return function(){cancelled=true;};
+    },[prData,repoInfo,token]);
 
     function parseUrl(url){
         if(!url||typeof url!=='string')return null;
@@ -3020,7 +3049,8 @@ export default function WorkspaceArea(){
                                             React.createElement('div',{className:'pr-file-badges'},
                                                 f.additions>0&&React.createElement('span',{className:'pr-mini-badge',style:{background:'rgba(34,197,94,0.2)',color:'var(--green)'}},'+',f.additions),
                                                 f.deletions>0&&React.createElement('span',{className:'pr-mini-badge',style:{background:'rgba(255,95,95,0.2)',color:'var(--red)'}},'-',f.deletions),
-                                                blast&&React.createElement('span',{className:'pr-mini-badge',style:{background:blast.level==='low'?'rgba(34,197,94,0.2)':blast.level==='medium'?'rgba(255,159,67,0.2)':'rgba(255,95,95,0.2)',color:blast.level==='low'?'var(--green)':blast.level==='medium'?'var(--orange)':'var(--red)'}},React.createElement(Icon,{name:'impact',size:'s'}),' ',blast.count)
+                                                blast&&React.createElement('span',{className:'pr-mini-badge',style:{background:blast.level==='low'?'rgba(34,197,94,0.2)':blast.level==='medium'?'rgba(255,159,67,0.2)':'rgba(255,95,95,0.2)',color:blast.level==='low'?'var(--green)':blast.level==='medium'?'var(--orange)':'var(--red)'}},React.createElement(Icon,{name:'impact',size:'s'}),' ',blast.count),
+                                                revertCounts[f.filename||f.path||'']>0&&React.createElement('span',{style:{background:'#9e2a2b',color:'#f0f6fc',borderRadius:4,padding:'1px 6px',fontSize:11,marginLeft:8}},revertCounts[f.filename||f.path||'']+' reverts')
                                             )
                                         );
                                     }),
