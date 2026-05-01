@@ -1,6 +1,7 @@
 // client/src/components/BookmarkDropdown.tsx
 import { useState, useEffect, useRef } from 'react';
-import { getBookmarks, togglePin, removeBookmark, Bookmark } from '../lib/bookmarks';
+import { getBookmarks, togglePin, removeBookmark } from '../lib/bookmarks';
+import type { Bookmark } from '../lib/bookmarks';
 
 interface Props {
   onSelect: (url: string) => void;
