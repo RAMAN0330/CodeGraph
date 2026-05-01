@@ -18,6 +18,8 @@ import CommitTimeline from '../components/CommitTimeline';
 import BlameHeatmap from '../components/BlameHeatmap';
 import { saveBookmark } from '../lib/bookmarks';
 import CommandPalette from '../components/CommandPalette';
+import StaleCodeRadar from '../components/StaleCodeRadar';
+import CodeOwnershipMap from '../components/CodeOwnershipMap';
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -2380,6 +2382,19 @@ export default function WorkspaceArea(){
                 )
                 :React.createElement('p',{style:{color:'#8b949e'}},'Analyze a repository to see security findings.')
         ),
+        activeSection==='radar' && repoInfo && React.createElement(StaleCodeRadar, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          token: token,
+          files: ((data as any).files)||[],
+          connections: ((data as any).connections)||[],
+        } as any),
+        activeSection==='ownership' && repoInfo && React.createElement(CodeOwnershipMap, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          token: token,
+          files: ((data as any).files)||[],
+        } as any),
         activeSection==='settings'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',maxWidth:'480px'}},
             React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Settings'),
             React.createElement('div',{style:{background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',padding:'16px'}},
