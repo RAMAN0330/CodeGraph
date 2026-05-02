@@ -94,6 +94,7 @@ export default function BranchDiff({ owner, repo, branches, currentBranch, onClo
   const [patchMode, setPatchMode] = useState<'edit' | 'preview'>('edit');
   const [conflictCandidates, setConflictCandidates] = useState<Map<string, DiffFile>>(new Map());
   const [_diffWorker, setDiffWorker] = useState<Worker | null>(null);
+  const [showGitCmds, setShowGitCmds] = useState(false);
 
   useEffect(() => {
     const worker = new Worker(new URL('../workers/diffWorker.ts', import.meta.url), { type: 'module' });
@@ -295,6 +296,39 @@ export default function BranchDiff({ owner, repo, branches, currentBranch, onClo
                 ⎇ Preview Merge ({stagedFiles.length})
               </button>
             </div>
+            {/* Git Commands panel */}
+            <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
+              <button
+                onClick={() => setShowGitCmds(g => !g)}
+                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer', width: '100%' }}
+              >
+                {showGitCmds ? '▾' : '▸'} Git Commands
+              </button>
+              {showGitCmds && (
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    { label: 'Fetch', cmd: `git fetch origin` },
+                    { label: 'Pull', cmd: `git pull origin ${base}` },
+                    { label: 'Checkout head', cmd: `git checkout ${head}` },
+                    { label: 'Merge base into head', cmd: `git merge ${base}` },
+                    { label: 'Commit', cmd: `git commit -m "${mergeMsg || 'Merge ' + base + ' into ' + head}"` },
+                    { label: 'Push', cmd: `git push origin ${head}` },
+                  ].map(({ label, cmd }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ color: '#64748b', fontSize: 10, width: 90, flexShrink: 0 }}>{label}</span>
+                      <code style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '3px 7px', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: '#a5f3fc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {cmd}
+                      </code>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(cmd).catch(() => {})}
+                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, color: '#64748b', cursor: 'pointer', fontSize: 10, padding: '2px 6px', flexShrink: 0 }}
+                        title="Copy"
+                      >⎘</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right: base branch */}
@@ -393,8 +427,8 @@ export default function BranchDiff({ owner, repo, branches, currentBranch, onClo
 
         {/* Conflict resolution modal */}
         {conflict && (
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-            <div style={{ width: '80%', height: '70%', background: '#0f172a', border: '1px solid rgba(255,95,95,0.4)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div style={{ width: '88vw', height: '80vh', background: '#0f172a', border: '2px solid rgba(255,95,95,0.5)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 100px rgba(0,0,0,0.7)' }}>
               <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,95,95,0.2)', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ color: '#ff5f5f', fontWeight: 700 }}>⚠ Conflict editor: {conflict.filename}</span>
                 <button onClick={() => setConflict(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 18 }}>×</button>
