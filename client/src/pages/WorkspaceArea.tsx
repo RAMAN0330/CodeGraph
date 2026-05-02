@@ -28,6 +28,8 @@ import { decodeShareLink } from '../lib/exporters';
 import VulnerabilityScanner from '../components/VulnerabilityScanner';
 import { extractManifestDeps } from '../lib/parser';
 import { scanDependencies } from '../lib/osv';
+import MetricsTrendChart from '../components/MetricsTrendChart';
+import { fetchTrendData, buildActivityPoints } from '../lib/trends';
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -96,6 +98,9 @@ export default function WorkspaceArea(){
     var _vuln=useState<any>([]),vulns=_vuln[0],setVulns=_vuln[1];
     var _vulnLoad=useState<any>(false),vulnLoading=_vulnLoad[0],setVulnLoading=_vulnLoad[1];
     var _vulnErr=useState<any>(null),vulnError=_vulnErr[0],setVulnError=_vulnErr[1];
+    var _tsnap=useState<any>([]),trendSnapshots=_tsnap[0],setTrendSnapshots=_tsnap[1];
+    var _tactv=useState<any>([]),activityPoints=_tactv[0],setActivityPoints=_tactv[1];
+    var _tload=useState<any>(false),trendLoading=_tload[0],setTrendLoading=_tload[1];
     // DB Schema state
     var _dbs=useState<any>(false),showDbSchema=_dbs[0],setShowDbSchema=_dbs[1];
     var _dbflow=useState<any>('table'),dbViewMode=_dbflow[0],setDbViewMode=_dbflow[1];
@@ -666,6 +671,8 @@ export default function WorkspaceArea(){
                 var _mDeps=extractManifestDeps(dataObj.files||[]);
                 if(_mDeps.length>0){setVulnLoading(true);scanDependencies(_mDeps).then(function(r: any){setVulns(r);setVulnLoading(false);}).catch(function(){setVulnError('Vulnerability scan unavailable (network error)');setVulnLoading(false);});}
                 else{setVulnError('No supported manifest files found (package.json, requirements.txt, go.mod, Gemfile.lock)');}
+                setTrendSnapshots([]);
+                if(p&&p.owner&&p.repo){setTrendLoading(true);gh.getCommits(p.owner,p.repo,undefined,5).then(function(recentCommits: any){setActivityPoints(buildActivityPoints(recentCommits||[]));return fetchTrendData(recentCommits||[],p.owner,p.repo,gh);}).then(function(snaps: any){setTrendSnapshots(snaps);setTrendLoading(false);}).catch(function(){setTrendLoading(false);});}
                 // Save to bookmarks
                 var _repoKey = (p.owner+'/'+p.repo);
                 saveBookmark(_repoKey, 'https://github.com/'+_repoKey, {
@@ -1016,6 +1023,7 @@ export default function WorkspaceArea(){
             var _mDeps2=extractManifestDeps(dataObj.files||[]);
             if(_mDeps2.length>0){setVulnLoading(true);scanDependencies(_mDeps2).then(function(r: any){setVulns(r);setVulnLoading(false);}).catch(function(){setVulnError('Vulnerability scan unavailable (network error)');setVulnLoading(false);});}
             else{setVulnError('No supported manifest files found (package.json, requirements.txt, go.mod, Gemfile.lock)');}
+            setTrendSnapshots([]);setActivityPoints([]);setTrendLoading(false);
             setExpandedPaths(new Set(['']));
             setRepoInfo({owner:'local',repo:'folder',name:'Local Folder'});
             var hasDjangoLocal=analyzed.some(function(f: any){return f.name==='models.py'||f.path.toLowerCase().includes('/models/');});
@@ -2481,6 +2489,7 @@ export default function WorkspaceArea(){
                 )
                 :React.createElement('p',{style:{color:'#8b949e'}},'Analyze a repository to see security findings.')
         ),
+        activeSection==='trends'&&React.createElement(MetricsTrendChart,{snapshots:trendSnapshots,activityPoints:activityPoints,loading:trendLoading,onCommitClick:function(sha: any){setActiveSection('commits');}}),
         activeSection==='radar' && repoInfo && React.createElement(StaleCodeRadar, {
           owner: repoInfo.owner,
           repo: repoInfo.repo,
