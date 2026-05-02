@@ -22,6 +22,7 @@ import StaleCodeRadar from '../components/StaleCodeRadar';
 import CodeOwnershipMap from '../components/CodeOwnershipMap';
 import ReleaseNotesGenerator from '../components/ReleaseNotesGenerator';
 import TechDebtTimeline from '../components/TechDebtTimeline';
+import FileDrillDown from '../components/FileDrillDown';
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -95,6 +96,8 @@ export default function WorkspaceArea(){
     var _rc=useState<any>({}),revertCounts=_rc[0],setRevertCounts=_rc[1];
     var _dbapp=useState<any>('all'),dbAppFilter=_dbapp[0],setDbAppFilter=_dbapp[1];
     var _dbtbl=useState<any>(null),selectedDbTable=_dbtbl[0],setSelectedDbTable=_dbtbl[1];
+    var _cfm=useState<any>(false),callFlowMode=_cfm[0],setCallFlowMode=_cfm[1];
+    var _gdd=useState<any>(null),graphDrillDown=_gdd[0],setGraphDrillDown=_gdd[1];
     var svgRef=useRef(null);
     var filePreviewRef=useRef(null);
     var analysisContentCacheRef=useRef({});
@@ -158,6 +161,12 @@ export default function WorkspaceArea(){
       document.addEventListener('keydown', handleKey);
       return function(){ document.removeEventListener('keydown', handleKey); };
     }, [data]);
+
+    useEffect(function(){
+        function onKey(e: any){if(e.key==='Escape')setGraphDrillDown(null);}
+        window.addEventListener('keydown',onKey);
+        return function(){window.removeEventListener('keydown',onKey);};
+    },[]);
 
     useEffect(function(){
         var params=new URLSearchParams(window.location.search);
@@ -1187,8 +1196,14 @@ export default function WorkspaceArea(){
             if(!linkMap.has(k))linkMap.set(k,{source:c.source,target:c.target,count:0});
             linkMap.get(k).count+=c.count;
         });
-        var links=Array.from(linkMap.values());
-        function getR(d){return Math.max(8,Math.min(24,5+d.fnCount*0.8));}
+        var rawLinks: any[]=[];
+        (data as any).connections.forEach(function(c: any){
+            if(!fileIds.has(c.source)||!fileIds.has(c.target))return;
+            if(c.source===c.target)return;
+            rawLinks.push({source:c.source,target:c.target,fn:c.fn||'',count:c.count||1});
+        });
+        var links=callFlowMode?rawLinks:Array.from(linkMap.values());
+        function getR(d: any){return Math.max(8,Math.min(24,5+d.fnCount*0.8));}
         function getC(d){
             if(colorMode==='folder')return colorMap[d.folder]||COLORS[0];
             if(colorMode==='layer')return LAYER_COLORS[d.layer]||LAYER_COLORS['utils'];
@@ -1287,12 +1302,18 @@ export default function WorkspaceArea(){
         var velDecay=isLargeGraph?0.7:0.6;
         sim.velocityDecay(velDecay).alphaDecay(alphaDecay);
         simRef.current=sim;
-        var link=linkLayer.selectAll('path').data(links).join('path').attr('fill','none').attr('stroke',theme==='light'?'#ccc':'#333').attr('stroke-width',function(d: any){return Math.max(1,Math.min(2,Math.sqrt(d.count)*0.3));}).attr('stroke-opacity',0.4).attr('marker-end','url(#arr)');
+        var link=linkLayer.selectAll('path').data(links).join('path').attr('fill','none').attr('stroke',theme==='light'?'#ccc':'#333').attr('stroke-width',function(d: any){return callFlowMode?1:Math.max(1,Math.min(2,Math.sqrt(d.count)*0.3));}).attr('stroke-opacity',0.4).attr('marker-end','url(#arr)');
         linksRef.current=link;
+        var linkLabel=linkLayer.append('g').selectAll('text').data(callFlowMode?rawLinks:[]).enter().append('text').attr('font-size',9).attr('fill','#8b949e').attr('text-anchor','middle').attr('dy',-3).attr('pointer-events','none').text(function(d: any){return d.fn||'';});
         var node=nodeLayer.selectAll('g').data(nodes).join('g').style('cursor','pointer');
         nodesRef.current=node;
         node.call(d3.drag().on('start',function(e: any, d: any){if(!e.active)sim.alphaTarget(0.1).restart();d.fx=d.x;d.fy=d.y;}).on('drag',function(e: any, d: any){d.fx=e.x;d.fy=e.y;}).on('end',function(e: any, d: any){if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}));
-        node.on('click',function(e: any, d: any){e.stopPropagation();if(selectFileRef.current)selectFileRef.current(d.id);});
+        node.on('click',function(e: any, d: any){
+            e.stopPropagation();
+            if(selectFileRef.current)selectFileRef.current(d.id);
+            var rect=svgRef.current?(svgRef.current as any).getBoundingClientRect():{left:0,top:0};
+            setGraphDrillDown({file:d,x:rect.left+(d.x||0)+20,y:rect.top+(d.y||0)-100});
+        });
         node.on('mouseenter',function(e: any, d: any){var r=svgRef.current.getBoundingClientRect();setTooltip({x:e.clientX-r.left+10,y:e.clientY-r.top,title:d.name,content:d.fnCount+' functions\n'+d.layer+' layer\n'+d.churn+' recent commits'});}).on('mouseleave',function(){setTooltip(null);});
         svg.on('click',function(e: any){if(e.target===svgRef.current){setSelected(null);setBlastRadius(null);link.attr('stroke',theme==='light'?'#ccc':'#333').attr('stroke-opacity',0.4);node.selectAll('.nc').attr('opacity',1).attr('fill',getC);}});
         node.append('circle').attr('class','nc').attr('r',getR).attr('fill',getC).attr('stroke',function(d: any){var c=d3.color(getC(d));return c?c.brighter(0.3):'#fff';}).attr('stroke-width',1.5);
@@ -1330,13 +1351,14 @@ export default function WorkspaceArea(){
                 link.attr('d',function(d: any){return'M'+d.source.x+','+d.source.y+'L'+d.target.x+','+d.target.y;});
             }
             node.attr('transform',function(d: any){return'translate('+d.x+','+d.y+')';});
+            if(callFlowMode&&linkLabel){linkLabel.attr('x',function(d: any){return((d.source.x||0)+(d.target.x||0))/2;}).attr('y',function(d: any){return((d.source.y||0)+(d.target.y||0))/2;});}
             tickCount++;
             if(tickCount%hullInterval===0)updateHulls();
         });
         node.selectAll('text').attr('opacity',graphConfig.showLabels?1:0);
         }catch(e){console.error('Force graph error:',e);svg.selectAll('*').remove();svg.append('text').attr('x',20).attr('y',30).attr('fill','var(--t3)').text('Graph rendering error: '+e.message);}
         return function(){if(simRef.current)simRef.current.stop();};
-    },[data,colorMap,colorMode,theme,folderFilter,graphConfig]);
+    },[data,colorMap,colorMode,theme,folderFilter,graphConfig,callFlowMode]);
 
     // Treemap - Nested folder hierarchy with group headers
     useEffect(function(){
@@ -2565,7 +2587,11 @@ export default function WorkspaceArea(){
                         React.createElement('button',{className:'tool-btn',onClick:fitView,'aria-label':'Fit view'},'⊡'),
                         React.createElement('button',{className:'tool-btn'+(showGraphConfig?' active':''),onClick:function(){setShowGraphConfig(!showGraphConfig);},'aria-label':'Graph settings',style:showGraphConfig?{background:'var(--accbg)',borderColor:'var(--acc)'}:{}},
                             React.createElement(Icon,{name:'settings',size:'m'})
-                        )
+                        ),
+                        React.createElement('button',{
+                            onClick:function(){setCallFlowMode(function(v: any){return !v;});},
+                            style:{background:callFlowMode?'#238636':'transparent',border:'1px solid '+(callFlowMode?'#238636':'#30363d'),color:callFlowMode?'#fff':'#8b949e',borderRadius:6,padding:'4px 10px',fontSize:'0.75rem',cursor:'pointer',marginLeft:8}
+                        },callFlowMode?'Call Flow ✓':'Call Flow')
                     ),
                     graphConfig.vizType==='graph'&&showGraphConfig&&React.createElement('div',{className:'graph-config'},
                         React.createElement('div',{className:'graph-config-title'},'Layout'),
@@ -3494,6 +3520,13 @@ export default function WorkspaceArea(){
             setShowPalette(false);
           },
           onClose: function(){ setShowPalette(false); },
+        })
+        ,graphDrillDown&&React.createElement(FileDrillDown,{
+            file:graphDrillDown.file,
+            allFunctions:((data as any).functions)||[],
+            onClose:function(){setGraphDrillDown(null);},
+            x:graphDrillDown.x,
+            y:graphDrillDown.y,
         })
     );
 }
