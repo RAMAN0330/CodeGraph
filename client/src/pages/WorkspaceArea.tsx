@@ -2592,7 +2592,29 @@ export default function WorkspaceArea(){
                         React.createElement('button',{
                             onClick:function(){setCallFlowMode(function(v: any){return !v;});},
                             style:{background:callFlowMode?'#238636':'transparent',border:'1px solid '+(callFlowMode?'#238636':'#30363d'),color:callFlowMode?'#fff':'#8b949e',borderRadius:6,padding:'4px 10px',fontSize:'0.75rem',cursor:'pointer',marginLeft:8}
-                        },callFlowMode?'Call Flow ✓':'Call Flow')
+                        },callFlowMode?'Call Flow ✓':'Call Flow'),
+                        branches.length>1&&React.createElement('select',{
+                            value:currentBranch,
+                            onChange:function(e: any){
+                                var br=e.target.value;
+                                switchBranchLight(br);
+                            },
+                            style:{
+                                background:'#21262d',
+                                border:'1px solid #30363d',
+                                color:'#c9d1d9',
+                                borderRadius:6,
+                                padding:'3px 6px',
+                                fontSize:'0.75rem',
+                                cursor:'pointer',
+                                marginLeft:8,
+                                maxWidth:130,
+                            }
+                        },
+                            branches.map(function(b: any){
+                                return React.createElement('option',{key:b.name,value:b.name},b.name);
+                            })
+                        )
                     ),
                     graphConfig.vizType==='graph'&&showGraphConfig&&React.createElement('div',{className:'graph-config'},
                         React.createElement('div',{className:'graph-config-title'},'Layout'),
