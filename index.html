@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>CodeFlow — Read your repo like a graph</title>
+  <title>GitGraph — Read your repo like a graph</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%233fb950'><path d='M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -298,7 +298,7 @@ function GGNav({ variant = "marketing", onNavigate, current }) {
         <div style={{ display:'flex', alignItems:'center', gap:18 }}>
           <div className="gg-brand">
             <GGLogo/>
-            <span className="gg-brand-name">codeflow<span className="ver">/0.4.2</span></span>
+            <span className="gg-brand-name">gitgraph<span className="ver">/0.4.2</span></span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:8, color:'var(--fg-3)', fontFamily:'var(--mono)', fontSize:12 }}>
             <span style={{ opacity:0.5 }}>›</span>
@@ -323,7 +323,7 @@ function GGNav({ variant = "marketing", onNavigate, current }) {
     <nav className="gg-nav">
       <div className="gg-brand">
         <GGLogo/>
-        <span className="gg-brand-name">codeflow<span className="ver">/0.4.2</span></span>
+        <span className="gg-brand-name">gitgraph<span className="ver">/0.4.2</span></span>
       </div>
       <div className="gg-nav-right">
         <a onClick={() => onNavigate?.('landing')} style={{ cursor:'pointer' }}>features</a>
@@ -375,7 +375,7 @@ function GraphViz({ width = 540, height = 360 }) {
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', borderBottom:'1px solid var(--line)', fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)' }}>
         <div style={{ display:'flex', gap:6, alignItems:'center' }}>
           <span style={{ width:8, height:8, borderRadius:'50%', background:'var(--accent)', boxShadow:'0 0 8px var(--accent)' }}/>
-          <span style={{ color:'var(--fg-2)' }}>./codeflow</span>
+          <span style={{ color:'var(--fg-2)' }}>./gitgraph</span>
           <span style={{ opacity:0.5 }}>analyze</span>
           <span style={{ color:'var(--accent)' }}>app/</span>
         </div>
@@ -435,7 +435,7 @@ function CodeSample() {
       </div>
       <div className="gg-code-body" dangerouslySetInnerHTML={{__html:
 `<span class="tok-com">// connect once, query forever</span>
-<span class="tok-kw">import</span> { graph } <span class="tok-kw">from</span> <span class="tok-str">'codeflow'</span>
+<span class="tok-kw">import</span> { graph } <span class="tok-kw">from</span> <span class="tok-str">'gitgraph'</span>
 
 <span class="tok-kw">const</span> <span class="tok-var">repo</span> = <span class="tok-kw">await</span> <span class="tok-fn">graph.connect</span>({
   source: <span class="tok-str">'github.com/acme/api'</span>,
@@ -497,7 +497,7 @@ function SchemaDemo() {
 function TerminalDemo() {
   return (
     <div style={{ fontFamily:'var(--mono)', fontSize:12, background:'var(--bg)', borderRadius:8, padding:'10px 12px', border:'1px solid var(--line)', lineHeight:1.7 }}>
-      <div><span style={{ color:'var(--accent)' }}>$</span> <span style={{ color:'var(--fg-2)' }}>cf scan --secrets</span></div>
+      <div><span style={{ color:'var(--accent)' }}>$</span> <span style={{ color:'var(--fg-2)' }}>gg scan --secrets</span></div>
       <div style={{ color:'var(--fg-3)' }}>scanning 1,247 files...</div>
       <div><span style={{ color:'var(--danger)' }}>!</span> <span style={{ color:'var(--fg-2)' }}>3 issues</span> <span style={{ color:'var(--fg-3)' }}>in 0.4s</span></div>
     </div>
@@ -522,7 +522,7 @@ function Landing({ onNavigate }) {
               </span>
             </h1>
             <p style={{ marginTop:24, maxWidth:520, fontSize:17, lineHeight:1.6, color:'var(--fg-2)' }}>
-              CodeFlow indexes architecture, dependencies, and database schemas — then renders them as a queryable graph. Find dead code, circular imports, and schema drift in seconds.
+              gitgraph indexes architecture, dependencies, and database schemas — then renders them as a queryable graph. Find dead code, circular imports, and schema drift in seconds.
             </p>
             <div style={{ display:'flex', gap:12, marginTop:32, alignItems:'center', flexWrap:'wrap' }}>
               <button className="gg-btn gg-btn-primary" onClick={() => onNavigate?.('repo')}>
@@ -535,7 +535,7 @@ function Landing({ onNavigate }) {
               <span><span className="gg-kbd">⌘</span> <span className="gg-kbd">K</span></span>
               <span style={{ opacity:0.5 }}>·</span>
               <span>install via</span>
-              <code style={{ background:'var(--bg-2)', padding:'4px 8px', borderRadius:5, color:'var(--fg-2)', fontFamily:'var(--mono)' }}>npm i -g codeflow</code>
+              <code style={{ background:'var(--bg-2)', padding:'4px 8px', borderRadius:5, color:'var(--fg-2)', fontFamily:'var(--mono)' }}>npm i -g gitgraph</code>
             </div>
           </div>
           <div><GraphViz/></div>
@@ -580,7 +580,7 @@ function Landing({ onNavigate }) {
               <p style={{ color:'var(--fg-2)', fontSize:15, lineHeight:1.65, margin:0, maxWidth:440 }}>Same engine that powers the UI, exposed as a single TypeScript package. Build your own dashboards, lint rules, or AI tooling on top.</p>
               <div style={{ marginTop:24, display:'flex', gap:10 }}>
                 <button className="gg-btn gg-btn-secondary">read the docs →</button>
-                <button className="gg-btn gg-btn-ghost" style={{ fontFamily:'var(--mono)' }}>npm i codeflow</button>
+                <button className="gg-btn gg-btn-ghost" style={{ fontFamily:'var(--mono)' }}>npm i gitgraph</button>
               </div>
             </div>
             <CodeSample/>
@@ -591,7 +591,7 @@ function Landing({ onNavigate }) {
       <section className="gg-section" style={{ paddingTop:32, paddingBottom:80 }}>
         <div className="gg-container" style={{ textAlign:'center' }}>
           <div style={{ fontFamily:'var(--mono)', fontSize:13, color:'var(--fg-3)', display:'inline-flex', alignItems:'center', gap:10 }}>
-            <span style={{ height:1, width:40, background:'var(--line-strong)' }}/><span>$ codeflow init</span><span style={{ height:1, width:40, background:'var(--line-strong)' }}/>
+            <span style={{ height:1, width:40, background:'var(--line-strong)' }}/><span>$ gitgraph init</span><span style={{ height:1, width:40, background:'var(--line-strong)' }}/>
           </div>
           <h2 style={{ margin:'20px 0 14px', fontSize:48, fontWeight:700, letterSpacing:'-0.03em' }}>Stop reading code line by line.</h2>
           <p style={{ color:'var(--fg-3)', fontSize:16, maxWidth:520, margin:'0 auto 28px' }}>Free for public repos. 14-day trial on private. No credit card.</p>
@@ -603,7 +603,7 @@ function Landing({ onNavigate }) {
       </section>
 
       <footer style={{ position:'relative', zIndex:1, borderTop:'1px solid var(--line)', padding:'24px 28px', display:'flex', justifyContent:'space-between', alignItems:'center', fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)' }}>
-        <span>codeflow © 2026 · MIT license</span>
+        <span>gitgraph © 2026 · MIT license</span>
         <span>commit <span style={{ color:'var(--fg-2)' }}>#a8f3c2d</span> · deployed 2 hours ago</span>
       </footer>
     </div>
@@ -1105,7 +1105,7 @@ function Explorer({ onNavigate }) {
           </div>
           <div style={{ padding:'8px 12px', borderTop:'1px solid var(--line)', fontFamily:'var(--mono)', fontSize:10, color:'var(--fg-4)', display:'flex', justifyContent:'space-between' }}>
             <span>{TREE.filter(n=>n.kind!=='dir').length} files</span>
-            <span>codeflow/src</span>
+            <span>gitgraph/src</span>
           </div>
         </div>
 
