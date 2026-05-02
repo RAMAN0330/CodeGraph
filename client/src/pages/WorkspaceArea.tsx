@@ -25,6 +25,9 @@ import TechDebtTimeline from '../components/TechDebtTimeline';
 import FileDrillDown from '../components/FileDrillDown';
 import ExportModal from '../components/ExportModal';
 import { decodeShareLink } from '../lib/exporters';
+import VulnerabilityScanner from '../components/VulnerabilityScanner';
+import { extractManifestDeps } from '../lib/parser';
+import { scanDependencies } from '../lib/osv';
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -90,6 +93,9 @@ export default function WorkspaceArea(){
     // Active sidebar section
     var _sec=useState<any>('explorer'),activeSection=_sec[0],setActiveSection=_sec[1];
     var _pal=useState<any>(false),showPalette=_pal[0],setShowPalette=_pal[1];
+    var _vuln=useState<any>([]),vulns=_vuln[0],setVulns=_vuln[1];
+    var _vulnLoad=useState<any>(false),vulnLoading=_vulnLoad[0],setVulnLoading=_vulnLoad[1];
+    var _vulnErr=useState<any>(null),vulnError=_vulnErr[0],setVulnError=_vulnErr[1];
     // DB Schema state
     var _dbs=useState<any>(false),showDbSchema=_dbs[0],setShowDbSchema=_dbs[1];
     var _dbflow=useState<any>('table'),dbViewMode=_dbflow[0],setDbViewMode=_dbflow[1];
@@ -656,6 +662,10 @@ export default function WorkspaceArea(){
                 var dataObj={files:analyzed,functions:allFns,connections:conns,fnStats:fnStats,folders:folders,tree:tree,issues:issues,patterns:patterns,securityIssues:securityIssues,duplicates:duplicates,layerViolations:layerViolations,deadFunctions:deadFns.map(function(x: any){var codeLines=x[1].code?x[1].code.split('\n').length:0;return{name:x[0],file:x[1].file,folder:x[1].folder,line:x[1].line,code:x[1].code,codeLines:codeLines,ext:x[1].file.split('.').pop()};}),excludePatterns:currentExcludePatterns.map(function(x: any){return x.raw;}),stats:{files:analyzed.length,functions:allFns.length,connections:conns.length,dead:deadFns.length,patterns:patterns.length,security:securityIssues.filter(function(i: any){return i.severity==='high';}).length,duplicates:duplicates.length,violations:layerViolations.length,loc:totalLoc,languages:langArray}};
                 dataObj.suggestions=Parser.generateSuggestions(dataObj);
                 setData(dataObj);
+                setVulns([]);setVulnError(null);
+                var _mDeps=extractManifestDeps(dataObj.files||[]);
+                if(_mDeps.length>0){setVulnLoading(true);scanDependencies(_mDeps).then(function(r: any){setVulns(r);setVulnLoading(false);}).catch(function(){setVulnError('Vulnerability scan unavailable (network error)');setVulnLoading(false);});}
+                else{setVulnError('No supported manifest files found (package.json, requirements.txt, go.mod, Gemfile.lock)');}
                 // Save to bookmarks
                 var _repoKey = (p.owner+'/'+p.repo);
                 saveBookmark(_repoKey, 'https://github.com/'+_repoKey, {
@@ -1002,6 +1012,10 @@ export default function WorkspaceArea(){
             var dataObj={files:analyzed,functions:allFns,connections:conns,fnStats:fnStats,folders:folders,tree:tree,issues:issues,patterns:patterns,securityIssues:securityIssues,duplicates:duplicates,layerViolations:layerViolations,deadFunctions:deadFns.map(function(x: any){var codeLines=x[1].code?x[1].code.split('\n').length:0;return{name:x[0],file:x[1].file,folder:x[1].folder,line:x[1].line,code:x[1].code,codeLines:codeLines,ext:x[1].file.split('.').pop()};}),excludePatterns:(compiledPatterns||[]).map(function(x: any){return x.raw;}),stats:{files:analyzed.length,functions:allFns.length,connections:conns.length,dead:deadFns.length,patterns:patterns.length,security:securityIssues.filter(function(i: any){return i.severity==='high';}).length,duplicates:duplicates.length,violations:layerViolations.length,loc:totalLoc,languages:langArray}};
             dataObj.suggestions=Parser.generateSuggestions(dataObj);
             setData(dataObj);
+            setVulns([]);setVulnError(null);
+            var _mDeps2=extractManifestDeps(dataObj.files||[]);
+            if(_mDeps2.length>0){setVulnLoading(true);scanDependencies(_mDeps2).then(function(r: any){setVulns(r);setVulnLoading(false);}).catch(function(){setVulnError('Vulnerability scan unavailable (network error)');setVulnLoading(false);});}
+            else{setVulnError('No supported manifest files found (package.json, requirements.txt, go.mod, Gemfile.lock)');}
             setExpandedPaths(new Set(['']));
             setRepoInfo({owner:'local',repo:'folder',name:'Local Folder'});
             var hasDjangoLocal=analyzed.some(function(f: any){return f.name==='models.py'||f.path.toLowerCase().includes('/models/');});
@@ -1045,6 +1059,24 @@ export default function WorkspaceArea(){
         }
     },[data,repoInfo,localDirHandle]);
     selectFileRef.current=selectFile;
+
+    useEffect(function(){
+        if(!vulns||vulns.length===0||!nodesRef.current||!data)return;
+        var vulnPkgs=new Set(vulns.map(function(v: any){return v.pkg;}));
+        var affectedPaths=new Set<string>();
+        ((data as any).files||[]).forEach(function(f: any){
+            if(!f.content)return;
+            vulnPkgs.forEach(function(pkg: any){
+                var importPattern=new RegExp('(import|require)[^\'\"]*[\'\"]('+pkg+')[\'\"\/]');
+                if(importPattern.test(f.content))affectedPaths.add(f.path);
+            });
+        });
+        if(affectedPaths.size===0||!nodesRef.current)return;
+        nodesRef.current.selectAll('.nc')
+            .filter(function(n: any){return affectedPaths.has(n.id);})
+            .attr('stroke','#f85149')
+            .attr('stroke-width',3);
+    },[vulns,data]);
 
     function updateGraphHighlight(path,blast){
         if(!nodesRef.current||!linksRef.current)return;
@@ -2444,7 +2476,8 @@ export default function WorkspaceArea(){
                                 React.createElement('div',{style:{color:'#8b949e',fontSize:'13px'}},issue.file||'')
                             );
                         })
-                        :React.createElement('p',{style:{color:'#3fb950'}},'✓ No security issues detected.')
+                        :React.createElement('p',{style:{color:'#3fb950'}},'✓ No security issues detected.'),
+                    React.createElement(VulnerabilityScanner,{vulns:vulns,loading:vulnLoading,error:vulnError})
                 )
                 :React.createElement('p',{style:{color:'#8b949e'}},'Analyze a repository to see security findings.')
         ),
