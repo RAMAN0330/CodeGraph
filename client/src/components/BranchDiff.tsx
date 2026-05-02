@@ -95,6 +95,7 @@ export default function BranchDiff({ owner, repo, branches, currentBranch, onClo
   const [conflictCandidates, setConflictCandidates] = useState<Map<string, DiffFile>>(new Map());
   const [_diffWorker, setDiffWorker] = useState<Worker | null>(null);
   const [showGitCmds, setShowGitCmds] = useState(false);
+  const [runFeedback, setRunFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     const worker = new Worker(new URL('../workers/diffWorker.ts', import.meta.url), { type: 'module' });
@@ -320,10 +321,26 @@ export default function BranchDiff({ owner, repo, branches, currentBranch, onClo
                         {cmd}
                       </code>
                       <button
-                        onClick={() => navigator.clipboard.writeText(cmd).catch(() => {})}
-                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, color: '#64748b', cursor: 'pointer', fontSize: 10, padding: '2px 6px', flexShrink: 0 }}
-                        title="Copy"
-                      >⎘</button>
+                        onClick={() => {
+                          navigator.clipboard.writeText(cmd).catch(() => {});
+                          setRunFeedback(label);
+                          setTimeout(() => setRunFeedback(null), 2000);
+                        }}
+                        style={{
+                          background: runFeedback === label ? 'rgba(0,255,157,0.15)' : 'rgba(255,255,255,0.05)',
+                          border: '1px solid ' + (runFeedback === label ? 'rgba(0,255,157,0.4)' : 'rgba(255,255,255,0.1)'),
+                          borderRadius: 4,
+                          color: runFeedback === label ? '#00ff9d' : '#94a3b8',
+                          cursor: 'pointer',
+                          fontSize: 10,
+                          padding: '2px 8px',
+                          flexShrink: 0,
+                          transition: 'all 0.2s',
+                        }}
+                        title="Copy to clipboard"
+                      >
+                        {runFeedback === label ? '✓ Copied' : 'Run'}
+                      </button>
                     </div>
                   ))}
                 </div>
