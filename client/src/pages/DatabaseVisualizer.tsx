@@ -8,6 +8,26 @@ import { dbSchemaToFlowSchema, parseDjangoModels } from '../lib/dbParser';
 
 const API = 'http://localhost:5000';
 
+// ── Design tokens ────────────────────────────────────────────────────────────
+const GG = {
+  bg: '#07090c',
+  bg1: '#0b0e13',
+  bg2: '#10141b',
+  panel: '#0d1117',
+  line: 'rgba(255,255,255,0.06)',
+  lineStrong: 'rgba(255,255,255,0.12)',
+  fg: '#e6edf3',
+  fg2: '#b1bac4',
+  fg3: '#7d8590',
+  fg4: '#4b5563',
+  accent: '#3fb950',
+  info: '#58a6ff',
+  magenta: '#bc8cff',
+  cyan: '#76e4f7',
+  mono: "'JetBrains Mono', monospace" as const,
+  sans: "'Inter', sans-serif" as const,
+};
+
 interface SchemaColumn { name: string; type: string; nullable: boolean; isPrimary: boolean; }
 interface SchemaFK { column: string; referencedTable: string; referencedColumn: string; }
 interface SchemaTable { name: string; columns: SchemaColumn[]; foreignKeys: SchemaFK[]; app?: string; file?: string; modelName?: string; dbTableName?: string; }
@@ -19,6 +39,18 @@ interface AppFolder { path: string; label: string; filePaths: string[]; }
 function dbTablesToSchema(tables: ReturnType<typeof parseDjangoModels>): SchemaTable[] {
   return dbSchemaToFlowSchema({ tables, relations: tables.flatMap(t => t.relations) }).tables;
 }
+
+// ── Source tile definitions ──────────────────────────────────────────────────
+const SOURCES = [
+  { id: 'postgres',  label: 'PostgreSQL',  icon: '🐘', connectType: 'credentials' as const, dbType: 'postgres'  as const },
+  { id: 'mysql',     label: 'MySQL',       icon: '🐬', connectType: 'credentials' as const, dbType: 'mysql'     as const },
+  { id: 'sqlite',    label: 'SQLite',      icon: '🗃',  connectType: 'file'        as const, dbType: null },
+  { id: 'mongo',     label: 'MongoDB',     icon: '🍃', connectType: 'credentials' as const, dbType: 'postgres'  as const },
+  { id: 'sqldump',   label: 'SQL Dump',    icon: '📄', connectType: 'file'        as const, dbType: null },
+  { id: 'repo',      label: 'From Repo',   icon: '🗂',  connectType: 'repo'        as const, dbType: null },
+  { id: 'csv',       label: 'CSV',         icon: '📊', connectType: 'file'        as const, dbType: null },
+  { id: 'snowflake', label: 'Snowflake',   icon: '❄️', connectType: 'credentials' as const, dbType: 'postgres'  as const },
+];
 
 export default function DatabaseVisualizer() {
   const navigate = useNavigate();
@@ -40,7 +72,11 @@ export default function DatabaseVisualizer() {
   const [migrationApp, setMigrationApp] = useState('all');
   const [migrationName, setMigrationName] = useState('auto_model_update');
   const [migrationDraft, setMigrationDraft] = useState('');
+  const [sslEnabled, setSslEnabled] = useState(false);
+  const [readOnly, setReadOnly] = useState(true);
+  const [activeSourceId, setActiveSourceId] = useState<string>('postgres');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cursorVisible, setCursorVisible] = useState(true);
 
   // Repo tab state
   const [repoUrl, setRepoUrl] = useState('');
@@ -49,12 +85,16 @@ export default function DatabaseVisualizer() {
   const [appFolders, setAppFolders] = useState<AppFolder[]>([]);
   const [selectedApps, setSelectedApps] = useState<Set<string>>(new Set());
   const [repoStep, setRepoStep] = useState<'input' | 'select' | 'done'>('input');
-  // store fetched file contents keyed by path for local repos
   const localFilesRef = useRef<Map<string, string>>(new Map());
-  // for GitHub repos
   const repoOwnerRef = useRef('');
   const repoNameRef = useRef('');
   const repoBranchRef = useRef('main');
+
+  // Blinking cursor effect
+  useEffect(() => {
+    const t = setInterval(() => setCursorVisible(v => !v), 530);
+    return () => clearInterval(t);
+  }, []);
 
   const fkCount = schema?.tables?.reduce((s, t) => s + t.foreignKeys.length, 0) ?? 0;
   const appOptions = useMemo(() => {
@@ -85,6 +125,15 @@ export default function DatabaseVisualizer() {
   useEffect(() => {
     if (showMigrationEditor) setMigrationDraft(migrationSource);
   }, [showMigrationEditor, migrationSource]);
+
+  // Connection string preview
+  const connString = useMemo(() => {
+    if (connectType !== 'credentials') return '';
+    const proto = dbType === 'postgres' ? 'postgresql' : 'mysql';
+    const u = user || '<user>';
+    const d = database || '<database>';
+    return `${proto}://${u}:••••@${host}:${port}/${d}`;
+  }, [connectType, dbType, user, database, host, port]);
 
   async function connect() {
     setError(null);
@@ -134,13 +183,11 @@ export default function DatabaseVisualizer() {
     if (file) parseSqlFile(file);
   }
 
-  // ── Repo: scan GitHub repo for models.py files ──────────────────────────
   async function scanGitHubRepo() {
     setError(null);
     setLoading(true);
     setRepoStatus('Connecting to GitHub…');
     try {
-      // Parse owner/repo from URL
       const cleaned = repoUrl.replace(/https?:\/\/github\.com\//, '').replace(/\.git$/, '').trim();
       const parts = cleaned.split('/');
       if (parts.length < 2) throw new Error('Enter a valid GitHub repo (owner/repo or full URL)');
@@ -159,7 +206,6 @@ export default function DatabaseVisualizer() {
 
       if (!modelFiles.length) throw new Error('No models.py files found in this repository');
 
-      // Group by app folder (parent directory)
       const folderMap = new Map<string, string[]>();
       for (const fp of modelFiles) {
         const folder = fp.includes('/') ? fp.substring(0, fp.lastIndexOf('/')) : '(root)';
@@ -185,7 +231,6 @@ export default function DatabaseVisualizer() {
     }
   }
 
-  // ── Repo: scan local folder ──────────────────────────────────────────────
   async function scanLocalFolder() {
     setError(null);
     setLoading(true);
@@ -243,7 +288,6 @@ export default function DatabaseVisualizer() {
     }
   }
 
-  // ── Repo: parse selected apps ────────────────────────────────────────────
   async function parseSelectedApps() {
     setError(null);
     setLoading(true);
@@ -254,13 +298,11 @@ export default function DatabaseVisualizer() {
       const contents: { path: string; content: string }[] = [];
 
       if (repoOwnerRef.current) {
-        // GitHub
         await Promise.all(allPaths.map(async (fp) => {
           const text = await (GitHub as any).getFile(repoOwnerRef.current, repoNameRef.current, fp, repoBranchRef.current);
           if (text) contents.push({ path: fp, content: text });
         }));
       } else {
-        // Local
         for (const fp of allPaths) {
           const text = localFilesRef.current.get(fp);
           if (text) contents.push({ path: fp, content: text });
@@ -277,7 +319,6 @@ export default function DatabaseVisualizer() {
 
       if (!allTables.length) throw new Error('No Django models found in the selected apps. Make sure the files contain classes extending models.Model.');
 
-      // Deduplicate by model name
       const seen = new Map<string, typeof allTables[0]>();
       allTables.forEach(t => seen.set(t.name.toLowerCase(), t));
 
@@ -312,155 +353,376 @@ export default function DatabaseVisualizer() {
     setFocusedTable(null);
   }
 
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '0.75rem', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-glass)', borderRadius: 6, color: 'white', fontFamily: 'inherit', fontSize: 14, boxSizing: 'border-box' };
-  const labelStyle: React.CSSProperties = { display: 'block', marginBottom: '0.4rem', color: 'var(--text-secondary)', fontSize: 13 };
+  // ── GG shared input style ────────────────────────────────────────────────
+  const ggInput: React.CSSProperties = {
+    width: '100%',
+    height: 38,
+    padding: '0 12px',
+    background: GG.bg1,
+    border: `1px solid ${GG.lineStrong}`,
+    borderRadius: 8,
+    color: GG.fg,
+    fontFamily: GG.mono,
+    fontSize: 13,
+    outline: 'none',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+  };
 
+  const ggLabel: React.CSSProperties = {
+    display: 'block',
+    marginBottom: 6,
+    color: GG.fg3,
+    fontSize: 11,
+    fontFamily: GG.mono,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.08em',
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)' }}>
-      <button
-        onClick={() => navigate('/workspace')}
-        style={{
-          position: 'fixed',
-          top: '16px',
-          left: '16px',
-          zIndex: 1000,
-          background: '#21262d',
-          border: '1px solid #30363d',
-          color: '#f0f6fc',
-          padding: '8px 16px',
-          borderRadius: '6px',
-          fontSize: '0.875rem',
-          fontWeight: 600,
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-        }}
-      >
-        ← Workspace
-      </button>
-      {/* Header */}
-      <header className="glass-panel" style={{ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none', padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: 14 }}>
-            <ArrowLeft size={18} /> Back
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderLeft: '1px solid var(--border-glass)', paddingLeft: '1rem' }}>
-            <Database size={22} color="var(--accent-purple)" />
-            <h2 style={{ fontSize: '1.15rem', margin: 0 }}>Database Visualizer</h2>
-          </div>
-        </div>
-        {schema && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{schema.tables.length} tables · {fkCount} relationships</span>
-            {migrationApps.length > 0 && (
-              <button className="btn-secondary" style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => { setMigrationApp(selectedApp !== 'all' ? selectedApp : migrationApps[0] || 'all'); setShowMigrationEditor(true); }}>
-                <FileCode size={16} /> Migration
-              </button>
-            )}
-            <button className="btn-secondary" style={{ padding: '7px 14px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => { setSchema(null); setError(null); setSqlFileName(''); resetRepo(); }}>
-              <LayoutDashboard size={16} /> New Connection
-            </button>
-          </div>
-        )}
-      </header>
+    <div style={{ minHeight: '100vh', background: GG.bg, color: GG.fg, fontFamily: GG.sans, display: 'flex', flexDirection: 'column' }}>
 
-      <main style={{ flex: 1, display: 'flex', alignItems: schema ? 'stretch' : 'center', justifyContent: 'center', padding: schema ? 0 : '2rem', overflow: 'hidden' }}>
-        <AnimatePresence mode="wait">
-          {!schema ? (
-            <motion.div key="form" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} className="glass-panel" style={{ width: '100%', maxWidth: 560, padding: '2rem' }}>
-              {/* Tab switcher */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: '1.5rem', borderBottom: '1px solid var(--border-glass)', paddingBottom: '1rem' }}>
-                {(['credentials', 'file', 'repo'] as const).map(t => (
-                  <button key={t} onClick={() => { setConnectType(t); setError(null); }} style={{ flex: 1, background: connectType === t ? 'rgba(167,139,250,0.15)' : 'transparent', color: connectType === t ? 'var(--accent-purple)' : 'var(--text-secondary)', border: connectType === t ? '1px solid rgba(167,139,250,0.3)' : '1px solid transparent', padding: '0.65rem', borderRadius: 7, cursor: 'pointer', fontWeight: 600, fontSize: 13, transition: 'all 0.2s' }}>
-                    {t === 'credentials' ? '🔌 Credentials' : t === 'file' ? '📄 SQL Dump' : '🗂 Repository'}
-                  </button>
-                ))}
+      {/* ── Nav ── */}
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 100,
+        background: `${GG.panel}cc`,
+        backdropFilter: 'blur(12px)',
+        borderBottom: `1px solid ${GG.lineStrong}`,
+        padding: '0 24px',
+        height: 48,
+        display: 'flex', alignItems: 'center', gap: 16,
+      }}>
+        <span style={{ fontFamily: GG.mono, fontSize: 13, color: GG.accent, fontWeight: 700 }}>gitgraph/0.4.2</span>
+        <span style={{ color: GG.fg4, fontSize: 13, fontFamily: GG.mono }}>›</span>
+        <span style={{ fontFamily: GG.mono, fontSize: 13, color: GG.fg3 }}>workspace</span>
+        <span style={{ color: GG.fg4, fontSize: 13, fontFamily: GG.mono }}>›</span>
+        <span style={{ fontFamily: GG.mono, fontSize: 13, color: GG.info }}>db-visualizer</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
+          {schema && migrationApps.length > 0 && (
+            <button
+              onClick={() => { setMigrationApp(selectedApp !== 'all' ? selectedApp : migrationApps[0] || 'all'); setShowMigrationEditor(true); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg2, fontSize: 12, fontFamily: GG.mono, cursor: 'pointer' }}
+            >
+              <FileCode size={14} /> Migration
+            </button>
+          )}
+          {schema && (
+            <button
+              onClick={() => { setSchema(null); setError(null); setSqlFileName(''); resetRepo(); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg2, fontSize: 12, fontFamily: GG.mono, cursor: 'pointer' }}
+            >
+              <LayoutDashboard size={14} /> New Connection
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* ── Page header ── */}
+      <div style={{ padding: '32px 32px 0', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box' as const }}>
+        {/* breadcrumb */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+          <button
+            onClick={() => navigate('/workspace')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: GG.fg3, fontFamily: GG.mono, fontSize: 12, cursor: 'pointer', padding: 0 }}
+          >
+            <ArrowLeft size={14} /> workspace
+          </button>
+          <span style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 12 }}>›</span>
+          <span style={{ color: GG.fg2, fontFamily: GG.mono, fontSize: 12 }}>database_visualizer</span>
+        </div>
+
+        {/* h1 */}
+        <h1 style={{ fontFamily: GG.mono, fontSize: 22, fontWeight: 700, color: GG.fg, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+          <span style={{ color: GG.fg3 }}>›</span> connect_database
+          <span style={{ opacity: cursorVisible ? 1 : 0, color: GG.accent, marginLeft: 3 }}>█</span>
+        </h1>
+        <p style={{ fontFamily: GG.sans, fontSize: 14, color: GG.fg3, margin: '0 0 6px' }}>
+          Pick a data source, configure credentials, and explore your schema as an interactive ER diagram.
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: GG.accent, display: 'inline-block', boxShadow: `0 0 6px ${GG.accent}` }} />
+          <span style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg3 }}>
+            tunnel ready · {schema ? schema.tables.length : 0} connection{schema ? 's' : ''} cached
+          </span>
+        </div>
+      </div>
+
+      {/* ── 3-column card (pre-schema) ── */}
+      {!schema ? (
+        <div style={{ flex: 1, padding: '0 32px 32px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box' as const }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '320px 1fr 360px',
+            gap: 1,
+            background: GG.lineStrong,
+            borderRadius: 12,
+            overflow: 'hidden',
+            border: `1px solid ${GG.lineStrong}`,
+          }}>
+
+            {/* ── Left: Sources ── */}
+            <div style={{ background: GG.panel, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                Data Sources
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {SOURCES.map(src => {
+                  const active = activeSourceId === src.id;
+                  return (
+                    <button
+                      key={src.id}
+                      onClick={() => {
+                        setActiveSourceId(src.id);
+                        setConnectType(src.connectType);
+                        if (src.dbType) setDbType(src.dbType);
+                        if (src.dbType === 'postgres') setPort('5432');
+                        if (src.dbType === 'mysql') setPort('3306');
+                        setError(null);
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '9px 12px',
+                        background: active ? `${GG.accent}18` : 'transparent',
+                        border: `1px solid ${active ? GG.accent + '44' : 'transparent'}`,
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <span style={{ fontSize: 16, lineHeight: 1 }}>{src.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: GG.sans, fontSize: 13, color: active ? GG.accent : GG.fg2, fontWeight: active ? 600 : 400 }}>{src.label}</div>
+                      </div>
+                      {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: GG.accent, flexShrink: 0 }} />}
+                    </button>
+                  );
+                })}
               </div>
 
+              {/* Recent section */}
+              <div style={{ marginTop: 8, borderTop: `1px solid ${GG.line}`, paddingTop: 16 }}>
+                <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
+                  Recent
+                </div>
+                <div style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg4, fontStyle: 'italic' }}>
+                  No recent connections
+                </div>
+              </div>
+            </div>
+
+            {/* ── Middle: Form ── */}
+            <div style={{ background: GG.bg2, padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Form header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 20 }}>
+                  {SOURCES.find(s => s.id === activeSourceId)?.icon ?? '🔌'}
+                </span>
+                <div>
+                  <div style={{ fontFamily: GG.mono, fontSize: 14, color: GG.fg, fontWeight: 700 }}>
+                    connect to {SOURCES.find(s => s.id === activeSourceId)?.label?.toLowerCase() ?? connectType}
+                  </div>
+                  <div style={{ fontFamily: GG.sans, fontSize: 12, color: GG.fg3, marginTop: 2 }}>
+                    {connectType === 'credentials' ? 'Enter your database credentials below' : connectType === 'file' ? 'Upload a SQL dump file' : 'Scan a repository for Django models'}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Credentials form ── */}
               {connectType === 'credentials' && (
-                <motion.div key="creds" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <motion.div key="creds" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* DB type pills */}
                   <div style={{ display: 'flex', gap: 8 }}>
                     {(['postgres', 'mysql'] as const).map(t => (
-                      <button key={t} onClick={() => { setDbType(t); setPort(t === 'postgres' ? '5432' : '3306'); }} style={{ flex: 1, padding: '0.55rem', background: dbType === t ? 'rgba(77,159,255,0.15)' : 'rgba(0,0,0,0.2)', border: dbType === t ? '1px solid rgba(77,159,255,0.4)' : '1px solid var(--border-glass)', borderRadius: 6, color: dbType === t ? 'var(--accent-blue)' : 'var(--text-secondary)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                      <button key={t} onClick={() => { setDbType(t); setPort(t === 'postgres' ? '5432' : '3306'); }} style={{
+                        flex: 1, padding: '7px 0',
+                        background: dbType === t ? `${GG.info}18` : GG.bg1,
+                        border: `1px solid ${dbType === t ? GG.info + '55' : GG.lineStrong}`,
+                        borderRadius: 8, color: dbType === t ? GG.info : GG.fg3,
+                        fontFamily: GG.mono, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}>
                         {t === 'postgres' ? '🐘 PostgreSQL' : '🐬 MySQL'}
                       </button>
                     ))}
                   </div>
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+
+                  <div style={{ display: 'flex', gap: 12 }}>
                     <div style={{ flex: 2 }}>
-                      <label style={labelStyle}>Host</label>
-                      <input style={inputStyle} value={host} onChange={e => setHost(e.target.value)} placeholder="localhost" />
+                      <label style={ggLabel}>Host</label>
+                      <input style={ggInput} value={host} onChange={e => setHost(e.target.value)} placeholder="localhost" />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={labelStyle}>Port</label>
-                      <input style={inputStyle} value={port} onChange={e => setPort(e.target.value)} placeholder={dbType === 'postgres' ? '5432' : '3306'} />
+                      <label style={ggLabel}>Port</label>
+                      <input style={ggInput} value={port} onChange={e => setPort(e.target.value)} placeholder={dbType === 'postgres' ? '5432' : '3306'} />
                     </div>
                   </div>
+
                   <div>
-                    <label style={labelStyle}>Database Name</label>
-                    <input style={inputStyle} value={database} onChange={e => setDatabase(e.target.value)} placeholder="my_database" />
+                    <label style={ggLabel}>Database</label>
+                    <input style={ggInput} value={database} onChange={e => setDatabase(e.target.value)} placeholder="my_database" />
                   </div>
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+
+                  <div style={{ display: 'flex', gap: 12 }}>
                     <div style={{ flex: 1 }}>
-                      <label style={labelStyle}>Username</label>
-                      <input style={inputStyle} value={user} onChange={e => setUser(e.target.value)} placeholder={dbType === 'postgres' ? 'postgres' : 'root'} />
+                      <label style={ggLabel}>Username</label>
+                      <input style={ggInput} value={user} onChange={e => setUser(e.target.value)} placeholder={dbType === 'postgres' ? 'postgres' : 'root'} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={labelStyle}>Password</label>
-                      <input type="password" style={inputStyle} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
+                      <label style={ggLabel}>Password</label>
+                      <input type="password" style={ggInput} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
                     </div>
                   </div>
-                  {error && <ErrorBanner msg={error} />}
-                  <button className="btn-primary" style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={connect} disabled={loading || !database}>
-                    {loading ? <><Loader size={16} className="spin" /> Connecting...</> : <><Play size={16} /> Connect & Analyze</>}
-                  </button>
+
+                  {/* Toggles */}
+                  <div style={{ display: 'flex', gap: 20 }}>
+                    <Toggle label="SSL" value={sslEnabled} onChange={setSslEnabled} />
+                    <Toggle label="Read-only" value={readOnly} onChange={setReadOnly} />
+                  </div>
+
+                  {/* Connection string preview */}
+                  {connString && (
+                    <div style={{
+                      background: GG.bg1, border: `1px solid ${GG.line}`,
+                      borderRadius: 8, padding: '8px 12px',
+                      fontFamily: GG.mono, fontSize: 11, color: GG.fg3,
+                      wordBreak: 'break-all',
+                    }}>
+                      <span style={{ color: GG.fg4, marginRight: 6 }}>$</span>{connString}
+                    </div>
+                  )}
+
+                  {error && <GGErrorBanner msg={error} />}
+
+                  <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                    <button
+                      onClick={connect}
+                      disabled={loading || !database}
+                      style={{
+                        flex: 1, height: 40,
+                        background: loading || !database ? GG.fg4 + '33' : GG.accent,
+                        border: 'none', borderRadius: 8,
+                        color: loading || !database ? GG.fg4 : GG.bg,
+                        fontFamily: GG.mono, fontSize: 13, fontWeight: 700,
+                        cursor: loading || !database ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {loading ? <><Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> connecting…</> : <><Play size={14} /> connect & analyze ↵</>}
+                    </button>
+                    <button
+                      onClick={() => { /* test only */ connect(); }}
+                      disabled={loading || !database}
+                      style={{
+                        padding: '0 18px', height: 40,
+                        background: 'transparent',
+                        border: `1px solid ${GG.lineStrong}`,
+                        borderRadius: 8, color: GG.fg3,
+                        fontFamily: GG.mono, fontSize: 12, cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      test connection
+                    </button>
+                  </div>
                 </motion.div>
               )}
 
+              {/* ── File / SQL Dump form ── */}
               {connectType === 'file' && (
-                <motion.div key="file" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <motion.div key="file" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <div
-                    style={{ padding: '2.5rem', border: `2px dashed ${error ? 'rgba(255,95,95,0.5)' : 'var(--border-glass)'}`, borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                    style={{
+                      padding: '3rem 2rem',
+                      border: `2px dashed ${error ? '#f8514944' : GG.lineStrong}`,
+                      borderRadius: 12,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      background: GG.bg1,
+                    }}
                     onClick={() => fileInputRef.current?.click()}
                     onDragOver={e => e.preventDefault()}
                     onDrop={handleFileDrop}
                   >
-                    <Upload size={40} color="var(--text-secondary)" />
+                    <Upload size={36} color={GG.fg4} />
                     <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: 'var(--text-primary)', margin: 0, fontWeight: 600 }}>{sqlFileName || 'Drop your .sql file here'}</p>
-                      <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0', fontSize: 13 }}>or click to browse — supports PostgreSQL & MySQL dumps</p>
+                      <p style={{ color: GG.fg, margin: 0, fontFamily: GG.mono, fontSize: 13, fontWeight: 600 }}>
+                        {sqlFileName || 'drop your .sql file here'}
+                      </p>
+                      <p style={{ color: GG.fg3, margin: '6px 0 0', fontSize: 12, fontFamily: GG.sans }}>
+                        or click to browse — supports PostgreSQL & MySQL dumps
+                      </p>
                     </div>
                     <input ref={fileInputRef} type="file" accept=".sql,.txt" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) parseSqlFile(f); }} />
                   </div>
-                  {error && <ErrorBanner msg={error} />}
-                  {loading && <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 13 }}><Loader size={16} className="spin" /> Parsing SQL…</div>}
+                  {error && <GGErrorBanner msg={error} />}
+                  {loading && (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, color: GG.fg3, fontSize: 12, fontFamily: GG.mono }}>
+                      <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> parsing SQL…
+                    </div>
+                  )}
                 </motion.div>
               )}
 
+              {/* ── Repo form ── */}
               {connectType === 'repo' && (
-                <motion.div key="repo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <motion.div key="repo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {repoStep === 'input' && (
                     <>
-                      <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6 }}>
-                        Scan a GitHub repo or local folder for Django <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 5px', borderRadius: 4 }}>models.py</code> files, then pick which apps to visualize.
+                      <p style={{ margin: 0, color: GG.fg3, fontSize: 13, lineHeight: 1.6, fontFamily: GG.sans }}>
+                        Scan a GitHub repo or local folder for Django{' '}
+                        <code style={{ background: GG.bg1, padding: '2px 6px', borderRadius: 4, fontFamily: GG.mono, fontSize: 12, color: GG.cyan }}>models.py</code>{' '}
+                        files, then pick which apps to visualize.
                       </p>
                       <div>
-                        <label style={labelStyle}>GitHub Repository</label>
-                        <input style={inputStyle} value={repoUrl} onChange={e => setRepoUrl(e.target.value)} placeholder="owner/repo or https://github.com/owner/repo" />
+                        <label style={ggLabel}>GitHub Repository URL</label>
+                        <input style={ggInput} value={repoUrl} onChange={e => setRepoUrl(e.target.value)} placeholder="owner/repo or https://github.com/owner/repo" />
                       </div>
                       <div>
-                        <label style={labelStyle}>Personal Access Token <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(optional, for private repos)</span></label>
-                        <input type="password" style={inputStyle} value={repoToken} onChange={e => setRepoToken(e.target.value)} placeholder="ghp_..." />
+                        <label style={ggLabel}>
+                          Personal Access Token{' '}
+                          <span style={{ color: GG.fg4, textTransform: 'none', letterSpacing: 0 }}>(optional, for private repos)</span>
+                        </label>
+                        <input type="password" style={ggInput} value={repoToken} onChange={e => setRepoToken(e.target.value)} placeholder="ghp_..." />
                       </div>
-                      {repoStatus && <div style={{ color: 'var(--text-secondary)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}><Loader size={13} className="spin" /> {repoStatus}</div>}
-                      {error && <ErrorBanner msg={error} />}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn-primary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={scanGitHubRepo} disabled={loading || !repoUrl.trim()}>
-                          {loading ? <><Loader size={16} className="spin" /> Scanning…</> : <><GitBranch size={16} /> Scan GitHub Repo</>}
+                      {repoStatus && (
+                        <div style={{ color: GG.fg3, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, fontFamily: GG.mono }}>
+                          <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> {repoStatus}
+                        </div>
+                      )}
+                      {error && <GGErrorBanner msg={error} />}
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button
+                          onClick={scanGitHubRepo}
+                          disabled={loading || !repoUrl.trim()}
+                          style={{
+                            flex: 1, height: 40,
+                            background: loading || !repoUrl.trim() ? GG.fg4 + '22' : GG.accent,
+                            border: 'none', borderRadius: 8,
+                            color: loading || !repoUrl.trim() ? GG.fg4 : GG.bg,
+                            fontFamily: GG.mono, fontSize: 12, fontWeight: 700,
+                            cursor: loading || !repoUrl.trim() ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          }}
+                        >
+                          {loading ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> scanning…</> : <><GitBranch size={14} /> Scan GitHub Repo</>}
                         </button>
-                        <button className="btn-secondary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={scanLocalFolder} disabled={loading}>
-                          <FolderOpen size={16} /> Local Folder
+                        <button
+                          onClick={scanLocalFolder}
+                          disabled={loading}
+                          style={{
+                            flex: 1, height: 40,
+                            background: 'transparent',
+                            border: `1px solid ${GG.lineStrong}`,
+                            borderRadius: 8, color: GG.fg2,
+                            fontFamily: GG.mono, fontSize: 12, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          }}
+                        >
+                          <FolderOpen size={14} /> Local Folder
                         </button>
                       </div>
                     </>
@@ -469,87 +731,267 @@ export default function DatabaseVisualizer() {
                   {repoStep === 'select' && (
                     <>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Found {appFolders.length} app{appFolders.length !== 1 ? 's' : ''} with models — select which to visualize:</span>
-                        <button onClick={resetRepo} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 12 }}>← back</button>
+                        <span style={{ fontSize: 12, color: GG.fg3, fontFamily: GG.mono }}>
+                          {appFolders.length} app{appFolders.length !== 1 ? 's' : ''} found — select which to visualize
+                        </span>
+                        <button onClick={resetRepo} style={{ background: 'none', border: 'none', color: GG.fg3, cursor: 'pointer', fontSize: 12, fontFamily: GG.mono }}>← back</button>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
                         {appFolders.map(app => {
                           const sel = selectedApps.has(app.path);
                           return (
-                            <button key={app.path} onClick={() => toggleApp(app.path)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0.6rem 0.9rem', background: sel ? 'rgba(167,139,250,0.12)' : 'rgba(0,0,0,0.2)', border: sel ? '1px solid rgba(167,139,250,0.4)' : '1px solid var(--border-glass)', borderRadius: 7, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
-                              <div style={{ width: 18, height: 18, borderRadius: 4, border: sel ? '2px solid var(--accent-purple)' : '2px solid var(--border-glass)', background: sel ? 'var(--accent-purple)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                {sel && <Check size={11} color="#0d0d1a" strokeWidth={3} />}
+                            <button key={app.path} onClick={() => toggleApp(app.path)} style={{
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '9px 12px',
+                              background: sel ? `${GG.magenta}14` : GG.bg1,
+                              border: `1px solid ${sel ? GG.magenta + '44' : GG.lineStrong}`,
+                              borderRadius: 8, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                            }}>
+                              <div style={{
+                                width: 16, height: 16, borderRadius: 4,
+                                border: `2px solid ${sel ? GG.magenta : GG.fg4}`,
+                                background: sel ? GG.magenta : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                              }}>
+                                {sel && <Check size={10} color={GG.bg} strokeWidth={3} />}
                               </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ color: sel ? 'var(--accent-purple)' : 'var(--text-primary)', fontWeight: 600, fontSize: 13 }}>{app.label}</div>
-                                <div style={{ color: 'var(--text-secondary)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{app.path}</div>
+                                <div style={{ color: sel ? GG.magenta : GG.fg, fontWeight: 600, fontSize: 13, fontFamily: GG.mono }}>{app.label}</div>
+                                <div style={{ color: GG.fg4, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: GG.mono }}>{app.path}</div>
                               </div>
-                              <span style={{ color: 'var(--text-secondary)', fontSize: 11, flexShrink: 0 }}>{app.filePaths.length} file{app.filePaths.length !== 1 ? 's' : ''}</span>
+                              <span style={{ color: GG.fg4, fontSize: 11, flexShrink: 0, fontFamily: GG.mono }}>{app.filePaths.length}f</span>
                             </button>
                           );
                         })}
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button className="btn-secondary" style={{ fontSize: 12, padding: '5px 10px' }} onClick={() => setSelectedApps(new Set(appFolders.map(f => f.path)))}>All</button>
-                        <button className="btn-secondary" style={{ fontSize: 12, padding: '5px 10px' }} onClick={() => setSelectedApps(new Set())}>None</button>
+                        <button onClick={() => setSelectedApps(new Set(appFolders.map(f => f.path)))} style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg3, fontSize: 11, fontFamily: GG.mono, cursor: 'pointer' }}>all</button>
+                        <button onClick={() => setSelectedApps(new Set())} style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg3, fontSize: 11, fontFamily: GG.mono, cursor: 'pointer' }}>none</button>
                       </div>
-                      {repoStatus && <div style={{ color: 'var(--text-secondary)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}><Loader size={13} className="spin" /> {repoStatus}</div>}
-                      {error && <ErrorBanner msg={error} />}
-                      <button className="btn-primary" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }} onClick={parseSelectedApps} disabled={loading || selectedApps.size === 0}>
-                        {loading ? <><Loader size={16} className="spin" /> Parsing…</> : <><ChevronRight size={16} /> Visualize {selectedApps.size} App{selectedApps.size !== 1 ? 's' : ''}</>}
+                      {repoStatus && (
+                        <div style={{ color: GG.fg3, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, fontFamily: GG.mono }}>
+                          <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> {repoStatus}
+                        </div>
+                      )}
+                      {error && <GGErrorBanner msg={error} />}
+                      <button
+                        onClick={parseSelectedApps}
+                        disabled={loading || selectedApps.size === 0}
+                        style={{
+                          height: 40,
+                          background: loading || selectedApps.size === 0 ? GG.fg4 + '22' : GG.accent,
+                          border: 'none', borderRadius: 8,
+                          color: loading || selectedApps.size === 0 ? GG.fg4 : GG.bg,
+                          fontFamily: GG.mono, fontSize: 12, fontWeight: 700,
+                          cursor: loading || selectedApps.size === 0 ? 'not-allowed' : 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        }}
+                      >
+                        {loading ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> parsing…</> : <><ChevronRight size={14} /> Visualize {selectedApps.size} app{selectedApps.size !== 1 ? 's' : ''}</>}
                       </button>
                     </>
                   )}
                 </motion.div>
               )}
-            </motion.div>
-          ) : (
-            <motion.div key="diagram" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                <input value={graphSearch} onChange={e => { setGraphSearch(e.target.value); setFocusedTable(null); }} placeholder="Search tables or columns" style={{ ...inputStyle, width: 260, padding: '0.5rem 0.65rem', fontSize: 12 }} />
-                {appOptions.length > 0 && (
-                  <select value={selectedApp} onChange={e => { setSelectedApp(e.target.value); setFocusedTable(null); }} style={{ ...inputStyle, width: 180, padding: '0.5rem 0.65rem', fontSize: 12 }}>
-                    <option value="all">All apps</option>
-                    {appOptions.map(app => <option key={app} value={app}>{app}</option>)}
-                  </select>
-                )}
-                <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{visibleSchema?.tables.length ?? 0} visible</span>
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                {(visibleSchema?.tables || schema.tables).slice(0, 8).map(t => (
-                  <button key={t.name} onClick={() => setFocusedTable(prev => prev === t.name ? null : t.name)} style={{ padding: '4px 10px', background: focusedTable === t.name ? 'rgba(0,255,157,0.12)' : 'rgba(167,139,250,0.1)', border: focusedTable === t.name ? '1px solid rgba(0,255,157,0.4)' : '1px solid rgba(167,139,250,0.25)', borderRadius: 6, fontSize: 12, color: focusedTable === t.name ? 'var(--accent-green)' : 'var(--accent-purple)', cursor: 'pointer' }}>
-                    {t.name} <span style={{ color: 'var(--text-secondary)' }}>({t.columns.length} cols)</span>
-                  </button>
-                ))}
-                {(visibleSchema?.tables.length || 0) > 8 && <div style={{ padding: '4px 10px', color: 'var(--text-secondary)', fontSize: 12 }}>+{(visibleSchema?.tables.length || 0) - 8} more</div>}
-              </div>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <ERDiagramGraph schema={visibleSchema || schema} selectedTable={focusedTable} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
-      {showMigrationEditor && schema && (
-        <div onClick={() => setShowMigrationEditor(false)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-          <div onClick={e => e.stopPropagation()} style={{ width: 'min(980px, 94vw)', height: 'min(760px, 88vh)', background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', borderRadius: 10, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 28px 90px rgba(0,0,0,0.55)' }}>
-            <div style={{ padding: '0.9rem 1rem', borderBottom: '1px solid var(--border-glass)', display: 'flex', gap: 10, alignItems: 'center' }}>
-              <Wand2 size={18} color="var(--accent-green)" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 14 }}>Django migration editor</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>Drafted from the parsed model schema. Review it before running it in your Django project.</div>
-              </div>
-              <button onClick={() => setShowMigrationEditor(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
             </div>
-            <div style={{ padding: '0.85rem 1rem', borderBottom: '1px solid var(--border-glass)', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ color: 'var(--text-secondary)', fontSize: 12 }}>App</label>
-              <select value={migrationApp} onChange={e => setMigrationApp(e.target.value)} style={{ ...inputStyle, width: 180, padding: '0.45rem 0.6rem', fontSize: 12 }}>
+
+            {/* ── Right: Preview ── */}
+            <div style={{ background: GG.panel, padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                Schema Preview
+              </div>
+
+              {/* Mini static SVG preview */}
+              <div style={{ background: GG.bg2, borderRadius: 10, border: `1px solid ${GG.line}`, padding: '14px', overflow: 'hidden' }}>
+                <MiniSchemaPreview />
+              </div>
+
+              {/* What we read checklist */}
+              <div style={{ background: GG.bg2, borderRadius: 8, border: `1px solid ${GG.line}`, padding: '12px 14px' }}>
+                <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                  What we read
+                </div>
+                {[
+                  { label: 'table metadata', ok: true },
+                  { label: 'foreign keys', ok: true },
+                  { label: 'view definitions', ok: true },
+                  { label: 'row data', ok: false },
+                  { label: 'stored procedures', ok: true },
+                ].map(item => (
+                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontFamily: GG.mono, fontSize: 12, color: item.ok ? GG.accent : GG.fg4 }}>
+                      {item.ok ? '✓' : '✗'}
+                    </span>
+                    <span style={{
+                      fontFamily: GG.mono, fontSize: 12,
+                      color: item.ok ? GG.fg2 : GG.fg4,
+                      textDecoration: item.ok ? 'none' : 'line-through',
+                    }}>
+                      {item.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Security info */}
+              <div style={{
+                background: `${GG.info}0d`,
+                border: `1px solid ${GG.info}33`,
+                borderRadius: 8, padding: '10px 12px',
+              }}>
+                <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.info, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                  Security
+                </div>
+                <p style={{ margin: 0, fontFamily: GG.sans, fontSize: 11, color: GG.fg3, lineHeight: 1.6 }}>
+                  Credentials are never stored. Connections run server-side over a local tunnel. Schema metadata only — no row data is read.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Keyboard hints bar ── */}
+          <div style={{
+            marginTop: 12, display: 'flex', gap: 20, alignItems: 'center',
+            padding: '8px 16px',
+            background: GG.bg1, borderRadius: 8, border: `1px solid ${GG.line}`,
+          }}>
+            {[
+              { key: 'tab', desc: 'next field' },
+              { key: '⌘↵', desc: 'connect' },
+              { key: '⌘,', desc: 'settings' },
+              { key: 'esc', desc: 'cancel' },
+            ].map(h => (
+              <span key={h.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: GG.mono, fontSize: 11, color: GG.fg4 }}>
+                <kbd style={{ background: GG.bg2, border: `1px solid ${GG.lineStrong}`, borderRadius: 4, padding: '1px 6px', color: GG.fg3, fontSize: 10 }}>{h.key}</kbd>
+                {h.desc}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* ── Schema loaded: full-screen ER diagram ── */
+        <motion.div key="diagram" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ flex: 1, padding: '0 32px 32px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box' as const, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Toolbar */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: '0 0 260px' }}>
+              <input
+                value={graphSearch}
+                onChange={e => { setGraphSearch(e.target.value); setFocusedTable(null); }}
+                placeholder="search tables or columns…"
+                style={{ ...ggInput, paddingLeft: 12, fontSize: 12 }}
+              />
+            </div>
+            {appOptions.length > 0 && (
+              <select
+                value={selectedApp}
+                onChange={e => { setSelectedApp(e.target.value); setFocusedTable(null); }}
+                style={{ ...ggInput, width: 180, fontSize: 12 }}
+              >
+                <option value="all">all apps</option>
+                {appOptions.map(app => <option key={app} value={app}>{app}</option>)}
+              </select>
+            )}
+            <span style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg4 }}>
+              {visibleSchema?.tables.length ?? 0} visible · {schema.tables.length} total · {fkCount} FK
+            </span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {(visibleSchema?.tables || schema.tables).slice(0, 6).map(t => (
+                <button
+                  key={t.name}
+                  onClick={() => setFocusedTable(prev => prev === t.name ? null : t.name)}
+                  style={{
+                    padding: '4px 10px',
+                    background: focusedTable === t.name ? `${GG.accent}1a` : GG.bg1,
+                    border: `1px solid ${focusedTable === t.name ? GG.accent + '55' : GG.lineStrong}`,
+                    borderRadius: 6, fontSize: 11,
+                    color: focusedTable === t.name ? GG.accent : GG.fg3,
+                    fontFamily: GG.mono, cursor: 'pointer',
+                  }}
+                >
+                  {t.name}
+                </button>
+              ))}
+              {(visibleSchema?.tables.length || 0) > 6 && (
+                <span style={{ padding: '4px 10px', color: GG.fg4, fontSize: 11, fontFamily: GG.mono }}>
+                  +{(visibleSchema?.tables.length || 0) - 6} more
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ER Diagram panel */}
+          <div style={{ flex: 1, background: GG.panel, borderRadius: 12, border: `1px solid ${GG.lineStrong}`, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
+            {/* Search bar above diagram */}
+            <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 10, display: 'flex', gap: 8 }}>
+              <input
+                value={graphSearch}
+                onChange={e => { setGraphSearch(e.target.value); setFocusedTable(null); }}
+                placeholder="search schema…"
+                style={{
+                  ...ggInput,
+                  width: 200,
+                  height: 32,
+                  fontSize: 11,
+                  background: `${GG.bg}cc`,
+                  backdropFilter: 'blur(8px)',
+                }}
+              />
+            </div>
+            <ERDiagramGraph schema={visibleSchema || schema} selectedTable={focusedTable} />
+          </div>
+
+          {/* Keyboard hints bar */}
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center', padding: '8px 16px', background: GG.bg1, borderRadius: 8, border: `1px solid ${GG.line}` }}>
+            {[
+              { key: 'tab', desc: 'next field' },
+              { key: '⌘↵', desc: 'connect' },
+              { key: '⌘,', desc: 'settings' },
+              { key: 'esc', desc: 'cancel' },
+            ].map(h => (
+              <span key={h.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: GG.mono, fontSize: 11, color: GG.fg4 }}>
+                <kbd style={{ background: GG.bg2, border: `1px solid ${GG.lineStrong}`, borderRadius: 4, padding: '1px 6px', color: GG.fg3, fontSize: 10 }}>{h.key}</kbd>
+                {h.desc}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── Migration editor modal ── */}
+      {showMigrationEditor && schema && (
+        <div
+          onClick={() => setShowMigrationEditor(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ width: 'min(980px, 94vw)', height: 'min(760px, 88vh)', background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 28px 90px rgba(0,0,0,0.6)' }}
+          >
+            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${GG.lineStrong}`, display: 'flex', gap: 10, alignItems: 'center' }}>
+              <Wand2 size={17} color={GG.accent} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: GG.fg, fontWeight: 700, fontSize: 14, fontFamily: GG.mono }}>Django migration editor</div>
+                <div style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.sans }}>Drafted from the parsed model schema. Review it before running it in your Django project.</div>
+              </div>
+              <button onClick={() => setShowMigrationEditor(false)} style={{ background: 'none', border: 'none', color: GG.fg3, cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${GG.lineStrong}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.mono }}>App</label>
+              <select
+                value={migrationApp}
+                onChange={e => setMigrationApp(e.target.value)}
+                style={{ ...ggInput, width: 180, height: 32, fontSize: 12 }}
+              >
                 <option value="all">All parsed apps</option>
                 {migrationApps.map(app => <option key={app} value={app}>{app}</option>)}
               </select>
-              <label style={{ color: 'var(--text-secondary)', fontSize: 12 }}>Name</label>
-              <input value={migrationName} onChange={e => setMigrationName(e.target.value.replace(/[^\w]/g, '_'))} style={{ ...inputStyle, width: 240, padding: '0.45rem 0.6rem', fontSize: 12 }} />
-              <code style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontSize: 12, background: 'rgba(255,255,255,0.06)', padding: '5px 8px', borderRadius: 6 }}>
+              <label style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.mono }}>Name</label>
+              <input
+                value={migrationName}
+                onChange={e => setMigrationName(e.target.value.replace(/[^\w]/g, '_'))}
+                style={{ ...ggInput, width: 240, height: 32, fontSize: 12 }}
+              />
+              <code style={{ marginLeft: 'auto', color: GG.fg3, fontSize: 11, background: GG.bg2, padding: '4px 8px', borderRadius: 6, fontFamily: GG.mono }}>
                 python manage.py makemigrations{migrationApp !== 'all' ? ` ${migrationApp}` : ''}
               </code>
             </div>
@@ -557,15 +999,100 @@ export default function DatabaseVisualizer() {
               value={migrationDraft}
               onChange={e => setMigrationDraft(e.target.value)}
               spellCheck={false}
-              style={{ flex: 1, width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'rgba(0,0,0,0.28)', color: 'var(--accent-green)', padding: '1rem', fontFamily: 'JetBrains Mono, Consolas, monospace', fontSize: 12, lineHeight: 1.55, boxSizing: 'border-box', whiteSpace: 'pre', overflowWrap: 'normal' }}
+              style={{
+                flex: 1, width: '100%', resize: 'none', border: 'none', outline: 'none',
+                background: GG.bg, color: GG.accent,
+                padding: '1rem', fontFamily: GG.mono, fontSize: 12,
+                lineHeight: 1.55, boxSizing: 'border-box',
+                whiteSpace: 'pre', overflowWrap: 'normal',
+              }}
             />
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
 
+// ── Toggle component ─────────────────────────────────────────────────────────
+function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!value)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+      }}
+    >
+      <div style={{
+        width: 32, height: 18, borderRadius: 9,
+        background: value ? GG.accent : GG.fg4 + '55',
+        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+      }}>
+        <div style={{
+          width: 12, height: 12, borderRadius: '50%',
+          background: 'white',
+          position: 'absolute', top: 3,
+          left: value ? 17 : 3,
+          transition: 'left 0.2s',
+        }} />
+      </div>
+      <span style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg3 }}>{label}</span>
+    </button>
+  );
+}
+
+// ── MiniSchemaPreview SVG ────────────────────────────────────────────────────
+function MiniSchemaPreview() {
+  const tables = [
+    { x: 10,  y: 10,  w: 90, label: 'users',    color: GG.info,    cols: ['id', 'email', 'name'] },
+    { x: 120, y: 10,  w: 90, label: 'posts',     color: GG.accent,  cols: ['id', 'user_id', 'title'] },
+    { x: 10,  y: 110, w: 90, label: 'sessions',  color: GG.magenta, cols: ['id', 'user_id', 'token'] },
+    { x: 120, y: 110, w: 90, label: 'tags',      color: GG.cyan,    cols: ['id', 'post_id', 'name'] },
+  ];
+  const rowH = 16;
+  const headerH = 20;
+  return (
+    <svg viewBox="0 0 220 180" style={{ width: '100%', height: 'auto' }}>
+      {/* Connection lines */}
+      <line x1="100" y1="30" x2="120" y2="30" stroke={GG.lineStrong} strokeWidth="1.5" />
+      <line x1="55" y1="55" x2="55" y2="110" stroke={GG.lineStrong} strokeWidth="1.5" />
+      <line x1="165" y1="55" x2="165" y2="110" stroke={GG.lineStrong} strokeWidth="1.5" />
+      {tables.map(t => (
+        <g key={t.label}>
+          <rect x={t.x} y={t.y} width={t.w} height={headerH + t.cols.length * rowH} rx="5" fill={GG.bg1} stroke={GG.lineStrong} strokeWidth="1" />
+          <rect x={t.x} y={t.y} width={t.w} height={headerH} rx="5" fill={t.color + '33'} />
+          <rect x={t.x} y={t.y + headerH - 5} width={t.w} height={5} fill={t.color + '33'} />
+          <text x={t.x + t.w / 2} y={t.y + 14} textAnchor="middle" fill={t.color} fontSize="8" fontFamily="monospace" fontWeight="bold">{t.label}</text>
+          {t.cols.map((col, i) => (
+            <text key={col} x={t.x + 6} y={t.y + headerH + 11 + i * rowH} fill={GG.fg3} fontSize="7" fontFamily="monospace">{col}</text>
+          ))}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// ── Error banner ─────────────────────────────────────────────────────────────
+function GGErrorBanner({ msg }: { msg: string }) {
+  return (
+    <div style={{
+      display: 'flex', gap: 8, alignItems: 'flex-start',
+      padding: '10px 12px',
+      background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.3)',
+      borderRadius: 8, color: '#f85149', fontSize: 12, fontFamily: GG.mono,
+    }}>
+      <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+      {msg}
+    </div>
+  );
+}
+
+// ── Migration helpers (unchanged) ────────────────────────────────────────────
 function normalizeMigrationName(name: string) {
   const cleaned = (name || 'auto_model_update').replace(/[^\w]/g, '_').replace(/^_+|_+$/g, '');
   return cleaned || 'auto_model_update';
@@ -594,7 +1121,9 @@ function modelLiteral(tableName: string) {
   return tableName;
 }
 
-function generateDjangoMigration(schema: Schema, app: string, name: string) {
+interface Schema2 { tables: SchemaTable[]; }
+
+function generateDjangoMigration(schema: Schema2, app: string, name: string) {
   const tables = (schema.tables ?? []).filter(t => app === 'all' || t.app === app);
   const migrationName = normalizeMigrationName(name);
   const apps = Array.from(new Set(tables.map(t => t.app).filter(Boolean))).join(', ') || 'parsed apps';
@@ -641,13 +1170,4 @@ class Migration(migrations.Migration):
 ${operations || '        # No parsed Django models available for this scope.'}
     ]
 `;
-}
-
-function ErrorBanner({ msg }: { msg: string }) {
-  return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '0.75rem', background: 'rgba(255,95,95,0.12)', border: '1px solid rgba(255,95,95,0.3)', borderRadius: 7, color: '#ff5f5f', fontSize: 13 }}>
-      <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-      {msg}
-    </div>
-  );
 }
