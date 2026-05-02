@@ -63,7 +63,11 @@ export default function FileDrillDown({ file, allFunctions, onClose, x, y }: Pro
     const sim = d3.forceSimulation(nodes)
       .force('link', d3.forceLink(links).id((d: any) => d.id).distance(80))
       .force('charge', d3.forceManyBody().strength(-120))
-      .force('center', d3.forceCenter(W / 2, H / 2));
+      .force('center', d3.forceCenter(W / 2, H / 2))
+      .stop();  // stop immediately, we'll tick manually
+
+    // Run simulation synchronously for stable positions
+    for (let i = 0; i < 300; i++) sim.tick();
 
     const g = svg.append('g');
 
@@ -98,14 +102,13 @@ export default function FileDrillDown({ file, allFunctions, onClose, x, y }: Pro
       .attr('pointer-events', 'none')
       .text((d: any) => d.id.length > 10 ? d.id.slice(0, 9) + '…' : d.id);
 
-    sim.on('tick', () => {
-      link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
-      node.attr('transform', (d: any) => `translate(${d.x ?? 0},${d.y ?? 0})`);
-    });
+    // Set positions once, statically
+    link
+      .attr('x1', (d: any) => (d.source as any).x)
+      .attr('y1', (d: any) => (d.source as any).y)
+      .attr('x2', (d: any) => (d.target as any).x)
+      .attr('y2', (d: any) => (d.target as any).y);
+    node.attr('transform', (d: any) => `translate(${(d as any).x ?? 0},${(d as any).y ?? 0})`);
 
     return () => {
       sim.stop();
