@@ -2715,37 +2715,44 @@ export default function WorkspaceArea(){
                                 React.createElement('div',{className:'card-header',onClick:function(){toggleCard('blast');}},React.createElement('div',{className:'card-title'},React.createElement('span',{className:'card-toggle'+(expandedCards.has('blast')?' open':'')},'▶'),React.createElement(Icon,{name:'impact',size:'s'}),' Impact Analysis'),React.createElement('span',{className:'badge badge-'+(blastRadius.level==='low'?'success':blastRadius.level==='medium'?'warning':'danger')},blastRadius.level.toUpperCase())),
                                 expandedCards.has('blast')&&React.createElement('div',{className:'card-body'},
                                     React.createElement('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}},
-                                        React.createElement('div',{style:{background:'var(--bg0)',padding:8,borderRadius:6,textAlign:'center'}},
+                                        React.createElement('div',{onClick:function(){toggleCard('br-direct');},style:{background:'var(--bg0)',padding:8,borderRadius:6,textAlign:'center',cursor:blastRadius.count>0?'pointer':'default',border:'1px solid '+(expandedCards.has('br-direct')?'var(--acc)':'transparent'),transition:'border 0.15s'}},
                                             React.createElement('div',{style:{fontSize:16,fontWeight:600,color:'var(--acc)'}},blastRadius.count),
                                             React.createElement('div',{style:{fontSize:9,color:'var(--t3)'}},'Direct Dependents')
                                         ),
-                                        React.createElement('div',{style:{background:'var(--bg0)',padding:8,borderRadius:6,textAlign:'center'}},
+                                        React.createElement('div',{onClick:function(){toggleCard('br-transitive');},style:{background:'var(--bg0)',padding:8,borderRadius:6,textAlign:'center',cursor:(blastRadius.transitiveCount||0)>0?'pointer':'default',border:'1px solid '+(expandedCards.has('br-transitive')?'var(--purple)':'transparent'),transition:'border 0.15s'}},
                                             React.createElement('div',{style:{fontSize:16,fontWeight:600,color:'var(--purple)'}},blastRadius.transitiveCount||0),
                                             React.createElement('div',{style:{fontSize:9,color:'var(--t3)'}},'Transitive')
                                         ),
-                                        React.createElement('div',{style:{background:'var(--bg0)',padding:8,borderRadius:6,textAlign:'center'}},
+                                        React.createElement('div',{onClick:function(){toggleCard('br-fns');},style:{background:'var(--bg0)',padding:8,borderRadius:6,textAlign:'center',cursor:(blastRadius.fnsUsed||0)>0?'pointer':'default',border:'1px solid '+(expandedCards.has('br-fns')?'var(--green)':'transparent'),transition:'border 0.15s'}},
                                             React.createElement('div',{style:{fontSize:16,fontWeight:600,color:'var(--green)'}},blastRadius.fnsUsed||0),
                                             React.createElement('div',{style:{fontSize:9,color:'var(--t3)'}},'Fns Exported')
                                         ),
-                                        React.createElement('div',{style:{background:'var(--bg0)',padding:8,borderRadius:6,textAlign:'center'}},
+                                        React.createElement('div',{onClick:function(){toggleCard('br-deps');},style:{background:'var(--bg0)',padding:8,borderRadius:6,textAlign:'center',cursor:(blastRadius.dependencies||[]).length>0?'pointer':'default',border:'1px solid '+(expandedCards.has('br-deps')?'var(--orange)':'transparent'),transition:'border 0.15s'}},
                                             React.createElement('div',{style:{fontSize:16,fontWeight:600,color:'var(--orange)'}},(blastRadius.dependencies||[]).length),
                                             React.createElement('div',{style:{fontSize:9,color:'var(--t3)'}},'Dependencies')
                                         )
                                     ),
-                                    (blastRadius.count>0||blastRadius.fnsUsed>0)&&React.createElement('div',{style:{fontSize:9,color:'var(--t3)',marginBottom:8,padding:'6px 8px',background:'var(--bg0)',borderRadius:4}},
+                                    expandedCards.has('br-direct')&&blastRadius.affected.length>0&&React.createElement('div',{className:'blast-detail',style:{marginBottom:8}},
+                                        React.createElement('div',{style:{fontSize:9,fontWeight:600,marginBottom:6}},'Files that import from this:'),
+                                        blastRadius.affected.map(function(path: any){return React.createElement('div',{key:path,className:'blast-file',onClick:function(){selectFile(path);}},React.createElement(Icon,{name:'file',size:'s'}),' ',path.split('/').pop());}),
+                                    ),
+                                    expandedCards.has('br-transitive')&&React.createElement('div',{className:'blast-detail',style:{marginBottom:8}},
+                                        React.createElement('div',{style:{fontSize:9,fontWeight:600,marginBottom:6,color:'var(--purple)'}},'Transitive dependents (files that depend on direct dependents):'),
+                                        React.createElement('div',{style:{fontSize:9,color:'var(--t3)',padding:'4px 0'}},(blastRadius.transitiveCount||0)+' files indirectly affected if this file changes'),
+                                        blastRadius.affected.slice(0,5).map(function(path: any){return React.createElement('div',{key:path,className:'blast-file',onClick:function(){selectFile(path);}},React.createElement(Icon,{name:'file',size:'s'}),' ',path.split('/').pop());})
+                                    ),
+                                    expandedCards.has('br-fns')&&React.createElement('div',{className:'blast-detail',style:{marginBottom:8}},
+                                        React.createElement('div',{style:{fontSize:9,fontWeight:600,marginBottom:6,color:'var(--green)'}},'Exported functions ('+(blastRadius.fnsUsed||0)+' used, '+blastRadius.totalCalls+' calls):'),
+                                        ((data as any).functions||[]).filter(function(f: any){return f.file===selected.path&&f.isExported;}).map(function(f: any){return React.createElement('div',{key:f.name,className:'blast-file'},React.createElement(Icon,{name:'function',size:'s'}),' ',f.name);})
+                                    ),
+                                    expandedCards.has('br-deps')&&(blastRadius.dependencies||[]).length>0&&React.createElement('div',{className:'blast-detail',style:{marginBottom:8}},
+                                        React.createElement('div',{style:{fontSize:9,fontWeight:600,marginBottom:6,color:'var(--orange)'}},'Dependencies (risk if these change):'),
+                                        blastRadius.dependencies.map(function(path: any){return React.createElement('div',{key:path,className:'blast-file',onClick:function(){selectFile(path);}},React.createElement(Icon,{name:'file',size:'s'}),' ',path.split('/').pop());})
+                                    ),
+                                    (blastRadius.count>0||blastRadius.fnsUsed>0)&&!expandedCards.has('br-direct')&&!expandedCards.has('br-fns')&&React.createElement('div',{style:{fontSize:9,color:'var(--t3)',marginBottom:8,padding:'6px 8px',background:'var(--bg0)',borderRadius:4}},
                                         blastRadius.count>0?blastRadius.count+' file'+(blastRadius.count>1?'s':'')+' directly depend on this file':'',
                                         blastRadius.count>0&&blastRadius.fnsUsed>0?' • ':'',
                                         blastRadius.fnsUsed>0?blastRadius.fnsUsed+' function'+(blastRadius.fnsUsed>1?'s':'')+' used '+blastRadius.totalCalls+' times':''
-                                    ),
-                                    blastRadius.affected.length>0&&React.createElement('div',{className:'blast-detail'},
-                                        React.createElement('div',{style:{fontSize:9,fontWeight:600,marginBottom:6}},'Files that import from this:'),
-                                        blastRadius.affected.slice(0,8).map(function(path: any){return React.createElement('div',{key:path,className:'blast-file',onClick:function(){selectFile(path);}},React.createElement(Icon,{name:'file',size:'s'}),' ',path.split('/').pop());}),
-                                        blastRadius.affected.length>8&&React.createElement('div',{style:{fontSize:9,color:'var(--t3)',marginTop:4}},'+',blastRadius.affected.length-8,' more')
-                                    ),
-                                    (blastRadius.dependencies||[]).length>0&&React.createElement('div',{className:'blast-detail',style:{marginTop:8}},
-                                        React.createElement('div',{style:{fontSize:9,fontWeight:600,marginBottom:6,color:'var(--orange)'}},'Dependencies (risk if these change):'),
-                                        blastRadius.dependencies.slice(0,5).map(function(path: any){return React.createElement('div',{key:path,className:'blast-file',onClick:function(){selectFile(path);}},React.createElement(Icon,{name:'file',size:'s'}),' ',path.split('/').pop());}),
-                                        blastRadius.dependencies.length>5&&React.createElement('div',{style:{fontSize:9,color:'var(--t3)',marginTop:4}},'+',blastRadius.dependencies.length-5,' more')
                                     )
                                 )
                             ),
