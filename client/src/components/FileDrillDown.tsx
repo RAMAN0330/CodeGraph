@@ -71,6 +71,14 @@ export default function FileDrillDown({ file, allFunctions, onClose, x, y }: Pro
 
     const g = svg.append('g');
 
+    const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.3, 4])
+      .on('zoom', (event) => {
+        g.attr('transform', event.transform.toString());
+      });
+
+    svg.call(zoom);
+
     const link = g.append('g')
       .selectAll('line')
       .data(links)
@@ -102,6 +110,29 @@ export default function FileDrillDown({ file, allFunctions, onClose, x, y }: Pro
       .attr('pointer-events', 'none')
       .text((d: any) => d.id.length > 10 ? d.id.slice(0, 9) + '…' : d.id);
 
+    // Drag behavior for individual nodes
+    const drag = d3.drag<SVGGElement, any>()
+      .on('start', function (_event, d) {
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on('drag', function (event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+        d3.select(this).attr('transform', `translate(${event.x},${event.y})`);
+        link
+          .attr('x1', (l: any) => l.source.x ?? 0)
+          .attr('y1', (l: any) => l.source.y ?? 0)
+          .attr('x2', (l: any) => l.target.x ?? 0)
+          .attr('y2', (l: any) => l.target.y ?? 0);
+      })
+      .on('end', function (_event, d) {
+        d.fx = null;
+        d.fy = null;
+      });
+
+    node.call(drag as any);
+
     // Set positions once, statically
     link
       .attr('x1', (d: any) => (d.source as any).x)
@@ -109,6 +140,15 @@ export default function FileDrillDown({ file, allFunctions, onClose, x, y }: Pro
       .attr('x2', (d: any) => (d.target as any).x)
       .attr('y2', (d: any) => (d.target as any).y);
     node.attr('transform', (d: any) => `translate(${(d as any).x ?? 0},${(d as any).y ?? 0})`);
+
+    svg.append('text')
+      .attr('x', W / 2)
+      .attr('y', H - 6)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 9)
+      .attr('fill', '#484f58')
+      .attr('pointer-events', 'none')
+      .text('scroll to zoom · drag to pan · drag nodes');
 
     return () => {
       sim.stop();
