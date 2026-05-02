@@ -19,6 +19,7 @@ interface WorkspaceHeaderProps {
   onSectionChange: (section: string) => void;
   onBookmarkSelect: (url: string) => void;
   onPaletteOpen: () => void;
+  onExport?: () => void;
 }
 
 const NAV_TABS = [
@@ -48,7 +49,7 @@ function parseRepo(url: string): { owner: string; repo: string } | null {
 
 export default function WorkspaceHeader({
   login, avatarUrl, repoUrl, onRepoUrlChange, onAnalyze, loading, hasData,
-  dbSchemaDetected, onPRReview, onDbMap, activeSection, onSectionChange, onBookmarkSelect, onPaletteOpen,
+  dbSchemaDetected, onPRReview, onDbMap, activeSection, onSectionChange, onBookmarkSelect, onPaletteOpen, onExport,
 }: WorkspaceHeaderProps) {
   const navigate = useNavigate();
   const parsed = parseRepo(repoUrl);
@@ -177,6 +178,12 @@ export default function WorkspaceHeader({
           <button onClick={onDbMap} style={{ background: dbSchemaDetected ? '#1a2b1a' : 'transparent', border: `1px solid ${dbSchemaDetected ? '#238636' : '#30363d'}`, color: dbSchemaDetected ? '#3fb950' : '#f0f6fc', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
             DB Map
           </button>
+          {onExport && (
+            <button onClick={onExport} style={{ background: 'transparent', border: '1px solid #30363d', color: '#f0f6fc', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export
+            </button>
+          )}
         </>
       )}
 

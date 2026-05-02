@@ -23,6 +23,8 @@ import CodeOwnershipMap from '../components/CodeOwnershipMap';
 import ReleaseNotesGenerator from '../components/ReleaseNotesGenerator';
 import TechDebtTimeline from '../components/TechDebtTimeline';
 import FileDrillDown from '../components/FileDrillDown';
+import ExportModal from '../components/ExportModal';
+import { decodeShareLink } from '../lib/exporters';
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -170,6 +172,15 @@ export default function WorkspaceArea(){
 
     useEffect(function(){
         var params=new URLSearchParams(window.location.search);
+        var shareParam=params.get('share');
+        if(shareParam){
+            var decoded=decodeShareLink(shareParam);
+            if(decoded&&decoded.repoUrl){
+                setRepoUrl(decoded.repoUrl);
+                setTimeout(function(){var btn=document.getElementById('analyze-btn');if(btn)btn.click();},500);
+                return;
+            }
+        }
         var repo=params.get('repo');
         var shouldAutoRun=params.get('run')==='1';
         if(repo&&repo.length<200&&!repo.includes('{')&&/^[a-zA-Z0-9_.\/-]+$/.test(repo)){
@@ -2361,6 +2372,7 @@ export default function WorkspaceArea(){
             onSectionChange:function(s: any){setActiveSection(s);},
             onBookmarkSelect:function(url: any){setRepoUrl(url);setTimeout(function(){analyze();},0);},
             onPaletteOpen: function(){ if(data) setShowPalette(true); },
+            onExport: data ? function(){ setShowExport(true); } : undefined,
         }),
         activeSection==='branches'&&(repoInfo
             ?React.createElement('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},
@@ -3530,6 +3542,14 @@ export default function WorkspaceArea(){
                 )
             )
         )
+        ,showExport && data && React.createElement(ExportModal, {
+            nodes: ((data as any).files||[]).map(function(f: any){ return {id: f.path, name: f.name, layer: f.layer}; }),
+            edges: ((data as any).connections||[]).map(function(c: any){ return {source: c.source, target: c.target, fn: c.fn}; }),
+            svgRef: svgRef,
+            repoUrl: repoUrl,
+            filterState: {layerFilter: folderFilter, searchQuery: ''},
+            onClose: function(){ setShowExport(false); },
+        })
         ,showPalette && data && React.createElement(CommandPalette, {
           files: ((data as any).files)||[],
           functions: ((data as any).functions)||[],
