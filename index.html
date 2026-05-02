@@ -8,7 +8,180 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="styles.css"/>
+
+  <style>
+/* GitGraph — Terminal-inspired dark devtool */
+
+:root {
+  --bg: #07090c;
+  --bg-1: #0b0e13;
+  --bg-2: #10141b;
+  --bg-3: #161b24;
+  --panel: #0d1117;
+  --line: rgba(255, 255, 255, 0.06);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --fg: #e6edf3;
+  --fg-2: #b1bac4;
+  --fg-3: #7d8590;
+  --fg-4: #4b5563;
+  --accent: #3fb950;
+  --accent-2: #2ea043;
+  --accent-glow: rgba(63, 185, 80, 0.16);
+  --info: #58a6ff;
+  --warn: #d29922;
+  --danger: #f85149;
+  --magenta: #bc8cff;
+  --cyan: #76e4f7;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.gg-grid-bg {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(63,185,80,0.08), transparent 60%),
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: auto, 48px 48px, 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, #000 50%, transparent 100%);
+}
+
+.gg-nav {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(7, 9, 12, 0.72);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+.gg-brand { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+.gg-brand-mark {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: linear-gradient(160deg, #1a2a1f, #0d1f14);
+  border: 1px solid rgba(63,185,80,0.25);
+  box-shadow: inset 0 0 0 1px rgba(63,185,80,0.15), 0 0 24px rgba(63,185,80,0.18);
+  color: var(--accent);
+}
+.gg-brand-mark svg { width: 16px; height: 16px; }
+.gg-brand-name { color: var(--fg); }
+.gg-brand-name .ver { color: var(--fg-3); font-size: 11px; }
+.gg-nav-right { display: flex; align-items: center; gap: 22px; font-size: 13px; color: var(--fg-2); }
+.gg-nav-right a { color: var(--fg-2); text-decoration: none; transition: color .15s; }
+.gg-nav-right a:hover { color: var(--fg); }
+
+.gg-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 14px;
+  border-radius: 8px; border: 1px solid transparent;
+  font-family: var(--sans); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all .15s ease;
+  text-decoration: none; white-space: nowrap;
+}
+.gg-btn-primary { background: var(--accent); color: #06200d; border-color: rgba(255,255,255,0.1); box-shadow: 0 1px 0 rgba(255,255,255,0.2) inset, 0 0 0 1px rgba(63,185,80,0.4), 0 8px 24px rgba(63,185,80,0.25); }
+.gg-btn-primary:hover { background: #4ec964; transform: translateY(-1px); }
+.gg-btn-secondary { background: rgba(255,255,255,0.04); color: var(--fg); border-color: var(--line-strong); }
+.gg-btn-secondary:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+.gg-btn-ghost { background: transparent; color: var(--fg-2); border-color: transparent; }
+.gg-btn-ghost:hover { color: var(--fg); background: rgba(255,255,255,0.04); }
+.gg-btn-sm { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 6px; }
+
+.gg-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-family: var(--mono); font-size: 11px; background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.2); color: var(--accent); }
+
+.gg-code { font-family: var(--mono); font-size: 13px; line-height: 1.7; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.gg-code-hd { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.02); font-size: 11px; color: var(--fg-3); }
+.gg-code-dots { display: flex; gap: 6px; }
+.gg-code-dots span { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.12); }
+.gg-code-body { padding: 14px 18px; color: var(--fg-2); white-space: pre; overflow-x: auto; }
+
+.tok-kw { color: #ff7b72; }
+.tok-fn { color: #d2a8ff; }
+.tok-str { color: #a5d6ff; }
+.tok-num { color: #79c0ff; }
+.tok-com { color: #6e7681; font-style: italic; }
+.tok-var { color: #ffa657; }
+.tok-op  { color: #ff7b72; }
+
+.gg-input { width: 100%; height: 38px; padding: 0 14px; background: var(--bg-1); border: 1px solid var(--line-strong); border-radius: 8px; color: var(--fg); font-family: var(--sans); font-size: 13px; transition: border-color .15s, background .15s, box-shadow .15s; outline: none; }
+.gg-input:focus { border-color: rgba(63,185,80,0.5); box-shadow: 0 0 0 3px var(--accent-glow); background: var(--bg-2); }
+.gg-input::placeholder { color: var(--fg-4); }
+
+.gg-label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-3); margin-bottom: 6px; font-family: var(--mono); }
+
+.gg-section { position: relative; z-index: 1; padding: 96px 28px; }
+.gg-container { max-width: 1280px; margin: 0 auto; }
+
+.gg-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--fg-3); letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 999px; background: rgba(255,255,255,0.02); }
+
+.gg-card { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-lg); transition: border-color .2s, transform .2s, box-shadow .2s; }
+.gg-card:hover { border-color: var(--line-strong); }
+
+.gg-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.gg-scroll::-webkit-scrollbar-track { background: transparent; }
+.gg-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+.gg-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); background-clip: content-box; }
+
+.gg-view-switch {
+  position: fixed; left: 16px; bottom: 16px; z-index: 2147483645;
+  display: flex; gap: 4px; padding: 4px;
+  background: rgba(13, 17, 23, 0.85);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  backdrop-filter: blur(12px);
+  font-family: var(--mono); font-size: 11px;
+}
+.gg-view-switch button { appearance: none; border: 0; background: transparent; color: var(--fg-3); padding: 6px 10px; border-radius: 6px; cursor: pointer; transition: all .15s; font-family: inherit; font-size: inherit; }
+.gg-view-switch button:hover { color: var(--fg); }
+.gg-view-switch button.active { background: rgba(63,185,80,0.15); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(63,185,80,0.3); }
+
+@keyframes gg-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes gg-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+@keyframes gg-fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.gg-cursor { display: inline-block; width: 7px; height: 14px; background: var(--accent); margin-left: 2px; vertical-align: middle; animation: gg-blink 1s steps(1, end) infinite; }
+
+.gg-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; font-family: var(--mono); font-size: 10px; background: rgba(255,255,255,0.06); border: 1px solid var(--line-strong); border-radius: 5px; color: var(--fg-2); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 1px 0 rgba(0,0,0,0.4); }
+
+.gg-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #5eb3ff, #bc8cff); display: grid; place-items: center; font-size: 11px; font-weight: 600; color: #06080d; font-family: var(--mono); border: 1px solid var(--line-strong); }
+
+.gg-page { animation: gg-fadein 0.22s ease; }
+
+.gg-footer { border-top: 1px solid var(--line); padding: 24px 28px; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 11px; color: var(--fg-4); position: relative; z-index: 1; }
+
+.gg-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--line), transparent); }
+
+.gg-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-family: var(--mono); font-size: 11px; }
+.gg-badge-accent { background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.25); color: var(--accent); }
+
+.hero-glow { position: absolute; width: 900px; height: 900px; border-radius: 50%; background: radial-gradient(circle, rgba(63,185,80,0.07) 0%, transparent 70%); top: -300px; left: 50%; transform: translateX(-50%); pointer-events: none; }
+
+.stat-strip { display: grid; grid-template-columns: repeat(4,1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(255,255,255,0.015); position: relative; z-index: 1; }
+.stat-cell { padding: 28px 32px; border-left: 1px solid var(--line); }
+.stat-cell:first-child { border-left: none; }
+
+.feature-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+@media (max-width: 1100px) { .feature-grid { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 640px)  { .feature-grid { grid-template-columns: 1fr; } }
+
+.conn-string { background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 14px; font-family: var(--mono); font-size: 12px; color: var(--fg-3); display: flex; align-items: center; gap: 8px; overflow: hidden; }
+  </style>
 
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
@@ -17,96 +190,1031 @@
 <body>
   <div id="root"></div>
 
-  <script type="text/babel" src="tweaks-panel.jsx"></script>
-  <script type="text/babel" src="shared.jsx"></script>
-  <script type="text/babel" src="landing.jsx"></script>
-  <script type="text/babel" src="repo.jsx"></script>
-  <script type="text/babel" src="db.jsx"></script>
-  <script type="text/babel" src="explorer.jsx"></script>
-
   <script type="text/babel">
-    const { useState, useEffect } = React;
+// ─── tweaks-panel.jsx ────────────────────────────────────────────────────────
+const { useState, useEffect, useRef, useMemo } = React;
 
-    const TWEAK_DEFAULTS = {
-      "screen":      "landing",
-      "accent":      "#3fb950",
-      "monoFont":    "JetBrains Mono",
-      "showGridBg":  true,
-      "compact":     false
-    };
+function useTweaks(defaults) {
+  const key = '__gg_tweaks__';
+  const stored = (() => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; } })();
+  const [t, setT] = useState({ ...defaults, ...stored });
+  const setTweak = (k, v) => {
+    setT(prev => {
+      const next = { ...prev, [k]: v };
+      try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  return [t, setTweak];
+}
 
-    function App() {
-      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-      const [screen, setScreen] = useState(t.screen || 'landing');
+function TweakSection({ label }) {
+  return (
+    <div style={{ fontFamily:'var(--mono)', fontSize:9, color:'var(--fg-4)', letterSpacing:'0.1em', textTransform:'uppercase', borderTop:'1px solid var(--line)', margin:'8px 0 6px', paddingTop:10 }}>{label}</div>
+  );
+}
+function TweakRow({ label, children }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:8 }}>
+      <span style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)', flex:1, minWidth:0 }}>{label}</span>
+      <div style={{ flexShrink:0 }}>{children}</div>
+    </div>
+  );
+}
+function TweakRadio({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <div style={{ display:'flex', gap:2, background:'var(--bg)', borderRadius:5, padding:2, border:'1px solid var(--line)' }}>
+        {options.map(o => (
+          <button key={o.value} onClick={() => onChange(o.value)} style={{ fontFamily:'var(--mono)', fontSize:10, padding:'3px 7px', borderRadius:4, border:0, cursor:'pointer', background: value===o.value ? 'rgba(63,185,80,0.15)' : 'transparent', color: value===o.value ? 'var(--accent)' : 'var(--fg-3)', boxShadow: value===o.value ? 'inset 0 0 0 1px rgba(63,185,80,0.3)' : 'none', transition:'all .1s' }}>{o.label}</button>
+        ))}
+      </div>
+    </TweakRow>
+  );
+}
+function TweakColor({ label, value, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+        <div style={{ position:'relative', width:22, height:22 }}>
+          <input type="color" value={value} onChange={e => onChange(e.target.value)} style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0, cursor:'pointer', border:0, padding:0 }}/>
+          <span style={{ display:'block', width:22, height:22, borderRadius:5, background:value, border:'1px solid rgba(255,255,255,0.15)', pointerEvents:'none' }}/>
+        </div>
+        <span style={{ fontFamily:'var(--mono)', fontSize:10, color:'var(--fg-3)' }}>{value}</span>
+      </div>
+    </TweakRow>
+  );
+}
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--fg)', background:'var(--bg-2)', border:'1px solid var(--line-strong)', borderRadius:5, padding:'3px 6px', cursor:'pointer', outline:'none', maxWidth:130 }}>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </TweakRow>
+  );
+}
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <button onClick={() => onChange(!value)} style={{ width:30, height:17, borderRadius:999, border:0, cursor:'pointer', background: value ? 'rgba(63,185,80,0.35)' : 'var(--bg-3)', boxShadow: value ? 'inset 0 0 0 1px rgba(63,185,80,0.5)' : 'inset 0 0 0 1px var(--line-strong)', position:'relative', transition:'all .15s' }}>
+        <span style={{ position:'absolute', top:1.5, left: value ? 13 : 1.5, width:12, height:12, borderRadius:'50%', background: value ? 'var(--accent)' : 'var(--fg-4)', transition:'left .15s' }}/>
+      </button>
+    </TweakRow>
+  );
+}
+function TweaksPanel({ title = 'Tweaks', children }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div style={{ position:'fixed', right:16, top:68, zIndex:2147483646, width:240, fontFamily:'var(--mono)' }}>
+      <div style={{ background:'rgba(11,14,19,0.92)', border:'1px solid var(--line-strong)', borderRadius:10, backdropFilter:'blur(16px)', overflow:'hidden' }}>
+        <button onClick={() => setOpen(o => !o)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', padding:'9px 12px', border:0, background:'transparent', cursor:'pointer', color:'var(--fg-2)', borderBottom: open ? '1px solid var(--line)' : 'none' }}>
+          <span style={{ fontSize:11, fontWeight:500, display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ color:'var(--accent)' }}>◈</span>{title}
+          </span>
+          <span style={{ fontSize:10, color:'var(--fg-4)', transform: open ? 'rotate(180deg)' : 'none', transition:'transform .15s' }}>▾</span>
+        </button>
+        {open && <div style={{ padding:'10px 12px 12px' }}>{children}</div>}
+      </div>
+    </div>
+  );
+}
 
-      useEffect(() => {
-        document.documentElement.style.setProperty('--accent', t.accent);
-        document.documentElement.style.setProperty('--accent-glow', t.accent + '28');
-      }, [t.accent]);
+// ─── shared.jsx ──────────────────────────────────────────────────────────────
+function GGLogo({ size = 28 }) {
+  return (
+    <span className="gg-brand-mark" style={{ width:size, height:size }}>
+      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M11.75 2.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Zm2.25.75a2.25 2.25 0 1 0-3 2.122V6A2.5 2.5 0 0 1 8.5 8.5h-3A4.49 4.49 0 0 0 4 8.78V5.367a2.25 2.25 0 1 0-1.5 0v5.266a2.25 2.25 0 1 0 1.508.018A2.99 2.99 0 0 1 5.5 10h3A4 4 0 0 0 12.5 6v-.628A2.251 2.251 0 0 0 14 3.25ZM2.5 3.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0Zm.75 9.5a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5Z"/>
+      </svg>
+    </span>
+  );
+}
 
-      useEffect(() => {
-        if (t.screen && t.screen !== screen) setScreen(t.screen);
-      }, [t.screen]);
+function GGNav({ variant = "marketing", onNavigate, current }) {
+  if (variant === "app") {
+    return (
+      <nav className="gg-nav">
+        <div style={{ display:'flex', alignItems:'center', gap:18 }}>
+          <div className="gg-brand">
+            <GGLogo/>
+            <span className="gg-brand-name">codeflow<span className="ver">/0.4.2</span></span>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:8, color:'var(--fg-3)', fontFamily:'var(--mono)', fontSize:12 }}>
+            <span style={{ opacity:0.5 }}>›</span>
+            <span style={{ color:'var(--fg-2)' }}>workspace</span>
+            <span style={{ opacity:0.5 }}>›</span>
+            <span style={{ color:'var(--fg)' }}>{current || 'select-repo'}</span>
+          </div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+          <span style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)' }}>
+            <span className="gg-kbd">⌘</span> <span className="gg-kbd">K</span>
+          </span>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div className="gg-avatar">RA</div>
+            <span style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--fg-2)' }}>raman1530</span>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+  return (
+    <nav className="gg-nav">
+      <div className="gg-brand">
+        <GGLogo/>
+        <span className="gg-brand-name">codeflow<span className="ver">/0.4.2</span></span>
+      </div>
+      <div className="gg-nav-right">
+        <a onClick={() => onNavigate?.('landing')} style={{ cursor:'pointer' }}>features</a>
+        <a href="#docs">docs</a>
+        <a href="#changelog">changelog</a>
+        <a href="#security">security</a>
+        <button className="gg-btn gg-btn-ghost gg-btn-sm" onClick={() => onNavigate?.('repo')}>
+          <span style={{ color:'var(--fg-3)' }}>→</span> launch app
+        </button>
+        <button className="gg-btn gg-btn-primary gg-btn-sm">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          sign in
+        </button>
+      </div>
+    </nav>
+  );
+}
 
-      const navigate = (s) => {
-        setScreen(s);
-        setTweak('screen', s);
-      };
+function GraphViz({ width = 540, height = 360 }) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 80);
+    return () => clearInterval(id);
+  }, []);
+  const nodes = [
+    { id:'app',    x:270, y:50,  label:'app/',       kind:'root',   files:124 },
+    { id:'api',    x:110, y:140, label:'api/',        kind:'folder', files:47 },
+    { id:'web',    x:270, y:140, label:'web/',        kind:'folder', files:38 },
+    { id:'db',     x:430, y:140, label:'db/',         kind:'db',     files:12 },
+    { id:'auth',   x:50,  y:240, label:'auth.ts',     kind:'file' },
+    { id:'router', x:170, y:240, label:'router.ts',   kind:'file' },
+    { id:'page',   x:270, y:240, label:'page.tsx',    kind:'file' },
+    { id:'comp',   x:350, y:300, label:'Card.tsx',    kind:'file' },
+    { id:'schema', x:430, y:240, label:'schema.sql',  kind:'sql' },
+    { id:'users',  x:510, y:300, label:'users',       kind:'table' },
+  ];
+  const edges = [['app','api'],['app','web'],['app','db'],['api','auth'],['api','router'],['web','page'],['page','comp'],['db','schema'],['schema','users'],['router','auth'],['page','router']];
+  const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const pulseNodes = ['auth','page','schema','comp','router','users'];
+  const activeNode = pulseNodes[Math.floor(tick / 8) % pulseNodes.length];
+  const colorFor = (kind) => {
+    if (kind === 'root') return 'var(--accent)';
+    if (kind === 'db' || kind === 'sql' || kind === 'table') return 'var(--info)';
+    if (kind === 'folder') return 'var(--magenta)';
+    return 'var(--fg-2)';
+  };
+  return (
+    <div className="gg-card" style={{ padding:0, overflow:'hidden', background:'linear-gradient(180deg,rgba(13,17,23,0.95),rgba(13,17,23,0.7))', backdropFilter:'blur(8px)' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', borderBottom:'1px solid var(--line)', fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)' }}>
+        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+          <span style={{ width:8, height:8, borderRadius:'50%', background:'var(--accent)', boxShadow:'0 0 8px var(--accent)' }}/>
+          <span style={{ color:'var(--fg-2)' }}>./codeflow</span>
+          <span style={{ opacity:0.5 }}>analyze</span>
+          <span style={{ color:'var(--accent)' }}>app/</span>
+        </div>
+        <div style={{ display:'flex', gap:14 }}>
+          <span>nodes <span style={{ color:'var(--fg)' }}>10</span></span>
+          <span>edges <span style={{ color:'var(--fg)' }}>11</span></span>
+          <span>depth <span style={{ color:'var(--fg)' }}>3</span></span>
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{ display:'block' }}>
+        <defs>
+          <pattern id="dotgrid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.8" fill="rgba(255,255,255,0.06)"/>
+          </pattern>
+          <radialGradient id="nodeGlow">
+            <stop offset="0%" stopColor="rgba(63,185,80,0.4)"/>
+            <stop offset="100%" stopColor="rgba(63,185,80,0)"/>
+          </radialGradient>
+        </defs>
+        <rect width={width} height={height} fill="url(#dotgrid)"/>
+        {edges.map(([a,b],i) => {
+          const A=nodeMap[a], B=nodeMap[b];
+          const isActive = a===activeNode || b===activeNode;
+          return <line key={i} x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke={isActive ? 'var(--accent)' : 'rgba(255,255,255,0.12)'} strokeWidth={isActive ? 1.5 : 1} strokeDasharray={isActive ? '4 3' : 'none'} strokeDashoffset={isActive ? -tick*0.8 : 0}/>;
+        })}
+        {nodes.map(n => {
+          const isActive = n.id === activeNode;
+          const c = colorFor(n.kind);
+          return (
+            <g key={n.id} transform={`translate(${n.x},${n.y})`}>
+              {isActive && <circle r="22" fill="url(#nodeGlow)" opacity="0.8"/>}
+              <circle r={n.kind==='root' ? 8 : 5} fill={isActive ? c : 'var(--bg)'} stroke={c} strokeWidth={n.kind==='root' ? 2 : 1.5}/>
+              <text x="0" y={n.kind==='root' ? -16 : (n.id==='comp'||n.id==='users' ? 18 : -10)} textAnchor="middle" fontFamily="var(--mono)" fontSize="10" fill={isActive ? c : 'var(--fg-2)'} style={{ transition:'fill 0.2s' }}>{n.label}</text>
+            </g>
+          );
+        })}
+        <line x1={(tick*4)%width} y1="0" x2={(tick*4)%width} y2={height} stroke="rgba(63,185,80,0.18)" strokeWidth="1"/>
+      </svg>
+      <div style={{ padding:'10px 14px', borderTop:'1px solid var(--line)', fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)', display:'flex', justifyContent:'space-between' }}>
+        <span><span style={{ color:'var(--accent)' }}>●</span> indexed in <span style={{ color:'var(--fg)' }}>{(0.18+(tick%30)*0.001).toFixed(3)}s</span></span>
+        <span>memory <span style={{ color:'var(--fg)' }}>42 MB</span></span>
+      </div>
+    </div>
+  );
+}
 
-      return (
-        <>
-          {screen === 'landing'  && <Landing      onNavigate={navigate}/>}
-          {screen === 'repo'     && <RepoSelector onNavigate={navigate}/>}
-          {screen === 'db'       && <DBVisualizer  onNavigate={navigate}/>}
-          {screen === 'explorer' && <Explorer      onNavigate={navigate}/>}
+// ─── landing.jsx ─────────────────────────────────────────────────────────────
+function CodeSample() {
+  return (
+    <div className="gg-code">
+      <div className="gg-code-hd">
+        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+          <div className="gg-code-dots"><span/><span/><span/></div>
+          <span style={{ fontFamily:'var(--mono)' }}>analyze.ts</span>
+        </div>
+        <span style={{ fontFamily:'var(--mono)', fontSize:11 }}>typescript · 24 lines</span>
+      </div>
+      <div className="gg-code-body" dangerouslySetInnerHTML={{__html:
+`<span class="tok-com">// connect once, query forever</span>
+<span class="tok-kw">import</span> { graph } <span class="tok-kw">from</span> <span class="tok-str">'codeflow'</span>
 
-          <div className="gg-view-switch">
-            <button className={screen === 'landing'  ? 'active' : ''} onClick={() => navigate('landing')}>01 landing</button>
-            <button className={screen === 'repo'     ? 'active' : ''} onClick={() => navigate('repo')}>02 repo selector</button>
-            <button className={screen === 'db'       ? 'active' : ''} onClick={() => navigate('db')}>03 db visualizer</button>
-            <button className={screen === 'explorer' ? 'active' : ''} onClick={() => navigate('explorer')}>04 explorer</button>
+<span class="tok-kw">const</span> <span class="tok-var">repo</span> = <span class="tok-kw">await</span> <span class="tok-fn">graph.connect</span>({
+  source: <span class="tok-str">'github.com/acme/api'</span>,
+  branch: <span class="tok-str">'main'</span>,
+  depth: <span class="tok-num">3</span>,
+})
+
+<span class="tok-kw">const</span> { nodes, edges } = <span class="tok-kw">await</span> <span class="tok-var">repo</span>.<span class="tok-fn">analyze</span>({
+  detect: [<span class="tok-str">'circular'</span>, <span class="tok-str">'orphans'</span>, <span class="tok-str">'leaks'</span>],
+})
+
+<span class="tok-com">// → 1,247 files indexed in 312ms</span>
+<span class="tok-com">// → 4 circular deps, 2 unused exports</span>
+<span class="tok-fn">graph.render</span>(nodes, edges)`
+      }}/>
+    </div>
+  );
+}
+function FeatureCard({ icon, title, desc, accent, demo }) {
+  return (
+    <div className="gg-card" style={{ padding:24, display:'flex', flexDirection:'column', gap:16, minHeight:280 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <span style={{ width:34, height:34, borderRadius:8, display:'grid', placeItems:'center', background:accent+'14', color:accent, border:'1px solid '+accent+'33' }}>{icon}</span>
+        <span style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)', letterSpacing:'0.06em', textTransform:'uppercase' }}>{title.split('·')[0]}</span>
+      </div>
+      <div>
+        <h3 style={{ margin:0, fontSize:18, fontWeight:600, letterSpacing:'-0.01em' }}>{title.split('·')[1]||title}</h3>
+        <p style={{ marginTop:8, color:'var(--fg-3)', fontSize:14, lineHeight:1.6 }}>{desc}</p>
+      </div>
+      <div style={{ marginTop:'auto' }}>{demo}</div>
+    </div>
+  );
+}
+function BranchDemo() {
+  return (
+    <svg viewBox="0 0 240 70" style={{ width:'100%', height:70 }}>
+      <line x1="10" y1="20" x2="230" y2="20" stroke="var(--accent)" strokeWidth="1.5"/>
+      <line x1="60" y1="20" x2="100" y2="50" stroke="var(--magenta)" strokeWidth="1.5"/>
+      <line x1="100" y1="50" x2="180" y2="50" stroke="var(--magenta)" strokeWidth="1.5"/>
+      <line x1="180" y1="50" x2="200" y2="20" stroke="var(--magenta)" strokeWidth="1.5"/>
+      {[10,60,110,160,200,230].map((x,i) => <circle key={i} cx={x} cy="20" r="4" fill="var(--bg)" stroke="var(--accent)" strokeWidth="1.5"/>)}
+      {[100,140,180].map((x,i) => <circle key={i} cx={x} cy="50" r="4" fill="var(--bg)" stroke="var(--magenta)" strokeWidth="1.5"/>)}
+      <text x="10" y="65" fontFamily="var(--mono)" fontSize="9" fill="var(--fg-3)">main</text>
+      <text x="100" y="40" fontFamily="var(--mono)" fontSize="9" fill="var(--fg-3)">feat/auth</text>
+    </svg>
+  );
+}
+function SchemaDemo() {
+  return (
+    <div style={{ fontFamily:'var(--mono)', fontSize:11, background:'var(--bg)', borderRadius:8, padding:12, border:'1px solid var(--line)', display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+      {['users','posts','comments','sessions'].map((t,i) => (
+        <div key={t} style={{ padding:'6px 8px', borderRadius:5, background:'rgba(88,166,255,0.06)', border:'1px solid rgba(88,166,255,0.2)', color:'var(--info)', display:'flex', justifyContent:'space-between' }}>
+          <span>{t}</span><span style={{ color:'var(--fg-4)' }}>{[12,8,6,4][i]}c</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+function TerminalDemo() {
+  return (
+    <div style={{ fontFamily:'var(--mono)', fontSize:12, background:'var(--bg)', borderRadius:8, padding:'10px 12px', border:'1px solid var(--line)', lineHeight:1.7 }}>
+      <div><span style={{ color:'var(--accent)' }}>$</span> <span style={{ color:'var(--fg-2)' }}>cf scan --secrets</span></div>
+      <div style={{ color:'var(--fg-3)' }}>scanning 1,247 files...</div>
+      <div><span style={{ color:'var(--danger)' }}>!</span> <span style={{ color:'var(--fg-2)' }}>3 issues</span> <span style={{ color:'var(--fg-3)' }}>in 0.4s</span></div>
+    </div>
+  );
+}
+function Landing({ onNavigate }) {
+  return (
+    <div style={{ minHeight:'100vh', overflowY:'auto' }}>
+      <div className="gg-grid-bg"/>
+      <GGNav variant="marketing" onNavigate={onNavigate}/>
+      <section className="gg-section" style={{ paddingTop:80, paddingBottom:48 }}>
+        <div className="gg-container" style={{ display:'grid', gridTemplateColumns:'1.05fr 1fr', gap:64, alignItems:'center' }}>
+          <div>
+            <span className="gg-eyebrow">
+              <span style={{ width:6, height:6, borderRadius:'50%', background:'var(--accent)', boxShadow:'0 0 6px var(--accent)' }}/>
+              v0.4.2 · open source
+            </span>
+            <h1 style={{ margin:'24px 0 0', fontSize:64, lineHeight:1.02, fontWeight:600, letterSpacing:'-0.035em', fontFamily:'var(--sans)' }}>
+              Read your repo<br/>
+              <span style={{ fontFamily:'var(--mono)', fontWeight:500, letterSpacing:'-0.04em', background:'linear-gradient(90deg, var(--accent), var(--info))', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
+                like a graph<span className="gg-cursor" style={{ verticalAlign:'-3px' }}/>
+              </span>
+            </h1>
+            <p style={{ marginTop:24, maxWidth:520, fontSize:17, lineHeight:1.6, color:'var(--fg-2)' }}>
+              CodeFlow indexes architecture, dependencies, and database schemas — then renders them as a queryable graph. Find dead code, circular imports, and schema drift in seconds.
+            </p>
+            <div style={{ display:'flex', gap:12, marginTop:32, alignItems:'center', flexWrap:'wrap' }}>
+              <button className="gg-btn gg-btn-primary" onClick={() => onNavigate?.('repo')}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+                continue with github
+              </button>
+              <button className="gg-btn gg-btn-secondary" onClick={() => onNavigate?.('db')}>try the schema visualizer →</button>
+            </div>
+            <div style={{ marginTop:28, display:'flex', alignItems:'center', gap:14, fontFamily:'var(--mono)', fontSize:12, color:'var(--fg-3)' }}>
+              <span><span className="gg-kbd">⌘</span> <span className="gg-kbd">K</span></span>
+              <span style={{ opacity:0.5 }}>·</span>
+              <span>install via</span>
+              <code style={{ background:'var(--bg-2)', padding:'4px 8px', borderRadius:5, color:'var(--fg-2)', fontFamily:'var(--mono)' }}>npm i -g codeflow</code>
+            </div>
+          </div>
+          <div><GraphViz/></div>
+        </div>
+      </section>
+
+      <div className="stat-strip">
+        {[{v:'1.2M',l:'files indexed daily',s:'+18%'},{v:'180',l:'p50 analysis (ms)'},{v:'10k',l:'fps schema render'},{v:'14',l:'frameworks understood'}].map((s,i) => (
+          <div key={i} className="stat-cell">
+            <div style={{ fontFamily:'var(--mono)', fontSize:32, fontWeight:700, color:'var(--fg)', letterSpacing:'-0.03em', display:'flex', alignItems:'baseline', gap:6 }}>
+              {s.v}{s.s && <span style={{ fontSize:13, color:'var(--accent)', fontWeight:400 }}>{s.s}</span>}
+            </div>
+            <div style={{ marginTop:6, fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)', letterSpacing:'0.06em', textTransform:'uppercase' }}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+
+      <section className="gg-section">
+        <div className="gg-container">
+          <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:48, flexWrap:'wrap', gap:24 }}>
+            <div>
+              <span className="gg-eyebrow">// features</span>
+              <h2 style={{ margin:'18px 0 0', fontSize:42, fontWeight:700, letterSpacing:'-0.03em', maxWidth:500 }}>Four lenses on the same codebase.</h2>
+            </div>
+            <p style={{ maxWidth:380, color:'var(--fg-3)', fontSize:14, lineHeight:1.6, margin:0 }}>Each view shares a common index — switch perspectives without re-scanning.</p>
+          </div>
+          <div className="feature-grid">
+            <FeatureCard icon={<svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/></svg>} accent="#3fb950" title="GRAPH · Architecture map" desc="Modules, files, and imports rendered live. Click any node to trace what depends on it." demo={<BranchDemo/>}/>
+            <FeatureCard icon={<svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8Z"/></svg>} accent="#58a6ff" title="SCHEMA · Database visualizer" desc="Drop in credentials, an SQL dump, or a repo. Tables, foreign keys, and indexes — instantly." demo={<SchemaDemo/>}/>
+            <FeatureCard icon={<svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"/></svg>} accent="#bc8cff" title="BRANCH · Review timeline" desc="Side-by-side branch comparison with inline reviewer notes and conflict prediction." demo={<BranchDemo/>}/>
+            <FeatureCard icon={<svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M4.25 2.5c0 .414.336.75.75.75h6a.75.75 0 0 0 0-1.5H5a.75.75 0 0 0-.75.75ZM5 7.25a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5A.75.75 0 0 1 5 7.25ZM5 10a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5H5ZM2.5 0h11A2.5 2.5 0 0 1 16 2.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 13.5v-11A2.5 2.5 0 0 1 2.5 0Zm0 1.5A1 1 0 0 0 1.5 2.5v11a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-11a1 1 0 0 0-1-1h-11Z"/></svg>} accent="#f85149" title="SECURITY · Vulnerability scan" desc="Secrets, outdated deps, exposed surfaces — flagged at file, function, and route level." demo={<TerminalDemo/>}/>
+          </div>
+        </div>
+      </section>
+
+      <section className="gg-section" style={{ paddingTop:0 }}>
+        <div className="gg-container">
+          <div className="gg-card" style={{ padding:48, background:'linear-gradient(180deg,rgba(255,255,255,0.02),transparent)', display:'grid', gridTemplateColumns:'1fr 1fr', gap:48, alignItems:'center' }}>
+            <div>
+              <span className="gg-eyebrow">// embed</span>
+              <h2 style={{ margin:'16px 0 16px', fontSize:32, fontWeight:700, letterSpacing:'-0.025em' }}>Or use it as a library.</h2>
+              <p style={{ color:'var(--fg-2)', fontSize:15, lineHeight:1.65, margin:0, maxWidth:440 }}>Same engine that powers the UI, exposed as a single TypeScript package. Build your own dashboards, lint rules, or AI tooling on top.</p>
+              <div style={{ marginTop:24, display:'flex', gap:10 }}>
+                <button className="gg-btn gg-btn-secondary">read the docs →</button>
+                <button className="gg-btn gg-btn-ghost" style={{ fontFamily:'var(--mono)' }}>npm i codeflow</button>
+              </div>
+            </div>
+            <CodeSample/>
+          </div>
+        </div>
+      </section>
+
+      <section className="gg-section" style={{ paddingTop:32, paddingBottom:80 }}>
+        <div className="gg-container" style={{ textAlign:'center' }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:13, color:'var(--fg-3)', display:'inline-flex', alignItems:'center', gap:10 }}>
+            <span style={{ height:1, width:40, background:'var(--line-strong)' }}/><span>$ codeflow init</span><span style={{ height:1, width:40, background:'var(--line-strong)' }}/>
+          </div>
+          <h2 style={{ margin:'20px 0 14px', fontSize:48, fontWeight:700, letterSpacing:'-0.03em' }}>Stop reading code line by line.</h2>
+          <p style={{ color:'var(--fg-3)', fontSize:16, maxWidth:520, margin:'0 auto 28px' }}>Free for public repos. 14-day trial on private. No credit card.</p>
+          <div style={{ display:'flex', gap:12, justifyContent:'center' }}>
+            <button className="gg-btn gg-btn-primary" onClick={() => onNavigate?.('repo')}>continue with github</button>
+            <button className="gg-btn gg-btn-ghost">or browse the demo repo →</button>
+          </div>
+        </div>
+      </section>
+
+      <footer style={{ position:'relative', zIndex:1, borderTop:'1px solid var(--line)', padding:'24px 28px', display:'flex', justifyContent:'space-between', alignItems:'center', fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)' }}>
+        <span>codeflow © 2026 · MIT license</span>
+        <span>commit <span style={{ color:'var(--fg-2)' }}>#a8f3c2d</span> · deployed 2 hours ago</span>
+      </footer>
+    </div>
+  );
+}
+
+// ─── repo.jsx ─────────────────────────────────────────────────────────────────
+const REPOS = [
+  { name:'CodeGraph',               desc:'Interactive code architecture visualizer with AST parsing.',         lang:'HTML',       langColor:'#e34c26', stars:142, vis:'public',  age:'7d',  files:'8.2k', branch:'main',   status:'analyzed' },
+  { name:'Weather-Load-analyzer',   desc:'Climate-aware grid load forecasting using historical NOAA data.',    lang:'Python',     langColor:'#3572A5', stars:38,  vis:'public',  age:'16d', files:'1.4k', branch:'main',   status:'idle' },
+  { name:'karapathy-NN-Zero2Hero',  desc:"Notes & exercises following Andrej Karpathy's neural net series.",  lang:'Jupyter',    langColor:'#DA5B0B', stars:12,  vis:'public',  age:'1mo', files:'342',  branch:'master', status:'idle' },
+  { name:'Hands-On-Large-Language-Models', desc:"Companion code for the O'Reilly LLM book.",                  lang:'Python',     langColor:'#3572A5', stars:91,  vis:'public',  age:'1mo', files:'2.1k', branch:'main',   status:'idle' },
+  { name:'ML-For-Beginners',        desc:'12 weeks, 26 lessons, 52 quizzes — classic ML for everyone.',       lang:'Jupyter',    langColor:'#DA5B0B', stars:412, vis:'public',  age:'1mo', files:'5.6k', branch:'main',   status:'analyzed' },
+  { name:'gstack',                  desc:"Garry Tan's exact Claude Code setup & opinionated tooling.",        lang:'TypeScript', langColor:'#3178c6', stars:28,  vis:'public',  age:'1mo', files:'816',  branch:'main',   status:'idle' },
+  { name:'ai-for-bharat',           desc:'Multilingual ASR pipeline for Indian languages.',                   lang:'Python',     langColor:'#3572A5', stars:6,   vis:'private', age:'3mo', files:'1.1k', branch:'develop',status:'idle' },
+  { name:'time-weaver',             desc:'Schedule a job, watch its timeline weave through CRON expressions.', lang:'TypeScript',langColor:'#3178c6', stars:14,  vis:'private', age:'3mo', files:'612',  branch:'main',   status:'idle' },
+  { name:'Algo_Data_Stream',        desc:'Real-time + historical market data streaming with replay buffer.',   lang:'Python',     langColor:'#3572A5', stars:22,  vis:'public',  age:'9mo', files:'2.3k', branch:'main',   status:'idle' },
+  { name:'rust-mini-lsp',           desc:'A toy language-server protocol implementation in Rust.',            lang:'Rust',       langColor:'#dea584', stars:18,  vis:'public',  age:'1y',  files:'92',   branch:'main',   status:'idle' },
+  { name:'go-graphdb-sandbox',      desc:'Append-only graph DB experiment, single-binary Go server.',         lang:'Go',         langColor:'#00ADD8', stars:9,   vis:'private', age:'1y',  files:'58',   branch:'main',   status:'idle' },
+  { name:'next-portfolio-2024',     desc:'Personal portfolio site, Next.js 14 + MDX, ISR cached.',            lang:'TypeScript', langColor:'#3178c6', stars:3,   vis:'public',  age:'1y',  files:'214',  branch:'main',   status:'analyzed' },
+];
+const FILTERS = ['all','public','private','analyzed','starred'];
+const LANGS   = ['all','TypeScript','Python','Jupyter','Rust','Go','HTML'];
+
+function LangDot({ color }) {
+  return <span style={{ display:'inline-block', width:10, height:10, borderRadius:'50%', background:color, boxShadow:'0 0 4px '+color+'80', marginRight:6, verticalAlign:'middle' }}/>;
+}
+
+function RepoRow({ r, active, onMouseEnter, onSelect, mode }) {
+  const ref = useRef(null);
+  useEffect(() => { if (active && ref.current) ref.current.scrollIntoView({ block:'nearest' }); }, [active]);
+
+  if (mode === 'card') {
+    return (
+      <div ref={ref} onMouseEnter={onMouseEnter} onClick={onSelect} className="gg-card" style={{ padding:18, cursor:'default', borderColor: active ? 'rgba(63,185,80,0.4)' : 'var(--line)', background: active ? 'rgba(63,185,80,0.04)' : 'var(--bg-1)', boxShadow: active ? '0 0 0 1px rgba(63,185,80,0.4),0 0 24px rgba(63,185,80,0.08)' : 'none', transform: active ? 'translateY(-1px)' : 'none' }}>
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
+          <span style={{ fontFamily:'var(--mono)', fontSize:13, fontWeight:500, color: active ? 'var(--accent)' : 'var(--info)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.name}</span>
+          <span style={{ padding:'2px 8px', borderRadius:999, fontFamily:'var(--mono)', fontSize:10, background: r.vis==='public' ? 'rgba(63,185,80,0.08)' : 'rgba(255,255,255,0.04)', border:'1px solid '+(r.vis==='public'?'rgba(63,185,80,0.2)':'var(--line-strong)'), color: r.vis==='public' ? 'var(--accent)' : 'var(--fg-3)', flexShrink:0 }}>{r.vis}</span>
+        </div>
+        <p style={{ margin:'10px 0 14px', fontSize:13, color:'var(--fg-3)', lineHeight:1.5, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden', minHeight:39 }}>{r.desc}</p>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)' }}>
+          <span><LangDot color={r.langColor}/>{r.lang}</span>
+          <span>★ {r.stars} · {r.age}</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div ref={ref} onMouseEnter={onMouseEnter} onClick={onSelect} style={{ display:'grid', gridTemplateColumns:'20px 1.4fr 2fr 100px 100px 80px 90px', gap:14, alignItems:'center', padding:'10px 16px', borderRadius:8, cursor:'default', background: active ? 'rgba(63,185,80,0.07)' : 'transparent', boxShadow: active ? 'inset 0 0 0 1px rgba(63,185,80,0.3)' : 'none', fontFamily:'var(--mono)', fontSize:12, transition:'background 0.1s' }}>
+      <span style={{ color: active ? 'var(--accent)' : 'var(--fg-4)' }}>{active ? '▸' : '○'}</span>
+      <span style={{ color: active ? 'var(--accent)' : 'var(--info)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.name}</span>
+      <span style={{ color:'var(--fg-3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.desc}</span>
+      <span style={{ color:'var(--fg-2)' }}><LangDot color={r.langColor}/>{r.lang}</span>
+      <span style={{ color:'var(--fg-3)' }}>{r.branch}</span>
+      <span style={{ color:'var(--fg-3)' }}>★ {r.stars}</span>
+      <span style={{ color:'var(--fg-3)', textAlign:'right' }}>{r.age}</span>
+    </div>
+  );
+}
+
+function RepoPreview({ r }) {
+  if (!r) return null;
+  return (
+    <div style={{ padding:24, height:'100%', display:'flex', flexDirection:'column', gap:18 }}>
+      <div>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:8, fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)', padding:'4px 10px', border:'1px solid var(--line-strong)', borderRadius:999, marginBottom:14 }}>
+          <span style={{ width:6, height:6, borderRadius:'50%', background: r.status==='analyzed' ? 'var(--accent)' : 'var(--fg-4)', boxShadow: r.status==='analyzed' ? '0 0 6px var(--accent)' : 'none' }}/>
+          {r.status==='analyzed' ? 'previously analyzed' : 'not analyzed yet'}
+        </div>
+        <h3 style={{ margin:0, fontFamily:'var(--mono)', fontSize:18, fontWeight:500, color:'var(--info)', letterSpacing:'-0.01em' }}>{r.name}</h3>
+        <p style={{ margin:'10px 0 0', fontSize:13, color:'var(--fg-2)', lineHeight:1.55 }}>{r.desc}</p>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:1, background:'var(--line)', borderRadius:8, overflow:'hidden', border:'1px solid var(--line)' }}>
+        {[['language',<span><LangDot color={r.langColor}/>{r.lang}</span>],['files',r.files],['branch',r.branch],['updated',r.age+' ago']].map(([k,v]) => (
+          <div key={k} style={{ padding:'12px 14px', background:'var(--bg-1)', display:'flex', flexDirection:'column', gap:4 }}>
+            <span style={{ fontFamily:'var(--mono)', fontSize:10, color:'var(--fg-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{k}</span>
+            <span style={{ fontFamily:'var(--mono)', fontSize:13, color:'var(--fg)' }}>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div>
+        <div style={{ fontFamily:'var(--mono)', fontSize:10, color:'var(--fg-3)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>recent commits</div>
+        <div style={{ fontFamily:'var(--mono)', fontSize:11.5, lineHeight:1.7, background:'var(--panel)', border:'1px solid var(--line)', borderRadius:8, padding:'10px 14px' }}>
+          {[{h:'a8f3c2d',m:'fix: handle null branch refs',a:'2h'},{h:'4e1b09a',m:'feat: add schema diff endpoint',a:'1d'},{h:'9c2f8e1',m:'chore: bump deps to latest',a:'3d'}].map(c => (
+            <div key={c.h} style={{ display:'flex', gap:10, color:'var(--fg-3)' }}>
+              <span style={{ color:'var(--accent)' }}>{c.h}</span>
+              <span style={{ color:'var(--fg-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.m}</span>
+              <span>{c.a}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ marginTop:'auto', display:'flex', flexDirection:'column', gap:8 }}>
+        <button className="gg-btn gg-btn-primary" style={{ width:'100%', justifyContent:'center' }}>analyze repository <span className="gg-kbd" style={{ background:'rgba(0,0,0,0.2)', borderColor:'rgba(0,0,0,0.3)', color:'rgba(6,32,13,0.7)', marginLeft:8 }}>↵</span></button>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <button className="gg-btn gg-btn-secondary" style={{ justifyContent:'center', height:32, fontSize:12 }}>open in graph</button>
+          <button className="gg-btn gg-btn-secondary" style={{ justifyContent:'center', height:32, fontSize:12 }}>schema only</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RepoSelector({ onNavigate }) {
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [lang, setLang] = useState('all');
+  const [active, setActive] = useState(0);
+  const [mode, setMode] = useState('list');
+  const inputRef = useRef(null);
+
+  const filtered = useMemo(() => REPOS.filter(r => {
+    if (filter==='public' && r.vis!=='public') return false;
+    if (filter==='private' && r.vis!=='private') return false;
+    if (filter==='analyzed' && r.status!=='analyzed') return false;
+    if (filter==='starred' && r.stars<50) return false;
+    if (lang!=='all' && r.lang!==lang) return false;
+    if (q && !(r.name.toLowerCase().includes(q.toLowerCase()) || r.desc.toLowerCase().includes(q.toLowerCase()))) return false;
+    return true;
+  }), [q, filter, lang]);
+
+  useEffect(() => { setActive(0); }, [q, filter, lang]);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const onKey = (e) => {
+    if (e.key==='ArrowDown') { e.preventDefault(); setActive(a => Math.min(a+1, filtered.length-1)); }
+    else if (e.key==='ArrowUp') { e.preventDefault(); setActive(a => Math.max(a-1, 0)); }
+    else if (e.key==='Escape') setQ('');
+  };
+
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
+      <div className="gg-grid-bg"/>
+      <GGNav variant="app" current="select-repo"/>
+      <div style={{ position:'relative', zIndex:1, flex:1, display:'grid', gridTemplateColumns:'1fr 380px', minHeight:0 }}>
+        <div style={{ display:'flex', flexDirection:'column', minHeight:0, padding:'24px 28px', gap:16 }}>
+          <div>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:18 }}>
+              <div>
+                <h1 style={{ margin:0, fontFamily:'var(--mono)', fontSize:20, fontWeight:500, letterSpacing:'-0.01em' }}>
+                  <span style={{ color:'var(--fg-3)' }}>›</span> select_repository<span className="gg-cursor"/>
+                </h1>
+                <p style={{ margin:'6px 0 0', color:'var(--fg-3)', fontSize:13 }}>{filtered.length} of {REPOS.length} repositories · indexed via github.com/raman1530</p>
+              </div>
+              <div style={{ display:'flex', gap:6 }}>
+                {[['list','list'],['card','cards']].map(([v,l]) => (
+                  <button key={v} onClick={() => setMode(v)} className={`gg-btn gg-btn-sm ${mode===v?'gg-btn-secondary':'gg-btn-ghost'}`} style={mode===v?{color:'var(--accent)',borderColor:'rgba(63,185,80,0.3)',background:'rgba(63,185,80,0.06)'}:{}}>{l}</button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <TweaksPanel title="Tweaks">
-            <TweakSection label="View"/>
-            <TweakRadio label="Screen" value={screen}
-              options={[
-                { value: 'landing',  label: '01' },
-                { value: 'repo',     label: '02' },
-                { value: 'db',       label: '03' },
-                { value: 'explorer', label: '04' },
-              ]}
-              onChange={(v) => navigate(v)}/>
+          <div style={{ position:'relative', background:'var(--bg-1)', border:'1px solid var(--line-strong)', borderRadius:10, padding:'4px 12px', display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontFamily:'var(--mono)', fontSize:14, color:'var(--accent)', flexShrink:0 }}>›</span>
+            <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} onKeyDown={onKey} placeholder="filter repositories — type to fuzzy match name or description" style={{ flex:1, background:'transparent', border:0, outline:0, color:'var(--fg)', fontFamily:'var(--mono)', fontSize:13, padding:'10px 0' }}/>
+            <div style={{ display:'flex', gap:6, alignItems:'center', color:'var(--fg-3)', fontFamily:'var(--mono)', fontSize:11 }}>
+              <span className="gg-kbd">↑</span><span className="gg-kbd">↓</span><span style={{ margin:'0 4px' }}>navigate</span>
+              <span className="gg-kbd">↵</span><span style={{ margin:'0 4px' }}>select</span>
+              <span className="gg-kbd">esc</span><span style={{ marginLeft:4 }}>clear</span>
+            </div>
+          </div>
 
-            <TweakSection label="Brand"/>
-            <TweakColor label="Accent" value={t.accent}
-              onChange={(v) => setTweak('accent', v)}/>
-            <TweakSelect label="Mono font" value={t.monoFont}
-              options={['JetBrains Mono', 'IBM Plex Mono', 'Fira Code', 'Geist Mono']}
-              onChange={(v) => {
-                setTweak('monoFont', v);
-                document.documentElement.style.setProperty('--mono', `'${v}', ui-monospace, monospace`);
-                if (!document.querySelector(`link[data-font="${v}"]`)) {
-                  const link = document.createElement('link');
-                  link.rel = 'stylesheet';
-                  link.dataset.font = v;
-                  link.href = `https://fonts.googleapis.com/css2?family=${v.replace(/ /g, '+')}:wght@400;500;600&display=swap`;
-                  document.head.appendChild(link);
-                }
-              }}/>
+          <div style={{ display:'flex', gap:14, alignItems:'center', flexWrap:'wrap' }}>
+            <div style={{ display:'flex', gap:0, padding:3, background:'var(--bg-1)', borderRadius:8, border:'1px solid var(--line)' }}>
+              {FILTERS.map(f => (
+                <button key={f} onClick={() => setFilter(f)} style={{ padding:'6px 12px', border:0, borderRadius:5, fontFamily:'var(--mono)', fontSize:12, cursor:'pointer', background: filter===f ? 'rgba(63,185,80,0.1)' : 'transparent', color: filter===f ? 'var(--accent)' : 'var(--fg-3)', boxShadow: filter===f ? 'inset 0 0 0 1px rgba(63,185,80,0.25)' : 'none', transition:'all 0.1s' }}>{f}</button>
+              ))}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, fontFamily:'var(--mono)', fontSize:12, color:'var(--fg-3)' }}>
+              <span>lang:</span>
+              <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                {LANGS.map(l => (
+                  <button key={l} onClick={() => setLang(l)} style={{ padding:'4px 10px', border:'1px solid', borderColor: lang===l ? 'rgba(63,185,80,0.3)' : 'var(--line)', borderRadius:5, fontFamily:'var(--mono)', fontSize:11, cursor:'pointer', background: lang===l ? 'rgba(63,185,80,0.06)' : 'transparent', color: lang===l ? 'var(--accent)' : 'var(--fg-3)' }}>{l}</button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-            <TweakSection label="Surface"/>
-            <TweakToggle label="Grid background" value={t.showGridBg}
-              onChange={(v) => {
-                setTweak('showGridBg', v);
-                document.querySelectorAll('.gg-grid-bg').forEach(el => el.style.display = v ? '' : 'none');
-              }}/>
-          </TweaksPanel>
-        </>
+          <div className="gg-scroll" style={{ flex:1, overflow:'auto', minHeight:0, paddingRight:6 }}>
+            {filtered.length===0 ? (
+              <div style={{ padding:'80px 0', textAlign:'center', fontFamily:'var(--mono)', color:'var(--fg-3)' }}>
+                <div style={{ fontSize:24, marginBottom:12 }}>(╯°□°)╯</div>
+                <div style={{ fontSize:13 }}>no repos match "<span style={{ color:'var(--fg)' }}>{q}</span>"</div>
+              </div>
+            ) : mode==='card' ? (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
+                {filtered.map((r,i) => <RepoRow key={r.name} r={r} active={i===active} mode="card" onMouseEnter={() => setActive(i)} onSelect={() => setActive(i)}/>)}
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'20px 1.4fr 2fr 100px 100px 80px 90px', gap:14, padding:'8px 16px', fontFamily:'var(--mono)', fontSize:10, color:'var(--fg-4)', textTransform:'uppercase', letterSpacing:'0.06em', borderBottom:'1px solid var(--line)', marginBottom:4 }}>
+                  <span/><span>name</span><span>description</span><span>language</span><span>branch</span><span>★</span><span style={{ textAlign:'right' }}>updated</span>
+                </div>
+                {filtered.map((r,i) => <RepoRow key={r.name} r={r} active={i===active} mode="list" onMouseEnter={() => setActive(i)} onSelect={() => setActive(i)}/>)}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display:'flex', justifyContent:'space-between', paddingTop:12, borderTop:'1px solid var(--line)', fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)' }}>
+            <span>showing <span style={{ color:'var(--fg)' }}>{filtered.length}</span> · <span style={{ color:'var(--accent)' }}>{filtered.filter(r=>r.status==='analyzed').length}</span> analyzed</span>
+            <span>connected as <span style={{ color:'var(--fg)' }}>raman1530</span> · scope: repo,read:org</span>
+          </div>
+        </div>
+
+        <div style={{ borderLeft:'1px solid var(--line)', background:'rgba(255,255,255,0.015)', display:'flex', flexDirection:'column', overflow:'auto' }}>
+          <RepoPreview r={filtered[active]}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── db.jsx ───────────────────────────────────────────────────────────────────
+const SOURCES = [
+  { id:'postgres', label:'PostgreSQL', sub:'host · port · creds',    color:'#336791', icon:'P' },
+  { id:'mysql',    label:'MySQL',      sub:'host · port · creds',    color:'#00758f', icon:'M' },
+  { id:'sqlite',   label:'SQLite',     sub:'local file path',         color:'#003b57', icon:'S' },
+  { id:'mongo',    label:'MongoDB',    sub:'connection string',       color:'#4DB33D', icon:'M' },
+  { id:'sqldump',  label:'SQL Dump',   sub:'paste or upload .sql',   color:'#bc8cff', icon:'⤓' },
+  { id:'repo',     label:'From Repo',  sub:'parse migrations folder', color:'#3fb950', icon:'G' },
+  { id:'csv',      label:'CSV / Parquet', sub:'infer schema from data', color:'#76e4f7', icon:'☶' },
+  { id:'snowflake',label:'Snowflake',  sub:'account · warehouse',    color:'#29b5e8', icon:'❄' },
+];
+const RECENT = [
+  { name:'acme_prod',          kind:'postgres', host:'db.acme.io:5432',        when:'2h', tables:47 },
+  { name:'analytics_warehouse',kind:'snowflake',host:'xy12345.us-east-1',      when:'1d', tables:213 },
+  { name:'mobile-app.sql',     kind:'sqldump',  host:'local file',             when:'3d', tables:12 },
+];
+
+function MiniSchemaPreview() {
+  return (
+    <svg viewBox="0 0 400 200" style={{ width:'100%', height:'auto', display:'block' }}>
+      <defs><pattern id="dotgrid2" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="0.5" cy="0.5" r="0.5" fill="rgba(255,255,255,0.06)"/></pattern></defs>
+      <rect width="400" height="200" fill="url(#dotgrid2)"/>
+      {[{x:30,y:40,w:100,label:'users',cols:['id','email','role'],color:'#3fb950'},{x:170,y:30,w:100,label:'posts',cols:['id','user_id','body'],color:'#58a6ff'},{x:290,y:90,w:100,label:'tags',cols:['id','name'],color:'#bc8cff'},{x:30,y:130,w:100,label:'sessions',cols:['id','user_id'],color:'#d29922'}].map((t,i) => (
+        <g key={i}>
+          <rect x={t.x} y={t.y} width={t.w} height={20+t.cols.length*14} rx="4" fill="rgba(13,17,23,0.95)" stroke={t.color} strokeWidth="1"/>
+          <rect x={t.x} y={t.y} width={t.w} height="18" rx="4" fill={t.color} fillOpacity="0.15"/>
+          <text x={t.x+8} y={t.y+13} fontFamily="var(--mono)" fontSize="9" fill={t.color}>{t.label}</text>
+          {t.cols.map((c,ci) => <text key={ci} x={t.x+8} y={t.y+30+ci*14} fontFamily="var(--mono)" fontSize="9" fill="var(--fg-3)">{c}</text>)}
+        </g>
+      ))}
+      <path d="M130 70 Q 150 50 170 50" stroke="rgba(63,185,80,0.4)" fill="none" strokeWidth="1"/>
+      <path d="M270 70 Q 285 80 290 100" stroke="rgba(88,166,255,0.4)" fill="none" strokeWidth="1"/>
+      <path d="M80 130 Q 80 100 80 78" stroke="rgba(210,153,34,0.4)" fill="none" strokeWidth="1"/>
+    </svg>
+  );
+}
+
+function Toggle({ label, value, onChange }) {
+  return (
+    <button onClick={() => onChange(!value)} style={{ display:'inline-flex', alignItems:'center', gap:8, background:'transparent', border:0, cursor:'pointer', color:'inherit', padding:0, fontFamily:'inherit' }}>
+      <span style={{ width:30, height:18, borderRadius:999, background: value ? 'rgba(63,185,80,0.3)' : 'var(--bg-3)', border:'1px solid '+(value?'rgba(63,185,80,0.5)':'var(--line-strong)'), position:'relative', transition:'all 0.15s' }}>
+        <span style={{ position:'absolute', top:1, left: value ? 13 : 1, width:14, height:14, borderRadius:'50%', background: value ? 'var(--accent)' : 'var(--fg-3)', transition:'left 0.15s' }}/>
+      </span>
+      <span style={{ fontFamily:'var(--mono)', fontSize:12, color: value ? 'var(--fg-2)' : 'var(--fg-3)' }}>{label}</span>
+    </button>
+  );
+}
+
+function SourceTile({ s, active, onClick }) {
+  return (
+    <button onClick={onClick} style={{ display:'flex', alignItems:'center', gap:12, width:'100%', padding:'12px 14px', background: active ? 'rgba(63,185,80,0.06)' : 'var(--bg-1)', border:'1px solid '+(active?'rgba(63,185,80,0.4)':'var(--line)'), borderRadius:8, cursor:'pointer', textAlign:'left', color:'inherit', transition:'all 0.12s', boxShadow: active ? 'inset 2px 0 0 var(--accent)' : 'none' }}>
+      <span style={{ width:32, height:32, borderRadius:6, display:'grid', placeItems:'center', flexShrink:0, background:s.color+'22', border:'1px solid '+s.color+'55', color:s.color, fontFamily:'var(--mono)', fontSize:14, fontWeight:600 }}>{s.icon}</span>
+      <div style={{ minWidth:0, flex:1 }}>
+        <div style={{ fontFamily:'var(--mono)', fontSize:13, fontWeight:500, color: active ? 'var(--accent)' : 'var(--fg)' }}>{s.label}</div>
+        <div style={{ fontSize:11, color:'var(--fg-3)', marginTop:2 }}>{s.sub}</div>
+      </div>
+      {active && <span style={{ color:'var(--accent)', fontFamily:'var(--mono)', fontSize:14 }}>›</span>}
+    </button>
+  );
+}
+
+function DBVisualizer({ onNavigate }) {
+  const [source, setSource] = useState('postgres');
+  const [host, setHost] = useState('db.production.acme.io');
+  const [port, setPort] = useState('5432');
+  const [dbname, setDbname] = useState('acme_prod');
+  const [user, setUser] = useState('readonly_app');
+  const [pass, setPass] = useState('');
+  const [ssl, setSsl] = useState(true);
+  const [readonly, setReadonly] = useState(true);
+  const cur = SOURCES.find(s => s.id === source);
+
+  return (
+    <div style={{ minHeight:'100vh' }}>
+      <div className="gg-grid-bg"/>
+      <GGNav variant="app" current="db-visualizer"/>
+      <div style={{ position:'relative', zIndex:1, padding:'28px 28px 60px' }}>
+        <div style={{ maxWidth:1200, margin:'0 auto' }}>
+          <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:24, gap:24, flexWrap:'wrap' }}>
+            <div>
+              <div style={{ display:'flex', alignItems:'center', gap:10, color:'var(--fg-3)', fontFamily:'var(--mono)', fontSize:12, marginBottom:8 }}>
+                <span style={{ cursor:'pointer', color:'var(--fg-2)' }} onClick={() => onNavigate?.('repo')}>← workspace</span>
+                <span style={{ opacity:0.5 }}>›</span>
+                <span style={{ color:'var(--fg)' }}>database_visualizer</span>
+              </div>
+              <h1 style={{ margin:0, fontFamily:'var(--mono)', fontSize:24, fontWeight:500, letterSpacing:'-0.01em' }}>
+                <span style={{ color:'var(--fg-3)' }}>›</span> connect_database<span className="gg-cursor"/>
+              </h1>
+              <p style={{ margin:'8px 0 0', color:'var(--fg-3)', fontSize:13, maxWidth:560 }}>Pick a data source on the left, configure on the right. We pull schema, indexes, and foreign keys — never row data.</p>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)' }}>
+              <span style={{ display:'inline-flex', width:6, height:6, borderRadius:'50%', background:'var(--accent)', boxShadow:'0 0 6px var(--accent)' }}/>
+              tunnel ready · 4 connections cached
+            </div>
+          </div>
+
+          <div className="gg-card" style={{ padding:0, overflow:'hidden', background:'linear-gradient(180deg,rgba(255,255,255,0.015),transparent)', display:'grid', gridTemplateColumns:'320px 1fr 360px', minHeight:560 }}>
+            <div style={{ padding:20, borderRight:'1px solid var(--line)', background:'rgba(0,0,0,0.18)', display:'flex', flexDirection:'column', gap:14 }}>
+              <div>
+                <div className="gg-label">data sources</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:4 }}>
+                  {SOURCES.map(s => <SourceTile key={s.id} s={s} active={source===s.id} onClick={() => setSource(s.id)}/>)}
+                </div>
+              </div>
+              <div style={{ marginTop:8 }}>
+                <div className="gg-label">recent</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:4 }}>
+                  {RECENT.map(r => (
+                    <button key={r.name} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:6, background:'transparent', border:'1px solid var(--line)', cursor:'pointer', color:'inherit', textAlign:'left' }}>
+                      <span style={{ width:6, height:6, borderRadius:'50%', background:'var(--accent)', boxShadow:'0 0 6px var(--accent)', flexShrink:0 }}/>
+                      <div style={{ minWidth:0, flex:1 }}>
+                        <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--fg)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.name}</div>
+                        <div style={{ fontFamily:'var(--mono)', fontSize:10, color:'var(--fg-3)' }}>{r.host} · {r.tables} tables</div>
+                      </div>
+                      <span style={{ fontFamily:'var(--mono)', fontSize:10, color:'var(--fg-4)' }}>{r.when}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding:'28px 32px', display:'flex', flexDirection:'column', gap:22, minWidth:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <span style={{ width:42, height:42, borderRadius:8, display:'grid', placeItems:'center', background:cur.color+'22', color:cur.color, border:'1px solid '+cur.color+'55', fontFamily:'var(--mono)', fontSize:18, fontWeight:600 }}>{cur.icon}</span>
+                <div>
+                  <h2 style={{ margin:0, fontFamily:'var(--mono)', fontSize:18, fontWeight:500 }}>connect to {cur.label.toLowerCase()}</h2>
+                  <div style={{ fontSize:12, color:'var(--fg-3)', marginTop:2 }}>credentials never leave your browser</div>
+                </div>
+              </div>
+
+              {source==='sqldump' ? (
+                <div style={{ height:200, border:'1.5px dashed var(--line-strong)', borderRadius:10, background:'var(--panel)', display:'grid', placeItems:'center', textAlign:'center', color:'var(--fg-3)', fontFamily:'var(--mono)', fontSize:12 }}>
+                  <div><div style={{ fontSize:24, color:'var(--fg-4)', marginBottom:8 }}>⤓</div>drop <span style={{ color:'var(--fg-2)' }}>schema.sql</span> here<div style={{ fontSize:11, marginTop:6, color:'var(--fg-4)' }}>or paste DDL · max 50 MB</div></div>
+                </div>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                  <div style={{ display:'flex', gap:14 }}>
+                    <div style={{ flex:1 }}>
+                      <label className="gg-label">host</label>
+                      <input className="gg-input" value={host} onChange={e => setHost(e.target.value)} style={{ fontFamily:'var(--mono)' }}/>
+                    </div>
+                    <div>
+                      <label className="gg-label">port</label>
+                      <input className="gg-input" value={port} onChange={e => setPort(e.target.value)} style={{ fontFamily:'var(--mono)', maxWidth:120 }}/>
+                    </div>
+                  </div>
+                  <div><label className="gg-label">database</label><input className="gg-input" value={dbname} onChange={e => setDbname(e.target.value)} style={{ fontFamily:'var(--mono)' }}/></div>
+                  <div style={{ display:'flex', gap:14 }}>
+                    <div style={{ flex:1 }}><label className="gg-label">username</label><input className="gg-input" value={user} onChange={e => setUser(e.target.value)} style={{ fontFamily:'var(--mono)' }}/></div>
+                    <div style={{ flex:1 }}><label className="gg-label">password</label><input className="gg-input" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••" style={{ fontFamily:'var(--mono)' }}/></div>
+                  </div>
+                  <div style={{ display:'flex', gap:18, paddingTop:6 }}>
+                    <Toggle label="require SSL" value={ssl} onChange={setSsl}/>
+                    <Toggle label="read-only mode" value={readonly} onChange={setReadonly}/>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginTop:'auto', background:'var(--panel)', border:'1px solid var(--line)', borderRadius:8, padding:'10px 14px', fontFamily:'var(--mono)', fontSize:12, color:'var(--fg-2)', display:'flex', alignItems:'center', gap:8, overflow:'hidden' }}>
+                <span style={{ color:'var(--fg-3)', flexShrink:0 }}>conn ›</span>
+                <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
+                  <span style={{ color:'var(--magenta)' }}>{source}{ssl&&source!=='sqldump'?'s':''}</span>
+                  <span style={{ color:'var(--fg-3)' }}>://</span>
+                  <span style={{ color:'var(--info)' }}>{user||'user'}</span>
+                  <span style={{ color:'var(--fg-3)' }}>:</span>
+                  <span style={{ color:'var(--fg-4)' }}>{pass?'••••••':'<key>'}</span>
+                  <span style={{ color:'var(--fg-3)' }}>@</span>
+                  <span style={{ color:'var(--accent)' }}>{host}:{port}</span>
+                  <span style={{ color:'var(--fg-3)' }}>/</span>
+                  <span style={{ color:'var(--fg)' }}>{dbname}</span>
+                </span>
+              </div>
+
+              <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                <button className="gg-btn gg-btn-primary" style={{ flex:1, justifyContent:'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="m11.78 8.78-7 7a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L9.69 8.75H1.75a.75.75 0 0 1 0-1.5h7.94L3.72 1.28A.749.749 0 0 1 4.78.22l7 7a.749.749 0 0 1 0 1.06Z"/></svg>
+                  connect &amp; analyze
+                  <span className="gg-kbd" style={{ background:'rgba(0,0,0,0.2)', borderColor:'rgba(0,0,0,0.3)', color:'rgba(6,32,13,0.7)', marginLeft:6 }}>↵</span>
+                </button>
+                <button className="gg-btn gg-btn-secondary" style={{ justifyContent:'center' }}>test connection</button>
+              </div>
+            </div>
+
+            <div style={{ borderLeft:'1px solid var(--line)', background:'rgba(0,0,0,0.18)', padding:20, display:'flex', flexDirection:'column', gap:14 }}>
+              <div>
+                <div className="gg-label" style={{ marginBottom:10 }}>schema preview</div>
+                <div style={{ background:'var(--panel)', border:'1px solid var(--line)', borderRadius:8, overflow:'hidden' }}><MiniSchemaPreview/></div>
+                <div style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)', marginTop:8, textAlign:'center' }}>preview after connect · 47 tables · 132 fkeys</div>
+              </div>
+              <div>
+                <div className="gg-label" style={{ marginBottom:10 }}>what we read</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {[['table & column metadata',true],['foreign keys & indexes',true],['view definitions',true],['row data / values',false],['stored procedures',true]].map(([label,yes]) => (
+                    <div key={label} style={{ display:'flex', alignItems:'center', gap:10, fontFamily:'var(--mono)', fontSize:12, color: yes ? 'var(--fg-2)' : 'var(--fg-4)' }}>
+                      <span style={{ width:14, height:14, borderRadius:3, display:'grid', placeItems:'center', background: yes ? 'rgba(63,185,80,0.12)' : 'rgba(248,81,73,0.08)', color: yes ? 'var(--accent)' : 'var(--danger)', fontSize:9 }}>{yes?'✓':'✕'}</span>
+                      <span style={{ textDecoration: yes ? 'none' : 'line-through' }}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginTop:'auto', padding:'12px 14px', background:'rgba(88,166,255,0.06)', border:'1px solid rgba(88,166,255,0.18)', borderRadius:8, fontSize:11.5, lineHeight:1.5, color:'var(--fg-2)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6, color:'var(--info)', fontFamily:'var(--mono)', fontSize:11 }}><span>ⓘ</span> safe by default</div>
+                Connection runs in your browser via WebSocket tunnel. Credentials are encrypted with your local key — never touch our servers.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop:18, display:'flex', justifyContent:'center', gap:24, fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)' }}>
+            <span><span className="gg-kbd">tab</span> next field</span>
+            <span><span className="gg-kbd">⌘</span><span className="gg-kbd">↵</span> connect</span>
+            <span><span className="gg-kbd">esc</span> back</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── explorer.jsx ─────────────────────────────────────────────────────────────
+const TREE = [
+  { id:'src',           parent:null,       kind:'dir', name:'src/',         files:124 },
+  { id:'src/api',       parent:'src',      kind:'dir', name:'api/',         files:47  },
+  { id:'src/web',       parent:'src',      kind:'dir', name:'web/',         files:38  },
+  { id:'src/db',        parent:'src',      kind:'dir', name:'db/',          files:12  },
+  { id:'src/shared',    parent:'src',      kind:'dir', name:'shared/',      files:27  },
+  { id:'auth.ts',       parent:'src/api',  kind:'ts',  name:'auth.ts',      lines:312, deps:4, exports:6 },
+  { id:'router.ts',     parent:'src/api',  kind:'ts',  name:'router.ts',    lines:198, deps:3, exports:2 },
+  { id:'middleware.ts', parent:'src/api',  kind:'ts',  name:'middleware.ts',lines:87,  deps:2, exports:3 },
+  { id:'page.tsx',      parent:'src/web',  kind:'tsx', name:'page.tsx',     lines:445, deps:8, exports:1 },
+  { id:'Card.tsx',      parent:'src/web',  kind:'tsx', name:'Card.tsx',     lines:122, deps:2, exports:1 },
+  { id:'Layout.tsx',    parent:'src/web',  kind:'tsx', name:'Layout.tsx',   lines:89,  deps:3, exports:1 },
+  { id:'schema.sql',    parent:'src/db',   kind:'sql', name:'schema.sql',   lines:234, deps:0, exports:0 },
+  { id:'migrate.ts',    parent:'src/db',   kind:'ts',  name:'migrate.ts',   lines:156, deps:2, exports:1 },
+  { id:'types.ts',      parent:'src/shared',kind:'ts', name:'types.ts',     lines:78,  deps:0, exports:14 },
+  { id:'utils.ts',      parent:'src/shared',kind:'ts', name:'utils.ts',     lines:203, deps:1, exports:9  },
+];
+const KIND_COLOR = { dir:'var(--magenta)', ts:'var(--info)', tsx:'var(--accent)', sql:'var(--cyan)', default:'var(--fg-3)' };
+
+function Explorer({ onNavigate }) {
+  const [expanded, setExpanded] = useState({ src:true, 'src/api':true, 'src/web':false, 'src/db':false, 'src/shared':false });
+  const [selected, setSelected] = useState(null);
+  const [q, setQ] = useState('');
+  const childrenOf = (id) => TREE.filter(n => n.parent === id);
+  const toggleExpand = (id) => setExpanded(e => ({ ...e, [id]: !e[id] }));
+  const filtered = useMemo(() => q ? TREE.filter(n => n.kind !== 'dir' && n.name.toLowerCase().includes(q.toLowerCase())) : null, [q]);
+
+  function renderTree(nodes, depth = 0) {
+    return nodes.map(node => {
+      const isDir = node.kind === 'dir';
+      const color = KIND_COLOR[node.kind] || KIND_COLOR.default;
+      const isSelected = selected?.id === node.id;
+      return (
+        <React.Fragment key={node.id}>
+          <div onClick={() => isDir ? toggleExpand(node.id) : setSelected(node)} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', paddingLeft:8+depth*14, borderRadius:5, cursor:'pointer', background: isSelected ? 'rgba(63,185,80,0.08)' : 'transparent', boxShadow: isSelected ? 'inset 0 0 0 1px rgba(63,185,80,0.25)' : 'none', fontFamily:'var(--mono)', fontSize:12, color: isSelected ? 'var(--accent)' : 'var(--fg-2)', transition:'background .1s' }}>
+            {isDir ? <span style={{ width:10, color:'var(--fg-4)', fontSize:9 }}>{expanded[node.id]?'▾':'▸'}</span> : <span style={{ width:10 }}/>}
+            <span style={{ color, display:'flex', alignItems:'center', fontSize:10 }}>{isDir?'📁':'📄'}</span>
+            <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{node.name}</span>
+            {isDir && <span style={{ color:'var(--fg-4)', fontSize:10 }}>{node.files}</span>}
+          </div>
+          {isDir && expanded[node.id] && renderTree(childrenOf(node.id), depth+1)}
+        </React.Fragment>
       );
-    }
+    });
+  }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column' }}>
+      <div className="gg-grid-bg"/>
+      <GGNav variant="app" current="explorer"/>
+      <div style={{ position:'relative', zIndex:1, flex:1, display:'grid', gridTemplateColumns:'280px 1fr', minHeight:0 }}>
+        <div style={{ borderRight:'1px solid var(--line)', background:'rgba(0,0,0,0.15)', display:'flex', flexDirection:'column', minHeight:0 }}>
+          <div style={{ padding:'14px 12px', borderBottom:'1px solid var(--line)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, background:'var(--bg-1)', border:'1px solid var(--line-strong)', borderRadius:7, padding:'7px 10px' }}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="var(--fg-4)"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder="search files…" style={{ flex:1, background:'transparent', border:0, outline:0, fontFamily:'var(--mono)', fontSize:12, color:'var(--fg)' }}/>
+            </div>
+          </div>
+          <div className="gg-scroll" style={{ flex:1, overflow:'auto', padding:'8px' }}>
+            {filtered
+              ? filtered.length===0
+                ? <div style={{ textAlign:'center', padding:'40px 0', fontFamily:'var(--mono)', fontSize:12, color:'var(--fg-4)' }}>no matches</div>
+                : filtered.map(node => {
+                    const isSelected = selected?.id === node.id;
+                    return <div key={node.id} onClick={() => setSelected(node)} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:5, cursor:'pointer', background: isSelected ? 'rgba(63,185,80,0.08)' : 'transparent', fontFamily:'var(--mono)', fontSize:12, color: isSelected ? 'var(--accent)' : 'var(--fg-2)' }}><span style={{ fontSize:10 }}>📄</span>{node.name}</div>;
+                  })
+              : renderTree(TREE.filter(n => n.parent === null))}
+          </div>
+          <div style={{ padding:'8px 12px', borderTop:'1px solid var(--line)', fontFamily:'var(--mono)', fontSize:10, color:'var(--fg-4)', display:'flex', justifyContent:'space-between' }}>
+            <span>{TREE.filter(n=>n.kind!=='dir').length} files</span>
+            <span>codeflow/src</span>
+          </div>
+        </div>
+
+        <div style={{ display:'flex', flexDirection:'column', overflow:'hidden', background:'rgba(255,255,255,0.008)' }}>
+          <div style={{ padding:'12px 28px', borderBottom:'1px solid var(--line)', fontFamily:'var(--mono)', fontSize:12, color:'var(--fg-3)', display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ cursor:'pointer', color:'var(--fg-2)' }} onClick={() => onNavigate?.('repo')}>← workspace</span>
+            <span style={{ opacity:0.5 }}>›</span><span>explorer</span>
+            {selected && <><span style={{ opacity:0.5 }}>›</span><span style={{ color:'var(--fg)' }}>{selected.name}</span></>}
+          </div>
+          {!selected ? (
+            <div style={{ flex:1, display:'grid', placeItems:'center', color:'var(--fg-4)', fontFamily:'var(--mono)', fontSize:13 }}>
+              <div style={{ textAlign:'center', lineHeight:1.8 }}><div style={{ fontSize:24, marginBottom:8 }}>∅</div>select a file to inspect</div>
+            </div>
+          ) : (
+            <div style={{ flex:1, overflow:'auto', padding:'24px 28px', display:'flex', flexDirection:'column', gap:24 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <span style={{ width:40, height:40, borderRadius:8, display:'grid', placeItems:'center', background:(KIND_COLOR[selected.kind]||'var(--fg-3)')+'18', color:KIND_COLOR[selected.kind]||'var(--fg-3)', border:'1px solid '+(KIND_COLOR[selected.kind]||'var(--fg-3)')+'44', fontSize:18 }}>📄</span>
+                <div>
+                  <div style={{ fontFamily:'var(--mono)', fontSize:16, fontWeight:500, color:'var(--fg)' }}>{selected.name}</div>
+                  <div style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--fg-3)', marginTop:3 }}>{selected.parent} · last modified 2h ago</div>
+                </div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:1, background:'var(--line)', borderRadius:8, overflow:'hidden', border:'1px solid var(--line)' }}>
+                {[['lines',selected.lines],['deps in',selected.deps],['exports',selected.exports],['kind','.'+selected.kind]].map(([k,v]) => (
+                  <div key={k} style={{ padding:'12px 14px', background:'var(--bg-1)', display:'flex', flexDirection:'column', gap:3 }}>
+                    <span style={{ fontFamily:'var(--mono)', fontSize:10, color:'var(--fg-3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{k}</span>
+                    <span style={{ fontFamily:'var(--mono)', fontSize:16, fontWeight:600, color:'var(--fg)' }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop:'auto', padding:'10px 14px', borderRadius:8, fontSize:12, lineHeight:1.5, background: selected.lines>300 ? 'rgba(248,81,73,0.06)' : 'rgba(63,185,80,0.06)', border:'1px solid '+(selected.lines>300?'rgba(248,81,73,0.2)':'rgba(63,185,80,0.15)'), color: selected.lines>300 ? 'var(--danger)' : 'var(--accent)', fontFamily:'var(--mono)' }}>
+                {selected.lines>300 ? `⚠ Large file (${selected.lines} lines) — consider splitting` : `✓ Healthy — ${selected.lines} lines, well scoped`}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = {
+  screen:     'landing',
+  accent:     '#3fb950',
+  monoFont:   'JetBrains Mono',
+  showGridBg: true,
+};
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [screen, setScreen] = useState(t.screen || 'landing');
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--accent', t.accent);
+    document.documentElement.style.setProperty('--accent-glow', t.accent + '28');
+  }, [t.accent]);
+
+  useEffect(() => {
+    if (t.screen && t.screen !== screen) setScreen(t.screen);
+  }, [t.screen]);
+
+  const navigate = (s) => { setScreen(s); setTweak('screen', s); };
+
+  return (
+    <>
+      {screen === 'landing'  && <Landing      onNavigate={navigate}/>}
+      {screen === 'repo'     && <RepoSelector onNavigate={navigate}/>}
+      {screen === 'db'       && <DBVisualizer  onNavigate={navigate}/>}
+      {screen === 'explorer' && <Explorer      onNavigate={navigate}/>}
+
+      <div className="gg-view-switch">
+        <button className={screen==='landing'  ? 'active' : ''} onClick={() => navigate('landing')}>01 landing</button>
+        <button className={screen==='repo'     ? 'active' : ''} onClick={() => navigate('repo')}>02 repo selector</button>
+        <button className={screen==='db'       ? 'active' : ''} onClick={() => navigate('db')}>03 db visualizer</button>
+        <button className={screen==='explorer' ? 'active' : ''} onClick={() => navigate('explorer')}>04 explorer</button>
+      </div>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="View"/>
+        <TweakRadio label="Screen" value={screen}
+          options={[{value:'landing',label:'01'},{value:'repo',label:'02'},{value:'db',label:'03'},{value:'explorer',label:'04'}]}
+          onChange={navigate}/>
+        <TweakSection label="Brand"/>
+        <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}/>
+        <TweakSelect label="Mono font" value={t.monoFont}
+          options={['JetBrains Mono','IBM Plex Mono','Fira Code','Geist Mono']}
+          onChange={(v) => {
+            setTweak('monoFont', v);
+            document.documentElement.style.setProperty('--mono', `'${v}', ui-monospace, monospace`);
+            if (!document.querySelector(`link[data-font="${v}"]`)) {
+              const link = document.createElement('link');
+              link.rel = 'stylesheet'; link.dataset.font = v;
+              link.href = `https://fonts.googleapis.com/css2?family=${v.replace(/ /g,'+')}:wght@400;500;600&display=swap`;
+              document.head.appendChild(link);
+            }
+          }}/>
+        <TweakSection label="Surface"/>
+        <TweakToggle label="Grid background" value={t.showGridBg}
+          onChange={(v) => {
+            setTweak('showGridBg', v);
+            document.querySelectorAll('.gg-grid-bg').forEach(el => el.style.display = v ? '' : 'none');
+          }}/>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
   </script>
 </body>
 </html>
