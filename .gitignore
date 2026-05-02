@@ -37,3 +37,6 @@ Thumbs.db
 *_old.*
 *_copy.*
 *.swp
+
+# Git worktrees
+.worktrees/
