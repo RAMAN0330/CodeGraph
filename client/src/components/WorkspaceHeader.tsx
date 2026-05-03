@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import BookmarkDropdown from './BookmarkDropdown';
 
@@ -20,6 +21,10 @@ interface WorkspaceHeaderProps {
   onBookmarkSelect: (url: string) => void;
   onPaletteOpen: () => void;
   onExport?: () => void;
+  currentBranch?: string;
+  branches?: { name: string }[];
+  branchLoading?: boolean;
+  onBranchSwitch?: (branch: string) => void;
 }
 
 const NAV_TABS = [
@@ -56,9 +61,127 @@ function TabIcon({ d }: { d: string }) {
   );
 }
 
+function BranchPicker({ current, branches, loading, onSwitch }: {
+  current: string;
+  branches: { name: string }[];
+  loading: boolean;
+  onSwitch: (b: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const filtered = branches.filter(b => b.name.toLowerCase().includes(filter.toLowerCase()));
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Switch branch"
+        style={{
+          background: '#161b22',
+          border: '1px solid #30363d',
+          borderRadius: '7px',
+          color: '#c9d1d9',
+          padding: '4px 8px',
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: '5px',
+          fontSize: '0.73rem',
+          fontFamily: 'monospace',
+          maxWidth: '140px',
+          transition: 'all 0.12s',
+          whiteSpace: 'nowrap',
+        }}
+        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#58a6ff'; el.style.color = '#f0f6fc'; }}
+        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#c9d1d9'; }}
+      >
+        {/* branch icon */}
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" style={{ flexShrink: 0 }}>
+          <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"/>
+        </svg>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{loading ? '…' : (current || 'main')}</span>
+        <svg width="9" height="9" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ flexShrink: 0, opacity: 0.5 }}>
+          <path d="M1 1l4 4 4-4"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 6px)',
+          left: 0,
+          minWidth: '200px',
+          maxWidth: '280px',
+          background: '#161b22',
+          border: '1px solid #30363d',
+          borderRadius: '10px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          zIndex: 2000,
+          overflow: 'hidden',
+        }}>
+          <div style={{ padding: '8px', borderBottom: '1px solid #21262d' }}>
+            <input
+              autoFocus
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              placeholder="Filter branches…"
+              style={{
+                width: '100%', background: '#0d1117', border: '1px solid #30363d',
+                borderRadius: '6px', padding: '5px 9px', color: '#f0f6fc',
+                fontSize: '0.75rem', outline: 'none', boxSizing: 'border-box',
+              }}
+              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#388bfd'; }}
+              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#30363d'; }}
+            />
+          </div>
+          <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+            {filtered.length === 0
+              ? <div style={{ padding: '12px', color: '#484f58', fontSize: '0.75rem', textAlign: 'center' }}>No branches found</div>
+              : filtered.map(b => {
+                const active = b.name === current;
+                return (
+                  <button
+                    key={b.name}
+                    onClick={() => { onSwitch(b.name); setOpen(false); setFilter(''); }}
+                    style={{
+                      width: '100%', background: active ? 'rgba(56,139,253,0.1)' : 'transparent',
+                      border: 'none', borderBottom: '1px solid #21262d',
+                      color: active ? '#58a6ff' : '#c9d1d9',
+                      padding: '8px 12px', fontSize: '0.75rem', fontFamily: 'monospace',
+                      textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px',
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
+                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  >
+                    {active
+                      ? <svg width="10" height="10" viewBox="0 0 16 16" fill="#58a6ff"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>
+                      : <span style={{ width: 10 }} />
+                    }
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
+                  </button>
+                );
+              })
+            }
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WorkspaceHeader({
   login, avatarUrl, repoUrl, onRepoUrlChange, onAnalyze, loading, hasData,
   dbSchemaDetected, onPRReview, onDbMap, activeSection, onSectionChange, onBookmarkSelect, onPaletteOpen, onExport,
+  currentBranch, branches, branchLoading, onBranchSwitch,
 }: WorkspaceHeaderProps) {
   const navigate = useNavigate();
   const parsed = parseRepo(repoUrl);
@@ -154,6 +277,16 @@ export default function WorkspaceHeader({
       </nav>
 
       <div style={{ width: '1px', height: '20px', background: '#21262d', flexShrink: 0 }} />
+
+      {/* Branch picker — only when data loaded */}
+      {hasData && onBranchSwitch && (
+        <BranchPicker
+          current={currentBranch || 'main'}
+          branches={branches || []}
+          loading={!!branchLoading}
+          onSwitch={onBranchSwitch}
+        />
+      )}
 
       {/* Repo search — fixed narrow width */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, width: '260px' }}>
