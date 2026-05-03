@@ -188,7 +188,7 @@ export default function WorkspaceArea(){
             var decoded=decodeShareLink(shareParam);
             if(decoded&&decoded.repoUrl){
                 setRepoUrl(decoded.repoUrl);
-                setTimeout(function(){var btn=document.getElementById('analyze-btn');if(btn)btn.click();},500);
+                setTimeout(function(){analyze();},100);
                 return;
             }
         }
@@ -197,7 +197,7 @@ export default function WorkspaceArea(){
         if(repo&&repo.length<200&&!repo.includes('{')&&/^[a-zA-Z0-9_.\/-]+$/.test(repo)){
             setRepoUrl(repo);
             if(shouldAutoRun){
-                setTimeout(function(){var btn=document.getElementById('analyze-btn');if(btn)btn.click();},500);
+                setTimeout(function(){analyze();},100);
             }
         }
     },[]);
@@ -2418,9 +2418,7 @@ export default function WorkspaceArea(){
         React.createElement(WorkspaceHeader,{
             login:authUser?.login??'',
             avatarUrl:authUser?.avatar_url??'',
-            repoUrl:repoUrl,
-            onRepoUrlChange:function(url: any){setRepoUrl(url);},
-            onAnalyze:analyze,
+            repoInfo:repoInfo,
             loading:loading,
             hasData:!!data,
             dbSchemaDetected:dbSchemaDetected,
@@ -2432,9 +2430,9 @@ export default function WorkspaceArea(){
             onBranchSwitch:function(br: any){switchBranchLight(br);},
             activeSection:activeSection,
             onSectionChange:function(s: any){setActiveSection(s);if(s==='database'&&data&&!dbSchema)openDbSchema();},
-            onBookmarkSelect:function(url: any){setRepoUrl(url);setTimeout(function(){analyze();},0);},
             onPaletteOpen: function(){ if(data) setShowPalette(true); },
             onExport: data ? function(){ setShowExport(true); } : undefined,
+            onGoHome: function(){ window.location.href='/select-repo'; },
         }),
         activeSection==='branches'&&(repoInfo
             ?React.createElement('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},
