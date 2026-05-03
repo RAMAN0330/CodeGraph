@@ -682,11 +682,20 @@ export default function WorkspaceArea(){
                 });
                 setExpandedPaths(new Set(['']));
                 window.history.replaceState({},'',buildAppUrl(p.owner+'/'+p.repo,false));
-                // Auto-detect Django/SQL schema files
+                // Auto-detect and parse Django/SQL schema files
                 var hasDjango=analyzed.some(function(f: any){return f.name==='models.py'||f.path.toLowerCase().includes('/models/');});
                 var hasSql=analyzed.some(function(f: any){var ext=(f.name.split('.').pop()||'').toLowerCase();return ext==='sql'||ext==='prisma';});
-                if(hasDjango||hasSql){setDbSchemaDetected(true);showNotification('Django models detected — click DB Schema to visualize','info');}
-                else{setDbSchemaDetected(false);}
+                if(hasDjango||hasSql){
+                    setDbSchemaDetected(true);
+                    var schemaFiles=analyzed.filter(function(f: any){
+                        var ext=(f.name.split('.').pop()||'').toLowerCase();
+                        return f.name==='models.py'||f.path.toLowerCase().includes('/models/')||ext==='sql'||ext==='prisma'||f.name==='schema.rb'||f.path.toLowerCase().includes('sqlalchemy')||f.path.toLowerCase().includes('models.py');
+                    }).map(function(f: any){return{path:f.path,content:f.content||null};});
+                    var parsed=parseDbSchema(schemaFiles);
+                    if(parsed.tables.length>0){setDbSchema(parsed);showNotification(parsed.tables.length+' tables parsed — click Database to view ER diagram','info');}
+                    else{showNotification('Schema files detected but no tables parsed','info');}
+                }
+                else{setDbSchemaDetected(false);setDbSchema(null);}
                 setLoading(false);
                 }catch(err){
                     setError('Analysis failed: '+(err.message||err)+'. Try a smaller repository.');
@@ -1028,8 +1037,17 @@ export default function WorkspaceArea(){
             setRepoInfo({owner:'local',repo:'folder',name:'Local Folder'});
             var hasDjangoLocal=analyzed.some(function(f: any){return f.name==='models.py'||f.path.toLowerCase().includes('/models/');});
             var hasSqlLocal=analyzed.some(function(f: any){var ext=(f.name.split('.').pop()||'').toLowerCase();return ext==='sql'||ext==='prisma';});
-            if(hasDjangoLocal||hasSqlLocal){setDbSchemaDetected(true);showNotification('Schema files detected — click DB Schema to visualize','info');}
-            else{setDbSchemaDetected(false);}
+            if(hasDjangoLocal||hasSqlLocal){
+                setDbSchemaDetected(true);
+                var schemaFilesLocal=analyzed.filter(function(f: any){
+                    var ext=(f.name.split('.').pop()||'').toLowerCase();
+                    return f.name==='models.py'||f.path.toLowerCase().includes('/models/')||ext==='sql'||ext==='prisma'||f.path.toLowerCase().includes('sqlalchemy')||f.path.toLowerCase().includes('models.py');
+                }).map(function(f: any){return{path:f.path,content:f.content||null};});
+                var parsedLocal=parseDbSchema(schemaFilesLocal);
+                if(parsedLocal.tables.length>0){setDbSchema(parsedLocal);showNotification(parsedLocal.tables.length+' tables parsed — click Database to view ER diagram','info');}
+                else{showNotification('Schema files detected but no tables parsed','info');}
+            }
+            else{setDbSchemaDetected(false);setDbSchema(null);}
             setLoading(false);
             }catch(err){
                 setError('Analysis failed: '+(err.message||err)+'. Try a smaller folder or subfolder.');
@@ -2407,9 +2425,9 @@ export default function WorkspaceArea(){
             hasData:!!data,
             dbSchemaDetected:dbSchemaDetected,
             onPRReview:function(){setActiveSection('pullrequests');},
-            onDbMap:function(){setActiveSection('database');},
+            onDbMap:function(){setActiveSection('database');if(data&&!dbSchema)openDbSchema();},
             activeSection:activeSection,
-            onSectionChange:function(s: any){setActiveSection(s);},
+            onSectionChange:function(s: any){setActiveSection(s);if(s==='database'&&data&&!dbSchema)openDbSchema();},
             onBookmarkSelect:function(url: any){setRepoUrl(url);setTimeout(function(){analyze();},0);},
             onPaletteOpen: function(){ if(data) setShowPalette(true); },
             onExport: data ? function(){ setShowExport(true); } : undefined,
