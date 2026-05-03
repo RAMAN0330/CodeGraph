@@ -2396,7 +2396,7 @@ export default function WorkspaceArea(){
         });
     },[dbSchema,dbSearchQuery,dbAppFilter,selectedDbTable]);
 
-    return React.createElement('div',{className:'app',style:{paddingTop:'64px'}},
+    return React.createElement('div',{className:'app',style:{paddingTop:'100px'}},
         React.createElement(WorkspaceHeader,{
             login:authUser?.login??'',
             avatarUrl:authUser?.avatar_url??'',
