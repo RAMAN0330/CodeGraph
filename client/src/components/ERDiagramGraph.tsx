@@ -213,9 +213,10 @@ function buildFlow(tables: SchemaTable[], selectedTable?: string | null) {
   return { nodes, edges, compact };
 }
 
-export default function ERDiagramGraph({ schema, selectedTable }: { schema?: { tables: SchemaTable[] }; selectedTable?: string | null }) {
+export default function ERDiagramGraph({ schema, selectedTable, isRealSchema }: { schema?: { tables: SchemaTable[] }; selectedTable?: string | null; isRealSchema?: boolean }) {
   const flow = useMemo(() => {
     if (schema?.tables?.length) return buildFlow(schema.tables, selectedTable);
+    if (isRealSchema) return buildFlow([], selectedTable);
     // Demo data when no real schema
     return buildFlow([
       { name: 'users', columns: [{ name: 'id', type: 'serial', nullable: false, isPrimary: true }, { name: 'email', type: 'varchar', nullable: false, isPrimary: false }, { name: 'created_at', type: 'timestamp', nullable: true, isPrimary: false }], foreignKeys: [] },
@@ -234,7 +235,7 @@ export default function ERDiagramGraph({ schema, selectedTable }: { schema?: { t
   }, [flow.nodes, flow.edges, setNodes, setEdges]);
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: 500, background: 'var(--bg-main,#0d0d1a)', borderRadius: 12, border: '1px solid var(--border-glass)', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%', minHeight: 500, background: 'var(--bg-main,#0d0d1a)', borderRadius: 12, border: '1px solid var(--border-glass)', overflow: 'hidden', position: 'absolute', inset: 0 }}>
       <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} fitView onlyRenderVisibleElements>
         {!flow.compact && <MiniMap nodeColor={n => ACCENT_COLORS[nodes.findIndex(x => x.id === n.id) % ACCENT_COLORS.length]} style={{ background: 'var(--bg-secondary)' }} maskColor="rgba(0,0,0,0.5)" />}
         <Controls style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)' }} />

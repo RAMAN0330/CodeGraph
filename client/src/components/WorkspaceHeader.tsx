@@ -25,11 +25,11 @@ interface WorkspaceHeaderProps {
 
 const NAV_TABS = [
   { id: 'explorer',     label: 'Explorer',     icon: 'M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 5h2m4 0h-2m-2-2v2m0 4v-2' },
+  { id: 'architecture', label: 'Architecture', icon: 'M3 5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm10 0a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2zm-5 9a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2zm-1-5v3m8-3v3m-4 0v3' },
   { id: 'branches',     label: 'Branches',     icon: 'M6 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm12 0a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM6 15a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0-3a9 9 0 0 0 9 9m0-15v3m0 0a6 6 0 0 1-6 6H6' },
   { id: 'contributors', label: 'People',       icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm14 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
   { id: 'commits',      label: 'Commits',      icon: 'M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z' },
-  { id: 'pullrequests', label: 'PRs',          icon: 'M18 15l-6-6-6 6' },
-  { id: 'database',     label: 'Database',     icon: 'M12 2C6.48 2 2 4.24 2 7s4.48 5 10 5 10-2.24 10-5-4.48-5-10-5zM2 17c0 2.76 4.48 5 10 5s10-2.24 10-5M2 12c0 2.76 4.48 5 10 5s10-2.24 10-5' },
+{ id: 'database',     label: 'Database',     icon: 'M12 2C6.48 2 2 4.24 2 7s4.48 5 10 5 10-2.24 10-5-4.48-5-10-5zM2 17c0 2.76 4.48 5 10 5s10-2.24 10-5M2 12c0 2.76 4.48 5 10 5s10-2.24 10-5' },
   { id: 'migrations',   label: 'Migrations',   icon: 'M5 12h14M12 5l7 7-7 7' },
   { id: 'security',     label: 'Security',     icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
   { id: 'radar',        label: 'Radar',        icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 5v5l4 2' },
@@ -40,7 +40,7 @@ const NAV_TABS = [
   { id: 'settings',     label: 'Settings',     icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z' },
 ];
 
-const REQUIRES_DATA = new Set(['branches','contributors','commits','pullrequests','database','migrations','security','radar','ownership','releases','debt','trends']);
+const REQUIRES_DATA = new Set(['architecture','branches','contributors','commits','database','migrations','security','radar','ownership','releases','debt','trends']);
 
 function TabIcon({ d }: { d: string }) {
   return (
@@ -142,9 +142,8 @@ export default function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const navigate = useNavigate();
 
-  async function handleSignOut() {
-    try { await fetch(`${API}/auth/logout`, { credentials: 'include' }); } catch {}
-    navigate('/');
+  function handleSignOut() {
+    window.location.href = `${API}/auth/logout`;
   }
 
   return (

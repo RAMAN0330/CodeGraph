@@ -30,6 +30,7 @@ import { extractManifestDeps } from '../lib/parser';
 import { scanDependencies } from '../lib/osv';
 import MetricsTrendChart from '../components/MetricsTrendChart';
 import { fetchTrendData, buildActivityPoints } from '../lib/trends';
+import ArchitectureDiagram from '../components/ArchitectureDiagram';
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -72,7 +73,7 @@ export default function WorkspaceArea(){
     var _x=useState<any>(null),folderFilter=_x[0],setFolderFilter=_x[1];
     var _y=useState<any>(new Set()),expandedFns=_y[0],setExpandedFns=_y[1];
     var _z=useState<any>(false),showUnused=_z[0],setShowUnused=_z[1];
-    var _aa=useState<any>({spacing:200,linkDist:70,viewMode:'force',vizType:'graph',showLabels:true,curvedLinks:true}),graphConfig=_aa[0],setGraphConfig=_aa[1];
+    var _aa=useState<any>({spacing:500,linkDist:160,viewMode:'force',vizType:'graph',showLabels:true,curvedLinks:true}),graphConfig=_aa[0],setGraphConfig=_aa[1];
     var _ab=useState<any>(false),showGraphConfig=_ab[0],setShowGraphConfig=_ab[1];
     var _ac=useState<any>(260),sidebarWidth=_ac[0],setSidebarWidth=_ac[1];
     var _ad=useState<any>(360),rightPanelWidth=_ad[0],setRightPanelWidth=_ad[1];
@@ -129,6 +130,7 @@ export default function WorkspaceArea(){
     var activeExcludePatterns=useMemo(function(){return compileExcludePatterns(excludePatternInput);},[excludePatternInput]);
     var customExcludeCount=activeExcludePatterns.length;
 
+    var pendingAutoRunRef=useRef<{repo:string}|null>(null);
     useEffect(function(){
       fetch('http://localhost:5000/auth/me',{credentials:'include'})
         .then(function(r){
@@ -136,7 +138,15 @@ export default function WorkspaceArea(){
           return r.json();
         })
         .then(function(user){
-          if(user){setAuthUser(user);setToken(user.token);}
+          if(user){
+            setAuthUser(user);
+            setToken(user.token);
+            if(pendingAutoRunRef.current){
+              var repo=pendingAutoRunRef.current.repo;
+              pendingAutoRunRef.current=null;
+              setTimeout(function(){internal_analyze(undefined,repo,user.token);},50);
+            }
+          }
         })
         .catch(function(){window.location.href='/';});
     },[]);
@@ -197,7 +207,7 @@ export default function WorkspaceArea(){
         if(repo&&repo.length<200&&!repo.includes('{')&&/^[a-zA-Z0-9_.\/-]+$/.test(repo)){
             setRepoUrl(repo);
             if(shouldAutoRun){
-                setTimeout(function(){analyze();},100);
+                pendingAutoRunRef.current={repo};
             }
         }
     },[]);
@@ -359,20 +369,20 @@ export default function WorkspaceArea(){
         }).catch(() => {});
     }
 
-    function analyze(branchOverride?: any) {
+    function analyze(branchOverride?: any, repoUrlOverride?: string) {
         if (branchOverride && typeof branchOverride !== 'string') branchOverride = undefined;
         // Always run the main JS analysis; trigger Django introspection in parallel
-        internal_analyze(branchOverride);
-        if (parseUrl(repoUrl)) {
+        internal_analyze(branchOverride, repoUrlOverride);
+        if (parseUrl(repoUrlOverride||repoUrl)) {
             triggerDjangoIntrospection(branchOverride);
         }
     }
 
-    function internal_analyze(branchOverride?: any)
+    function internal_analyze(branchOverride?: any, repoUrlOverride?: string, tokenOverride?: string)
 {
         // Ensure branchOverride is a string (React can pass event objects if called from onClick)
         if (branchOverride && typeof branchOverride !== 'string') branchOverride = undefined;
-        var p=parseUrl(repoUrl);
+        var p=parseUrl(repoUrlOverride||repoUrl);
         if(!p){setError('Invalid URL. Use format: owner/repo');return;}
         var currentExcludePatterns=activeExcludePatterns;
         
@@ -399,7 +409,7 @@ export default function WorkspaceArea(){
 
         if(authMethod==='pat'||authMethod==='none'){
             // 'none' means OAuth session auth — token is set from /auth/me
-            GitHub.token=token||null;
+            GitHub.token=tokenOverride||token||null;
         }else if(authMethod==='github_app'){
             GitHub.appId=appId;
             GitHub.privateKey=privateKey;
@@ -672,7 +682,7 @@ export default function WorkspaceArea(){
                 if(_mDeps.length>0){setVulnLoading(true);scanDependencies(_mDeps).then(function(r: any){setVulns(r);setVulnLoading(false);}).catch(function(){setVulnError('Vulnerability scan unavailable (network error)');setVulnLoading(false);});}
                 else{setVulnError('No supported manifest files found (package.json, requirements.txt, go.mod, Gemfile.lock)');}
                 setTrendSnapshots([]);
-                if(p&&p.owner&&p.repo){setTrendLoading(true);gh.getCommits(p.owner,p.repo,undefined,5).then(function(recentCommits: any){setActivityPoints(buildActivityPoints(recentCommits||[]));return fetchTrendData(recentCommits||[],p.owner,p.repo,gh);}).then(function(snaps: any){setTrendSnapshots(snaps);setTrendLoading(false);}).catch(function(){setTrendLoading(false);});}
+                if(p&&p.owner&&p.repo){setTrendLoading(true);GitHub.getCommits(p.owner,p.repo,undefined,5).then(function(recentCommits: any){setActivityPoints(buildActivityPoints(recentCommits||[]));return fetchTrendData(recentCommits||[],p.owner,p.repo,GitHub);}).then(function(snaps: any){setTrendSnapshots(snaps);setTrendLoading(false);}).catch(function(){setTrendLoading(false);});}
                 // Save to bookmarks
                 var _repoKey = (p.owner+'/'+p.repo);
                 saveBookmark(_repoKey, 'https://github.com/'+_repoKey, {
@@ -1290,16 +1300,16 @@ export default function WorkspaceArea(){
         zoomRef.current=zoom;
         var container=svg.append('g');
         var defs=svg.append('defs');
-        defs.append('marker').attr('id','arr').attr('viewBox','0 -5 10 10').attr('refX',14).attr('markerWidth',4).attr('markerHeight',4).attr('orient','auto').append('path').attr('d','M0,-4L10,0L0,4').attr('fill',theme==='light'?'#aaa':'#444');
+        defs.append('marker').attr('id','arr').attr('viewBox','0 -5 10 10').attr('refX',14).attr('markerWidth',4).attr('markerHeight',4).attr('orient','auto').append('path').attr('d','M0,-4L10,0L0,4').attr('fill',theme==='light'?'#aaa':'#5a6270');
         var hullLayer=container.append('g');
         var linkLayer=container.append('g');
         var nodeLayer=container.append('g');
         var sim=d3.forceSimulation(nodes);
         // Scale spacing up for larger graphs so nodes don't clump together
-        var breathe=Math.max(1,Math.pow(nodes.length/200,0.55));
+        var breathe=Math.max(1,Math.pow(nodes.length/100,0.6));
         var linkDist=graphConfig.linkDist*breathe;
         var spacing=graphConfig.spacing*breathe;
-        var collidePad=12*Math.min(2,breathe);
+        var collidePad=28*Math.min(2,breathe);
         if(graphConfig.viewMode==='force'){
             // Spread folder centers further apart for large graphs
             if(breathe>1.2){
@@ -1308,16 +1318,16 @@ export default function WorkspaceArea(){
                     centers[k].y=h/2+(centers[k].y-h/2)*breathe;
                 });
             }
-            sim.force('link',d3.forceLink(links).id(function(d: any){return d.id;}).distance(callFlowMode?120:linkDist).strength(0.3))
-               .force('charge',d3.forceManyBody().strength(callFlowMode?-200:-spacing).distanceMax(400*breathe))
+            sim.force('link',d3.forceLink(links).id(function(d: any){return d.id;}).distance(callFlowMode?180:linkDist*1.8).strength(0.12))
+               .force('charge',d3.forceManyBody().strength(callFlowMode?-200:-spacing).distanceMax(800*breathe))
                .force('collision',d3.forceCollide().radius(function(d: any){return getR(d)+collidePad;}))
-               .force('x',d3.forceX(function(d: any){return (centers as any)[(d as any).folder]?(centers as any)[(d as any).folder].x:w/2;}).strength(0.15))
-               .force('y',d3.forceY(function(d: any){return (centers as any)[(d as any).folder]?(centers as any)[(d as any).folder].y:h/2;}).strength(0.15));
+               .force('x',d3.forceX(function(d: any){return (centers as any)[(d as any).folder]?(centers as any)[(d as any).folder].x:w/2;}).strength(0.06))
+               .force('y',d3.forceY(function(d: any){return (centers as any)[(d as any).folder]?(centers as any)[(d as any).folder].y:h/2;}).strength(0.06));
         }else if(graphConfig.viewMode==='radial'){
             var r=Math.min(w,h)*0.35*Math.min(2.5,breathe);
             nodes.forEach(function(n: any, i: any){n.angle=i/nodes.length*2*Math.PI;n.targetX=w/2+Math.cos(n.angle)*r;n.targetY=h/2+Math.sin(n.angle)*r;});
-            sim.force('link',d3.forceLink(links).id(function(d: any){return d.id;}).distance(linkDist*0.5).strength(0.05))
-               .force('charge',d3.forceManyBody().strength(-spacing*0.3))
+            sim.force('link',d3.forceLink(links).id(function(d: any){return d.id;}).distance(linkDist*0.8).strength(0.05))
+               .force('charge',d3.forceManyBody().strength(-spacing*0.6))
                .force('collision',d3.forceCollide().radius(function(d: any){return getR(d)+collidePad*0.7;}))
                .force('x',d3.forceX(function(d: any){return d.targetX;}).strength(0.8))
                .force('y',d3.forceY(function(d: any){return d.targetY;}).strength(0.8));
@@ -1329,7 +1339,7 @@ export default function WorkspaceArea(){
             var wideW=Math.max(w,w*breathe*0.7);
             sortedLayers.forEach(function(l: any, li: any){var g=layerGroups[l];var colW=wideW/(sortedLayers.length+1);g.forEach(function(n: any, ni: any){n.targetX=(li+1)*colW;n.targetY=(ni+1)*Math.max(h,h*breathe*0.7)/(g.length+1);});});
             sim.force('link',d3.forceLink(links).id(function(d: any){return d.id;}).distance(linkDist).strength(0.1))
-               .force('charge',d3.forceManyBody().strength(-spacing*0.5).distanceMax(200*breathe))
+               .force('charge',d3.forceManyBody().strength(-spacing*0.8).distanceMax(200*breathe))
                .force('collision',d3.forceCollide().radius(function(d: any){return getR(d)+collidePad*0.85;}))
                .force('x',d3.forceX(function(d: any){return d.targetX||w/2;}).strength(0.9))
                .force('y',d3.forceY(function(d: any){return d.targetY||h/2;}).strength(0.3));
@@ -1367,11 +1377,11 @@ export default function WorkspaceArea(){
         }
         // Adaptive simulation parameters based on graph size
         var isLargeGraph=nodes.length>300;
-        var alphaDecay=isLargeGraph?0.08:0.05;
-        var velDecay=isLargeGraph?0.7:0.6;
+        var alphaDecay=isLargeGraph?0.04:0.05;
+        var velDecay=isLargeGraph?0.7:0.4;
         sim.velocityDecay(velDecay).alphaDecay(alphaDecay);
         simRef.current=sim;
-        var link=linkLayer.selectAll('path').data(links).join('path').attr('fill','none').attr('stroke',theme==='light'?'#ccc':'#333').attr('stroke-width',function(d: any){return callFlowMode?1:Math.max(1,Math.min(2,Math.sqrt(d.count)*0.3));}).attr('stroke-opacity',callFlowMode?0.25:0.4).attr('marker-end','url(#arr)');
+        var link=linkLayer.selectAll('path').data(links).join('path').attr('fill','none').attr('stroke',theme==='light'?'#ccc':'#3d444d').attr('stroke-width',function(d: any){return callFlowMode?1:Math.max(1.2,Math.min(2.5,Math.sqrt(d.count)*0.5));}).attr('stroke-opacity',callFlowMode?0.45:0.65).attr('marker-end','url(#arr)');
         linksRef.current=link;
         var dedupedLabelLinks: any[]=(function(){if(!callFlowMode)return [];var seen=new Set();return rawLinks.filter(function(d: any){if(!d.fn)return false;if(seen.has(d.fn))return false;seen.add(d.fn);return true;});})();
         var linkLabel=linkLayer.append('g').selectAll('text').data(dedupedLabelLinks).enter().append('text').attr('font-size',9).attr('fill','#8b949e').attr('text-anchor','middle').attr('dy',-3).attr('pointer-events','none').text(function(d: any){return d.fn||'';});
@@ -1385,7 +1395,7 @@ export default function WorkspaceArea(){
             setGraphDrillDown({file:d,x:rect.left+(d.x||0)+20,y:rect.top+(d.y||0)-100});
         });
         node.on('mouseenter',function(e: any, d: any){var r=svgRef.current.getBoundingClientRect();setTooltip({x:e.clientX-r.left+10,y:e.clientY-r.top,title:d.name,content:d.fnCount+' functions\n'+d.layer+' layer\n'+d.churn+' recent commits'});}).on('mouseleave',function(){setTooltip(null);});
-        svg.on('click',function(e: any){if(e.target===svgRef.current){setSelected(null);setBlastRadius(null);link.attr('stroke',theme==='light'?'#ccc':'#333').attr('stroke-opacity',0.4);node.selectAll('.nc').attr('opacity',1).attr('fill',getC);}});
+        svg.on('click',function(e: any){if(e.target===svgRef.current){setSelected(null);setBlastRadius(null);link.attr('stroke',theme==='light'?'#ccc':'#3d444d').attr('stroke-opacity',0.65);node.selectAll('.nc').attr('opacity',1).attr('fill',getC);}});
         node.append('circle').attr('class','nc').attr('r',getR).attr('fill',getC).attr('stroke',function(d: any){var c=d3.color(getC(d));return c?c.brighter(0.3):'#fff';}).attr('stroke-width',1.5);
         // Hide labels for large graphs to reduce DOM overhead
         if(!isLargeGraph||graphConfig.showLabels){
@@ -2510,6 +2520,7 @@ export default function WorkspaceArea(){
                 :React.createElement('p',{style:{color:'#8b949e'}},'Analyze a repository to see security findings.')
         ),
         activeSection==='trends'&&React.createElement(MetricsTrendChart,{snapshots:trendSnapshots,activityPoints:activityPoints,loading:trendLoading,onCommitClick:function(sha: any){setActiveSection('commits');}}),
+        activeSection==='architecture'&&React.createElement(ArchitectureDiagram,{nodes:data?((data as any).files||[]):[],connections:data?((data as any).connections||[]):[]}),
         activeSection==='radar' && repoInfo && React.createElement(StaleCodeRadar, {
           owner: repoInfo.owner,
           repo: repoInfo.repo,

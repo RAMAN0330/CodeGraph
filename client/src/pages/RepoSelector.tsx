@@ -75,9 +75,8 @@ export default function RepoSelector() {
     }).catch(() => navigate('/'));
   }, [navigate]);
 
-  async function handleSignOut() {
-    try { await fetch(`${API}/auth/logout`, { credentials: 'include' }); } catch {}
-    navigate('/');
+  function handleSignOut() {
+    window.location.href = `${API}/auth/logout`;
   }
 
   function openRepo(repo: Repo) {

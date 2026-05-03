@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(npm install *)",
+      "Bash(node -e \"console.log\\(process.version\\)\")",
+      "Bash(curl -s http://localhost:8000/)",
+      "PowerShell(cd \"c:\\\\Users\\\\RamanSharma\\\\OneDrive - GNA-Energy\\\\Desktop\\\\codeflow\\\\client\" && npx tsc --noEmit 2>&1 | Where-Object { $_ -ne \"\" } | Select-Object -First 30)",
+      "Bash(npm run *)",
+      "PowerShell(& \"C:\\\\Users\\\\RamanSharma\\\\OneDrive - GNA-Energy\\\\Desktop\\\\codeflow\\\\client\\\\node_modules\\\\typescript\\\\bin\\\\tsc\" --noEmit --project \"C:\\\\Users\\\\RamanSharma\\\\OneDrive - GNA-Energy\\\\Desktop\\\\codeflow\\\\client\\\\tsconfig.app.json\" 2>&1)",
+      "PowerShell(node \"C:\\\\Users\\\\RamanSharma\\\\OneDrive - GNA-Energy\\\\Desktop\\\\codeflow\\\\client\\\\node_modules\\\\typescript\\\\bin\\\\tsc\" --noEmit --project \"C:\\\\Users\\\\RamanSharma\\\\OneDrive - GNA-Energy\\\\Desktop\\\\codeflow\\\\client\\\\tsconfig.app.json\" 2>&1)"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+celery
+redis
+python-dotenv
+httpx
+pydantic
+gitpython
+django
+psycopg2-binary
+mysqlclient
+sqlalchemy
+alembic
+sqlparse

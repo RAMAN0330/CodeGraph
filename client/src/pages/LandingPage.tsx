@@ -294,6 +294,18 @@ function TerminalDemo({ color }: { color: string }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [user, setUser] = useState<{ login: string; avatar_url?: string } | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/auth/me?t=${Date.now()}`, { credentials: 'include', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(u => {
+        if (u) { setUser(u); navigate('/select-repo', { replace: true }); }
+        else setAuthChecked(true);
+      })
+      .catch(() => setAuthChecked(true));
+  }, [navigate]);
 
   const handleAuth = () => {
     window.location.href = `${API}/auth/github`;
@@ -348,7 +360,7 @@ export default function LandingPage() {
         backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
         borderBottom: `1px solid ${C.line}`,
         background: 'rgba(7,9,12,0.82)',
-        padding: '0 32px',
+        padding: '0 7vw',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         height: '52px',
       }}>
@@ -396,24 +408,25 @@ export default function LandingPage() {
           >
             → launch app
           </button>
-          <button
-            onClick={handleAuth}
-            style={{
-              background: C.accent, border: 'none',
-              color: C.bg, padding: '5px 14px', borderRadius: '6px',
-              fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: SANS,
-              marginLeft: '6px',
-            }}
-          >
-            sign in
-          </button>
+          {authChecked && (
+            <button
+              onClick={handleAuth}
+              style={{
+                background: C.accent, border: 'none',
+                color: C.bg, padding: '5px 14px', borderRadius: '6px',
+                fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: SANS,
+                marginLeft: '6px',
+              }}
+            >
+              sign in
+            </button>
+          )}
         </div>
       </nav>
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
       <section style={{
-        maxWidth: '1100px', margin: '0 auto',
-        padding: '80px 32px 88px',
+        padding: '80px 7vw 88px',
         display: 'grid', gridTemplateColumns: '1.05fr 1fr',
         gap: '56px', alignItems: 'center',
       }}>
@@ -508,7 +521,7 @@ export default function LandingPage() {
         background: C.bg1,
       }}>
         <div style={{
-          maxWidth: '1100px', margin: '0 auto', padding: '28px 32px',
+          padding: '28px 7vw',
           display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
           gap: '24px', textAlign: 'center',
         }}>
@@ -525,7 +538,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ────────────────────────────────────────────────────── */}
-      <section id="features" style={{ maxWidth: '1100px', margin: '0 auto', padding: '80px 32px' }}>
+      <section id="features" style={{ padding: '80px 7vw' }}>
         {/* eyebrow */}
         <div style={{ fontFamily: MONO, fontSize: '12px', color: C.fg4, marginBottom: '12px' }}>// features</div>
         <h2 style={{
@@ -560,7 +573,7 @@ export default function LandingPage() {
 
       {/* ── CTA section ─────────────────────────────────────────────────── */}
       <section style={{
-        maxWidth: '640px', margin: '0 auto', padding: '72px 32px 80px',
+        padding: '72px 7vw 80px',
         textAlign: 'center',
       }}>
         {/* divider */}
@@ -612,7 +625,7 @@ export default function LandingPage() {
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer style={{
         borderTop: `1px solid ${C.lineStrong}`,
-        padding: '20px 32px',
+        padding: '20px 7vw',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: '12px',
         background: C.bg1,

@@ -92,7 +92,8 @@ Also exports `buildActivityPoints(commits): ActivityPoint[]` — pure function, 
 **`client/src/pages/WorkspaceArea.tsx`**
 - Add state: `trendSnapshots`, `activityPoints`, `trendLoading`
 - After `setData(dataObj)`, fire background trend fetch using `repoInfo` + existing `token`
-- `NAV_TABS` already has a `trends` slot — wire `activeSection === 'trends'` to render `MetricsTrendChart`
+- Add `{ id: 'trends', label: 'Trends' }` to `NAV_TABS` in `WorkspaceHeader.tsx` (requires data to be enabled)
+- Wire `activeSection === 'trends'` to render `MetricsTrendChart`
 - `onCommitClick` handler: sets `activeSection('commits')` and optionally highlights the commit
 
 ---

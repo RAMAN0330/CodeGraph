@@ -99,14 +99,17 @@ export default function DatabaseVisualizer() {
   const fkCount = schema?.tables?.reduce((s, t) => s + t.foreignKeys.length, 0) ?? 0;
   const appOptions = useMemo(() => {
     const apps = new Set<string>();
-    schema?.tables?.forEach(t => { if (t.app) apps.add(t.app); });
+    schema?.tables?.forEach(t => { const a = (t.app ?? '').trim(); if (a) apps.add(a); });
     return Array.from(apps).sort();
   }, [schema]);
   const visibleSchema = useMemo(() => {
     if (!schema) return null;
     const q = graphSearch.trim().toLowerCase();
     const tables = (schema.tables ?? []).filter(t => {
-      if (selectedApp !== 'all' && t.app !== selectedApp) return false;
+      if (selectedApp !== 'all') {
+        const tApp = (t.app ?? '').trim();
+        if (tApp !== selectedApp) return false;
+      }
       if (!q) return true;
       return t.name.toLowerCase().includes(q) || t.columns.some(c => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q));
     });
@@ -920,7 +923,7 @@ export default function DatabaseVisualizer() {
           </div>
 
           {/* ER Diagram panel */}
-          <div style={{ flex: 1, background: GG.panel, borderRadius: 12, border: `1px solid ${GG.lineStrong}`, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
+          <div style={{ flex: 1, background: GG.panel, borderRadius: 12, border: `1px solid ${GG.lineStrong}`, overflow: 'hidden', position: 'relative', minHeight: 600, height: 'calc(100vh - 220px)' }}>
             {/* Search bar above diagram */}
             <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 10, display: 'flex', gap: 8 }}>
               <input
@@ -937,7 +940,7 @@ export default function DatabaseVisualizer() {
                 }}
               />
             </div>
-            <ERDiagramGraph schema={visibleSchema || schema} selectedTable={focusedTable} />
+            <ERDiagramGraph schema={visibleSchema || schema} selectedTable={focusedTable} isRealSchema={true} />
           </div>
 
           {/* Keyboard hints bar */}

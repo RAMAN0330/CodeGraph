@@ -24,7 +24,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 },
+  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 30 * 24 * 60 * 60 * 1000 },
 }));
 
 app.use(passport.initialize());
@@ -214,9 +214,10 @@ app.get('/auth/me', (req: any, res: any) => {
 
 app.get('/auth/logout', (req: any, res: any) => {
   req.logout(() => {
-    req.session.destroy((err: any) => {
-      if (err) console.error('Session destroy error:', err);
-      res.json({ ok: true });
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid', { path: '/' });
+      res.clearCookie('connect.sid', { path: '/', secure: false });
+      res.redirect(process.env.CLIENT_ORIGIN || 'http://localhost:5173');
     });
   });
 });
