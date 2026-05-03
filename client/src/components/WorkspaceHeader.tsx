@@ -74,6 +74,7 @@ export default function WorkspaceHeader({
     <header style={{
       position: 'fixed',
       top: '10px', left: '10px', right: '10px',
+      height: '46px',
       background: 'rgba(13,17,23,0.96)',
       backdropFilter: 'blur(16px)',
       WebkitBackdropFilter: 'blur(16px)',
@@ -82,218 +83,42 @@ export default function WorkspaceHeader({
       zIndex: 1000,
       boxSizing: 'border-box',
       boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04) inset',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '0 12px',
       overflow: 'hidden',
     }}>
 
-      {/* Top row: logo + search + actions + user */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        padding: '0 14px',
-        height: '46px',
-        borderBottom: '1px solid #21262d',
-      }}>
-
-        {/* Logo */}
-        <button
-          onClick={() => navigate('/select-repo')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '0', flexShrink: 0 }}
-        >
-          <div style={{
-            width: '26px', height: '26px',
-            background: 'linear-gradient(135deg, #238636, #2ea043)',
-            borderRadius: '7px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(35,134,54,0.4)',
-          }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="white">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-            </svg>
-          </div>
-          <span style={{ color: '#f0f6fc', fontWeight: 700, fontSize: '0.88rem', letterSpacing: '-0.02em', flexShrink: 0 }}>
-            CodeFlow
-          </span>
-        </button>
-
-        <div style={{ width: '1px', height: '20px', background: '#21262d', flexShrink: 0 }} />
-
-        {/* Repo search */}
-        <div style={{ flex: 1, minWidth: 0, maxWidth: '480px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <BookmarkDropdown onSelect={onBookmarkSelect} />
-          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Search size={13} style={{ position: 'absolute', left: '10px', color: '#484f58', pointerEvents: 'none' }} />
-            <input
-              value={repoUrl}
-              onChange={e => onRepoUrlChange(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !loading) onAnalyze(); }}
-              placeholder={parsed ? `${parsed.owner}/${parsed.repo}` : 'owner/repo or GitHub URL…'}
-              style={{
-                width: '100%',
-                background: '#0d1117',
-                border: '1px solid #30363d',
-                borderRadius: '8px',
-                padding: '5px 76px 5px 32px',
-                color: '#f0f6fc',
-                fontSize: '0.8rem',
-                outline: 'none',
-                fontFamily: 'monospace',
-                boxSizing: 'border-box',
-                transition: 'border-color 0.15s',
-              }}
-              onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#388bfd'; }}
-              onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#30363d'; }}
-            />
-            {repoUrl && !loading && (
-              <button
-                onClick={onAnalyze}
-                style={{
-                  position: 'absolute', right: '5px',
-                  background: 'linear-gradient(135deg, #238636, #2ea043)',
-                  border: 'none', borderRadius: '5px',
-                  color: 'white', padding: '3px 10px',
-                  fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                Analyze
-              </button>
-            )}
-            {loading && (
-              <span style={{ position: 'absolute', right: '10px', color: '#8b949e', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#388bfd', animation: 'pulse 1s ease-in-out infinite' }} />
-                Loading
-              </span>
-            )}
-          </div>
+      {/* Logo */}
+      <button
+        onClick={() => navigate('/select-repo')}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px', padding: '0', flexShrink: 0 }}
+      >
+        <div style={{
+          width: '26px', height: '26px',
+          background: 'linear-gradient(135deg, #238636, #2ea043)',
+          borderRadius: '7px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 2px 8px rgba(35,134,54,0.35)',
+          flexShrink: 0,
+        }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="white">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
         </div>
+        <span style={{ color: '#f0f6fc', fontWeight: 700, fontSize: '0.88rem', letterSpacing: '-0.02em', flexShrink: 0 }}>CodeFlow</span>
+      </button>
 
-        {/* Ctrl+K */}
-        <button
-          onClick={onPaletteOpen}
-          title="Command palette (Ctrl+K)"
-          style={{
-            background: '#161b22',
-            border: '1px solid #30363d',
-            borderRadius: '7px',
-            color: '#8b949e',
-            padding: '4px 9px',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: '5px',
-            fontSize: '0.72rem', flexShrink: 0,
-            transition: 'border-color 0.15s, color 0.15s',
-          }}
-          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#58a6ff'; el.style.color = '#f0f6fc'; }}
-          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#8b949e'; }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <kbd style={{ fontSize: '0.62rem', color: '#484f58', fontFamily: 'inherit' }}>⌘K</kbd>
-        </button>
+      <div style={{ width: '1px', height: '20px', background: '#21262d', flexShrink: 0 }} />
 
-        <div style={{ width: '1px', height: '20px', background: '#21262d', flexShrink: 0 }} />
-
-        {/* Action buttons — only when data loaded */}
-        {hasData && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-            <button
-              onClick={onPRReview}
-              style={{
-                background: '#161b22', border: '1px solid #30363d',
-                color: '#c9d1d9', padding: '4px 10px', borderRadius: '7px',
-                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-                display: 'flex', alignItems: 'center', gap: '5px',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#388bfd'; el.style.color = '#f0f6fc'; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#c9d1d9'; }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-              PR Review
-            </button>
-            <button
-              onClick={onDbMap}
-              style={{
-                background: dbSchemaDetected ? 'rgba(35,134,54,0.12)' : '#161b22',
-                border: `1px solid ${dbSchemaDetected ? '#238636' : '#30363d'}`,
-                color: dbSchemaDetected ? '#3fb950' : '#c9d1d9',
-                padding: '4px 10px', borderRadius: '7px',
-                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-                display: 'flex', alignItems: 'center', gap: '5px',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { if (!dbSchemaDetected) { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#238636'; el.style.color = '#3fb950'; }}}
-              onMouseLeave={e => { if (!dbSchemaDetected) { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#c9d1d9'; }}}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-              DB Map
-              {dbSchemaDetected && (
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3fb950', boxShadow: '0 0 4px #3fb950' }} />
-              )}
-            </button>
-            {onExport && (
-              <button
-                onClick={onExport}
-                style={{
-                  background: '#161b22', border: '1px solid #30363d',
-                  color: '#c9d1d9', padding: '4px 10px', borderRadius: '7px',
-                  fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-                  display: 'flex', alignItems: 'center', gap: '5px',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#e3b341'; el.style.color = '#f0f6fc'; }}
-                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#c9d1d9'; }}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* User */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {login && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-              {avatarUrl
-                ? <img src={avatarUrl} alt={login} style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid #30363d' }} />
-                : (
-                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'linear-gradient(135deg, #238636, #388bfd)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 700 }}>
-                    {login[0]?.toUpperCase()}
-                  </div>
-                )
-              }
-              <span style={{ color: '#8b949e', fontSize: '0.8rem', fontWeight: 500 }}>{login}</span>
-            </div>
-          )}
-          <button
-            onClick={handleSignOut}
-            style={{
-              background: 'transparent', border: '1px solid #30363d',
-              color: '#8b949e', padding: '4px 9px', borderRadius: '7px',
-              fontSize: '0.72rem', cursor: 'pointer', flexShrink: 0,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#f85149'; el.style.color = '#f85149'; }}
-            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#8b949e'; }}
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-
-      {/* Bottom row: nav tabs */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'stretch',
-        gap: '0',
-        padding: '0 10px',
-        height: '34px',
-        overflowX: 'auto',
-        overflowY: 'hidden',
+      {/* Nav tabs — scrollable, takes available middle space */}
+      <nav style={{
+        display: 'flex', alignItems: 'stretch',
+        flex: 1, minWidth: 0,
+        overflowX: 'auto', overflowY: 'hidden',
         scrollbarWidth: 'none',
+        height: '100%',
       }}>
         {NAV_TABS.map(tab => {
           const active = activeSection === tab.id;
@@ -307,28 +132,128 @@ export default function WorkspaceHeader({
                 background: 'transparent',
                 border: 'none',
                 borderBottom: active ? '2px solid #388bfd' : '2px solid transparent',
-                color: active ? '#f0f6fc' : disabled ? '#30363d' : '#8b949e',
-                padding: '0 11px',
-                fontSize: '0.75rem',
+                color: active ? '#f0f6fc' : disabled ? '#30363d' : '#6e7681',
+                padding: '0 9px',
+                fontSize: '0.74rem',
                 fontWeight: active ? 600 : 400,
                 cursor: disabled ? 'not-allowed' : 'pointer',
                 whiteSpace: 'nowrap',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
+                display: 'flex', alignItems: 'center', gap: '4px',
                 flexShrink: 0,
-                transition: 'color 0.15s, border-color 0.15s',
+                transition: 'color 0.12s',
                 marginBottom: '-1px',
               }}
               onMouseEnter={e => { if (!disabled && !active) (e.currentTarget as HTMLElement).style.color = '#e6edf3'; }}
-              onMouseLeave={e => { if (!disabled && !active) (e.currentTarget as HTMLElement).style.color = '#8b949e'; }}
+              onMouseLeave={e => { if (!disabled && !active) (e.currentTarget as HTMLElement).style.color = '#6e7681'; }}
             >
               <TabIcon d={tab.icon} />
               {tab.label}
             </button>
           );
         })}
+      </nav>
+
+      <div style={{ width: '1px', height: '20px', background: '#21262d', flexShrink: 0 }} />
+
+      {/* Repo search — fixed narrow width */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, width: '260px' }}>
+        <BookmarkDropdown onSelect={onBookmarkSelect} />
+        <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <Search size={12} style={{ position: 'absolute', left: '8px', color: '#484f58', pointerEvents: 'none' }} />
+          <input
+            value={repoUrl}
+            onChange={e => onRepoUrlChange(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !loading) onAnalyze(); }}
+            placeholder={parsed ? `${parsed.owner}/${parsed.repo}` : 'owner/repo…'}
+            style={{
+              width: '100%',
+              background: '#0d1117',
+              border: '1px solid #30363d',
+              borderRadius: '7px',
+              padding: '4px 68px 4px 26px',
+              color: '#f0f6fc',
+              fontSize: '0.75rem',
+              outline: 'none',
+              fontFamily: 'monospace',
+              boxSizing: 'border-box',
+              transition: 'border-color 0.15s',
+            }}
+            onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#388bfd'; }}
+            onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#30363d'; }}
+          />
+          {repoUrl && !loading && (
+            <button onClick={onAnalyze} style={{ position: 'absolute', right: '4px', background: 'linear-gradient(135deg,#238636,#2ea043)', border: 'none', borderRadius: '5px', color: 'white', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>
+              Go
+            </button>
+          )}
+          {loading && (
+            <span style={{ position: 'absolute', right: '8px', color: '#8b949e', fontSize: '0.7rem' }}>…</span>
+          )}
+        </div>
       </div>
+
+      {/* ⌘K */}
+      <button
+        onClick={onPaletteOpen}
+        title="Command palette (Ctrl+K)"
+        style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '7px', color: '#6e7681', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', flexShrink: 0, transition: 'all 0.12s' }}
+        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#58a6ff'; el.style.color = '#f0f6fc'; }}
+        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#6e7681'; }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <kbd style={{ fontSize: '0.6rem', color: '#484f58', fontFamily: 'inherit' }}>⌘K</kbd>
+      </button>
+
+      {/* Action buttons */}
+      {hasData && (
+        <>
+          <div style={{ width: '1px', height: '20px', background: '#21262d', flexShrink: 0 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+            <button onClick={onPRReview} style={{ background: '#161b22', border: '1px solid #30363d', color: '#c9d1d9', padding: '4px 9px', borderRadius: '7px', fontSize: '0.73rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.12s' }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#388bfd'; el.style.color = '#f0f6fc'; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#c9d1d9'; }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              PR Review
+            </button>
+            <button onClick={onDbMap} style={{ background: dbSchemaDetected ? 'rgba(35,134,54,0.12)' : '#161b22', border: `1px solid ${dbSchemaDetected ? '#238636' : '#30363d'}`, color: dbSchemaDetected ? '#3fb950' : '#c9d1d9', padding: '4px 9px', borderRadius: '7px', fontSize: '0.73rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.12s' }}
+              onMouseEnter={e => { if (!dbSchemaDetected) { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#238636'; el.style.color = '#3fb950'; }}}
+              onMouseLeave={e => { if (!dbSchemaDetected) { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#c9d1d9'; }}}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              DB Map
+              {dbSchemaDetected && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#3fb950' }} />}
+            </button>
+            {onExport && (
+              <button onClick={onExport} style={{ background: '#161b22', border: '1px solid #30363d', color: '#c9d1d9', padding: '4px 9px', borderRadius: '7px', fontSize: '0.73rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.12s' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#e3b341'; el.style.color = '#f0f6fc'; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#c9d1d9'; }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      <div style={{ width: '1px', height: '20px', background: '#21262d', flexShrink: 0 }} />
+
+      {/* User */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
+        {login && (
+          <>
+            {avatarUrl
+              ? <img src={avatarUrl} alt={login} style={{ width: '22px', height: '22px', borderRadius: '50%', border: '2px solid #30363d' }} />
+              : <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg,#238636,#388bfd)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.65rem', fontWeight: 700 }}>{login[0]?.toUpperCase()}</div>
+            }
+            <span style={{ color: '#8b949e', fontSize: '0.78rem' }}>{login}</span>
+          </>
+        )}
+        <button onClick={handleSignOut} style={{ background: 'transparent', border: '1px solid #30363d', color: '#6e7681', padding: '3px 8px', borderRadius: '7px', fontSize: '0.7rem', cursor: 'pointer', transition: 'all 0.12s' }}
+          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#f85149'; el.style.color = '#f85149'; }}
+          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#30363d'; el.style.color = '#6e7681'; }}>
+          Sign out
+        </button>
+      </div>
+
     </header>
   );
 }
