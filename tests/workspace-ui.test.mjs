@@ -63,3 +63,12 @@ test('Summary unused-code button opens the unused panel without section navigati
   assert.deepEqual(opened, [true]);
   assert.deepEqual(sections, []);
 });
+
+test('Code graph sidebar exposes only Explorer navigation', async () => {
+  const { default: WorkspaceExplorerSidebar } = await vite.ssrLoadModule('/src/features/workspace/components/WorkspaceExplorerSidebar.tsx');
+  const tree = WorkspaceExplorerSidebar({ folderFilter: null, onClearFilter() {}, children: 'TREE' });
+  const text = textOf(tree);
+  assert.match(text, /Explorer/);
+  assert.match(text, /TREE/);
+  assert.doesNotMatch(text, /Health Score|Color By|Functions|Unused|Lines of Code/);
+});

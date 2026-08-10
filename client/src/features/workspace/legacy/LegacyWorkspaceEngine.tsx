@@ -4,13 +4,13 @@ import * as d3Sankey from 'd3-sankey';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Icon } from '../../../shared/components/Icon';
 import { StatusDot } from '../../../shared/components/StatusDot';
-import { HealthRing } from '../../../shared/components/HealthRing';
 import { VirtualizedRepoTree } from '../../../shared/components/VirtualizedRepoTree';
 import { Parser, COLORS, LAYER_COLORS, IGNORE, DEFAULT_EXCLUDE_CHIPS, compileExcludePatterns, parseExcludePatterns, shouldExcludeFile, shouldIgnoreDirectory, getSeverityColor, getAccentBlockStyle, getFilePreviewIconName, getDialogTone, buildAppUrl, renderTooltipHtml, escapeHtml } from '../../analysis/services/parser';
 import { GitHub, buildTree, calcBlast, calcHealth, calcPRRisk, findSuggestedReviewers, findTestImpact, findDependencyChains } from '../../repository/services/github';
 import WorkspaceHeader from '../components/WorkspaceHeader';
 import WorkspaceSubnav from '../components/WorkspaceSubnav';
 import WorkspaceOverview from '../components/WorkspaceOverview';
+import WorkspaceExplorerSidebar from '../components/WorkspaceExplorerSidebar';
 import { dbSchemaToFlowSchema, parseDbSchema } from '../../database/services/dbParser';
 import { saveBookmark } from '../services/bookmarks';
 import CommandPalette from '../components/CommandPalette';
@@ -2599,63 +2599,8 @@ export default function LegacyWorkspaceEngine(){
                     function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
                     document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
                 }}),
-                data?React.createElement(React.Fragment,null,
-                    React.createElement('div',{className:'tool-sidebar-heading'},
-                        React.createElement('div',{className:'tool-sidebar-icon'},React.createElement(Icon,{name:'graph',size:'l'})),
-                        React.createElement('div',null,
-                            React.createElement('strong',null,'Code graph'),
-                            React.createElement('span',null,'Files and dependencies')
-                        )
-                    ),
-                    React.createElement('div',{className:'sidebar-section'},
-                        React.createElement('div',{className:'health-score'},
-                            React.createElement(HealthRing,{score:health.score,grade:health.grade}),
-                            React.createElement('div',{className:'health-info'},
-                                React.createElement('div',{className:'health-grade',style:{color:health.score>=80?'var(--green)':health.score>=60?'var(--orange)':'var(--red)'}},health.score,'/100'),
-                                React.createElement('div',{className:'health-label'},'Health Score')
-                            )
-                        )
-                    ),
-                    React.createElement('div',{className:'sidebar-section'},
-                        React.createElement('div',{className:'sidebar-title'},'Color By'),
-                        React.createElement('div',{className:'view-modes'},
-                            React.createElement('div',{className:'view-mode'+(colorMode==='folder'?' active':''),onClick:function(){setColorMode('folder');}},React.createElement(Icon,{name:'folder',size:'m',className:'view-mode-icon'}),'Folder'),
-                            React.createElement('div',{className:'view-mode'+(colorMode==='layer'?' active':''),onClick:function(){setColorMode('layer');}},React.createElement(Icon,{name:'layers',size:'m',className:'view-mode-icon'}),'Layer'),
-                            React.createElement('div',{className:'view-mode'+(colorMode==='churn'?' active':''),onClick:function(){setColorMode('churn');}},React.createElement(Icon,{name:'activity',size:'m',className:'view-mode-icon'}),'Churn')
-                        )
-                    ),
-                    React.createElement('div',{className:'sidebar-section'},
-                        React.createElement('div',{className:'stats-grid'},
-                            React.createElement('div',{className:'stat-card'},React.createElement('div',{className:'stat-value'},(data as any).stats.files),React.createElement('div',{className:'stat-label'},'Files')),
-                            React.createElement('div',{className:'stat-card'},React.createElement('div',{className:'stat-value'},(data as any).stats.functions),React.createElement('div',{className:'stat-label'},'Functions')),
-                            React.createElement('div',{className:'stat-card'},React.createElement('div',{className:'stat-value'},(data as any).stats.connections),React.createElement('div',{className:'stat-label'},'Links')),
-                            React.createElement('div',{className:'stat-card'+((data as any).stats.dead>10?' warn':''),style:{cursor:(data as any).stats.dead>0?'pointer':'default'},onClick:function(){if((data as any).stats.dead>0)setShowUnused(true);}},React.createElement('div',{className:'stat-value'},(data as any).stats.dead),React.createElement('div',{className:'stat-label'},'Unused'))
-                        ),
-                        React.createElement('div',{className:'loc-stat'},
-                            React.createElement('div',{className:'loc-value'},(data as any).stats.loc?(data as any).stats.loc.toLocaleString():'0'),
-                            React.createElement('div',{className:'loc-label'},'Lines of Code')
-                        ),
-                        (data as any).stats.languages&&(data as any).stats.languages.length>0&&React.createElement(React.Fragment,null,
-                            React.createElement('div',{className:'lang-bar'},
-                                (data as any).stats.languages.slice(0,6).map(function(l: any, i: any){return React.createElement('div',{key:l.ext,className:'lang-bar-segment',style:{width:l.pct+'%',background:COLORS[i%COLORS.length]}});})
-                            ),
-                            React.createElement('div',{className:'lang-legend'},
-                                (data as any).stats.languages.slice(0,6).map(function(l: any, i: any){return React.createElement('div',{key:l.ext,className:'lang-item'},
-                                    React.createElement('div',{className:'lang-dot',style:{background:COLORS[i%COLORS.length]}}),
-                                    React.createElement('span',null,l.ext,' ',l.pct,'%')
-                                );})
-                            )
-                        )
-                    ),
-                    React.createElement('div',{className:'sidebar-section',style:{paddingBottom:8}},
-                        React.createElement('div',{className:'sidebar-title'},'Explorer'),
-                        folderFilter&&React.createElement('button',{className:'top-btn',style:{width:'100%',marginTop:8},onClick:function(){setFolderFilter(null);}},
-                            React.createElement(Icon,{name:'close',size:'s'}),
-                            ' Clear Filter: ',
-                            folderFilter
-                        )
-                    ),
-                    React.createElement('div',{className:'sidebar-scroll'},React.createElement(VirtualizedRepoTree,{tree: (data as any).tree,selected:selected,onSelect:selectFile,expanded:expandedPaths,toggle:togglePath,filterFolder:filterByFolder,activeFilter:folderFilter}))
+                data?React.createElement(WorkspaceExplorerSidebar,{folderFilter:folderFilter,onClearFilter:function(){setFolderFilter(null);}},
+                    React.createElement(VirtualizedRepoTree,{tree:(data as any).tree,selected:selected,onSelect:selectFile,expanded:expandedPaths,toggle:togglePath,filterFolder:filterByFolder,activeFilter:folderFilter})
                 ):React.createElement('div',{className:'panel-empty'},
                     React.createElement(Icon,{name:'search',size:'xxl',className:'empty-icon'}),
                     React.createElement('div',{className:'empty-title',style:{fontSize:'1.2rem'}},'No Repository'),
