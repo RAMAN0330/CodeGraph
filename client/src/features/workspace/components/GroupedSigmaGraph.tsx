@@ -3,6 +3,7 @@ import GraphologyGraph from 'graphology';
 import Sigma from 'sigma';
 import { EdgeArrowProgram } from 'sigma/rendering';
 import { deriveFocusedGraph, type GroupedGraphModel } from '../services/groupedGraph';
+import { LABEL_COLOR, drawGroupedNodeLabel, releaseWebglContext } from './groupedSigmaRendering';
 
 export interface GroupedSigmaGraphHandle {
   zoomIn(): void;
@@ -38,6 +39,7 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
   const rendererRef = useRef<Sigma | null>(null);
   const graphRef = useRef<GraphologyGraph | null>(null);
   const overlaysRef = useRef(new Map<string, HTMLDivElement>());
+  const controlsRef = useRef(new Map<string, HTMLDivElement>());
   const hoveredNodeRef = useRef<string | null>(null);
   const interactionRef = useRef({ selectedId, focusMode, focused: deriveFocusedGraph(model, selectedId) });
   const callbacksRef = useRef(props);
@@ -70,10 +72,12 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
     if (!container || !model.nodes.length) return;
 
     const canvas = document.createElement('canvas');
-    if (!(canvas.getContext('webgl2') || canvas.getContext('webgl'))) {
+    const probeContext = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    if (!probeContext) {
       setWebglError(true);
       return;
     }
+    releaseWebglContext(probeContext);
 
     const graph = new GraphologyGraph({ multi: false, type: 'directed' });
     for (const node of model.visibleNodes) graph.addNode(node.id, {
@@ -104,6 +108,8 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
         labelDensity: 1,
         labelGridCellSize: 90,
         labelRenderedSizeThreshold: 5,
+        labelColor: { color: LABEL_COLOR },
+        defaultDrawNodeLabel: drawGroupedNodeLabel,
         minCameraRatio: .04,
         defaultEdgeType: 'arrow',
         edgeProgramClasses: { arrow: EdgeArrowProgram },
@@ -153,14 +159,23 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
     const syncOverlays = () => {
       for (const group of model.groups) {
         const overlay = overlaysRef.current.get(group.id);
-        if (!overlay) continue;
+        const controls = controlsRef.current.get(group.id);
+        if (!overlay && !controls) continue;
         const first = renderer.graphToViewport({ x: group.x, y: group.y });
         const second = renderer.graphToViewport({ x: group.x + group.width, y: group.y + group.height });
         const left = Math.min(first.x, second.x);
         const top = Math.min(first.y, second.y);
-        overlay.style.transform = `translate(${left}px, ${top}px)`;
-        overlay.style.width = `${Math.abs(second.x - first.x)}px`;
-        overlay.style.height = `${Math.abs(second.y - first.y)}px`;
+        const transform = `translate(${left}px, ${top}px)`;
+        const width = `${Math.abs(second.x - first.x)}px`;
+        if (overlay) {
+          overlay.style.transform = transform;
+          overlay.style.width = width;
+          overlay.style.height = `${Math.abs(second.y - first.y)}px`;
+        }
+        if (controls) {
+          controls.style.transform = transform;
+          controls.style.width = width;
+        }
       }
     };
 
@@ -181,14 +196,20 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
       renderer.refresh();
       callbacksRef.current.onTooltip?.(null);
     });
-    renderer.on('clickStage', () => callbacksRef.current.onStageClick());
+    renderer.on('clickStage', () => {
+      hoveredNodeRef.current = null;
+      callbacksRef.current.onTooltip?.(null);
+      callbacksRef.current.onStageClick();
+    });
     renderer.refresh();
 
     return () => {
       renderer.getCamera().off('updated', syncOverlays);
+      renderer.off('afterRender', syncOverlays);
       renderer.kill();
       graph.clear();
       hoveredNodeRef.current = null;
+      callbacksRef.current.onTooltip?.(null);
       rendererRef.current = null;
       graphRef.current = null;
     };
@@ -206,15 +227,30 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
       key={group.id}
       ref={element => { if (element) overlaysRef.current.set(group.id, element); else overlaysRef.current.delete(group.id); }}
       className={`folder-group-overlay${selectedId && !focusedFolderIds.has(group.id) ? ' is-muted' : ''}`}
-      style={{ position: 'absolute', zIndex: 1, pointerEvents: 'none' }}
+      style={{
+        position: 'absolute', zIndex: 1, pointerEvents: 'none', boxSizing: 'border-box',
+        border: '1px solid #3e4652', borderRadius: 12, background: 'rgba(33,37,43,.54)',
+        opacity: selectedId && !focusedFolderIds.has(group.id) ? .28 : 1,
+      }}
+    />)}
+    {model.groups.map(group => <div
+      key={group.id}
+      ref={element => { if (element) controlsRef.current.set(group.id, element); else controlsRef.current.delete(group.id); }}
+      className="folder-group-controls"
+      style={{
+        position: 'absolute', zIndex: 3, pointerEvents: 'none', boxSizing: 'border-box', height: 34,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+        padding: '0 12px', color: LABEL_COLOR, fontSize: 12, fontWeight: 600,
+      }}
     >
-      <div className="folder-group-heading">
+      <div className="folder-group-heading" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
         <span>{group.label}</span>
         <span>{group.visibleFiles}/{group.totalFiles}</span>
-        {group.totalFiles > 40 && <button type="button" style={{ pointerEvents: 'auto' }} onClick={() => onToggleFolder(group.id)}>
-          {group.expanded ? 'Collapse' : 'Expand'}
-        </button>}
       </div>
+      {group.totalFiles > 40 && <button type="button" style={{
+        pointerEvents: 'auto', color: LABEL_COLOR, background: '#2c313a', border: '1px solid #596675',
+        borderRadius: 5, padding: '3px 7px', cursor: 'pointer',
+      }} onClick={() => onToggleFolder(group.id)}>{group.expanded ? 'Collapse' : 'Expand'}</button>}
     </div>)}
     <div ref={containerRef} className="grouped-sigma-stage" style={{ position: 'absolute', inset: 0, zIndex: 2, background: 'transparent' }} />
   </div>;
