@@ -115,6 +115,24 @@ test('a real unconnected folder remains a normal budgeted folder', async () => {
   }
 });
 
+test('a budget-hidden file remains reachable through its internal dependency edge', async () => {
+  const vite = await createServer({ root: 'client', server: { middlewareMode: true }, appType: 'custom' });
+  try {
+    const { buildGroupedGraph, deriveFocusedGraph } = await vite.ssrLoadModule('/src/features/workspace/services/groupedGraph.ts');
+    const nodes = Array.from({ length: 41 }, (_, index) => ({ id: `dense/file-${String(index).padStart(2, '0')}.ts`, folder: 'dense' }));
+    const hiddenId = 'dense/file-40.ts';
+    const neighborId = 'dense/file-39.ts';
+    const model = buildGroupedGraph(nodes, nodes.slice(1).map((node, index) => ({ source: node.id, target: nodes[index].id })));
+    const focus = deriveFocusedGraph(model, hiddenId);
+
+    assert.equal(model.nodes.find(node => node.id === hiddenId).hiddenByBudget, true);
+    assert.ok(model.edges.some(edge => edge.source === hiddenId && edge.target === neighborId));
+    assert.deepEqual([...focus.relatedNodeIds].sort(), [hiddenId, neighborId].sort());
+  } finally {
+    await vite.close();
+  }
+});
+
 test('folder budgets hide low-priority files until expanded', async () => {
   const vite = await createServer({ root: 'client', server: { middlewareMode: true }, appType: 'custom' });
   try {
