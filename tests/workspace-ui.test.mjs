@@ -2,6 +2,7 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
 
 const clientRequire = createRequire(resolve('client/package.json'));
 const { pathToFileURL } = await import('node:url');
@@ -109,4 +110,26 @@ test('Account menu interactions dismiss outside click and Escape, and select set
 
   assert.deepEqual(openStates, [false, false, false]);
   assert.deepEqual(sections, ['settings']);
+});
+
+test('Explore integrates the grouped Sigma graph without removing alternate views', async () => {
+  const source = await readFile(resolve('client/src/features/workspace/legacy/LegacyWorkspaceEngine.tsx'), 'utf8');
+  const styles = await readFile(resolve('client/src/index.css'), 'utf8');
+  const groupedModelSource = source.slice(source.indexOf('var groupedGraphModel'), source.indexOf('var selectedGraphId'));
+
+  assert.match(source, /React\.lazy\(\(\) => import\('\.\.\/components\/GroupedSigmaGraph'\)\)/);
+  assert.doesNotMatch(source, /CosmosGraphCanvas/);
+  assert.match(source, /buildGroupedGraph/);
+  assert.match(source, /searchGroupedGraph/);
+  assert.match(source, /expandedGraphFolders/);
+  assert.match(source, /onOpenFile/);
+  assert.match(source, /focusNode/);
+  assert.match(source, /openAndFocusGraphFile\(fn\.file\)/);
+  assert.doesNotMatch(groupedModelSource, /graphifyGraph/);
+  assert.match(source, /},'All files'\)/);
+  assert.match(source, /},'Focus selected'\)/);
+  assert.match(styles, /\.canvas-toolbar:has\(\.graph-focus-toggle\)\{[^}]*flex-wrap:wrap/);
+  for (const view of ['graph', 'dendro', 'sankey', 'disjoint', 'bundle']) {
+    assert.match(source, new RegExp(`vizType:'${view}'`));
+  }
 });

@@ -21,6 +21,7 @@ import { scanDependencies } from '../../security/services/osv';
 import { fetchTrendData, buildActivityPoints } from '../../analysis/services/trends';
 import { appConfig } from '../../../app/config';
 import { analyzeSource } from '../../analysis/services/sourceAnalysisClient';
+import { buildGroupedGraph, searchGroupedGraph } from '../services/groupedGraph';
 
 const extractManifestDeps = extractManifestDependencies;
 const ERDiagramGraph = React.lazy(() => import('../../database/components/ERDiagramGraph'));
@@ -36,6 +37,7 @@ const ExportModal = React.lazy(() => import('../../export/components/ExportModal
 const VulnerabilityScanner = React.lazy(() => import('../../security/components/VulnerabilityScanner'));
 const MetricsTrendChart = React.lazy(() => import('../../analysis/components/MetricsTrendChart'));
 const ArchitectureDiagram = React.lazy(() => import('../components/ArchitectureDiagram'));
+const GroupedSigmaGraph = React.lazy(() => import('../components/GroupedSigmaGraph'));
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -116,8 +118,12 @@ export default function LegacyWorkspaceEngine(){
     var _dbapp=useState<any>('all'),dbAppFilter=_dbapp[0],setDbAppFilter=_dbapp[1];
     var _dbtbl=useState<any>(null),selectedDbTable=_dbtbl[0],setSelectedDbTable=_dbtbl[1];
     var _cfm=useState<any>(false),callFlowMode=_cfm[0],setCallFlowMode=_cfm[1];
+    const [expandedGraphFolders, setExpandedGraphFolders] = useState<Set<string>>(new Set());
+    const [graphFocusMode, setGraphFocusMode] = useState<'all' | 'selected-only'>('all');
     var _gdd=useState<any>(null),graphDrillDown=_gdd[0],setGraphDrillDown=_gdd[1];
     var svgRef=useRef(null);
+    var groupedGraphRef=useRef(null);
+    var pendingGraphFocusRef=useRef<string|null>(null);
     var filePreviewRef=useRef(null);
     var analysisContentCacheRef=useRef({});
     var treemapRef=useRef(null);
@@ -1265,6 +1271,39 @@ export default function LegacyWorkspaceEngine(){
         return m;
     },[data,colorMode]);
 
+    var groupedGraphModel=useMemo(function(){
+        if(!data)return buildGroupedGraph([],[],{expandedFolders:expandedGraphFolders});
+        var filteredFiles=folderFilter?(data as any).files.filter(function(f: any){return f.folder===folderFilter||f.folder.startsWith(folderFilter+'/');}):(data as any).files;
+        return buildGroupedGraph(filteredFiles,(data as any).connections,{expandedFolders:expandedGraphFolders});
+    },[data,folderFilter,expandedGraphFolders]);
+    var selectedGraphId=useMemo(function(){
+        if(!selected)return null;
+        var match=groupedGraphModel.nodes.find(function(node: any){return node.id===selected.path||node.path===selected.path;});
+        return match?match.id:selected.path;
+    },[groupedGraphModel,selected]);
+
+    useEffect(function(){
+        var path=pendingGraphFocusRef.current;
+        if(!path)return;
+        var match=searchGroupedGraph(groupedGraphModel,path).find(function(node: any){return node.id===path||node.path===path;});
+        if(!match)return;
+        if(match.hiddenByBudget&&!expandedGraphFolders.has(match.folderId)){
+            setExpandedGraphFolders(function(current){var next=new Set(current);next.add(match.folderId);return next;});
+            return;
+        }
+        pendingGraphFocusRef.current=null;
+        groupedGraphRef.current?.focusNode(match.id);
+    },[groupedGraphModel,expandedGraphFolders]);
+
+    function openAndFocusGraphFile(path: string){
+        var file=data&&((data as any).files||[]).find(function(candidate: any){return candidate.path===path;});
+        if(folderFilter&&file&&file.folder!==folderFilter&&!file.folder.startsWith(folderFilter+'/'))setFolderFilter(null);
+        pendingGraphFocusRef.current=path;
+        setGraphConfig(Object.assign({},graphConfig,{vizType:'graph'}));
+        if(selectFileRef.current)selectFileRef.current(path);
+        groupedGraphRef.current?.focusNode(path);
+    }
+
     useEffect(function(){
         if(!data||!svgRef.current)return;
         var svg=d3.select(svgRef.current);
@@ -2066,10 +2105,11 @@ export default function LegacyWorkspaceEngine(){
         }
     },[data,graphConfig.vizType,colorMap,folderFilter,selected,blastRadius,activeSection]);
 
-    function zoomIn(){if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(200).call(zoomRef.current.scaleBy,1.4);}
-    function zoomOut(){if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(200).call(zoomRef.current.scaleBy,0.7);}
-    function resetZoom(){if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(300).call(zoomRef.current.transform,d3.zoomIdentity);}
+    function zoomIn(){if(groupedGraphRef.current)return groupedGraphRef.current.zoomIn();if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(200).call(zoomRef.current.scaleBy,1.4);}
+    function zoomOut(){if(groupedGraphRef.current)return groupedGraphRef.current.zoomOut();if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(200).call(zoomRef.current.scaleBy,0.7);}
+    function resetZoom(){if(groupedGraphRef.current)return groupedGraphRef.current.reset();if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(300).call(zoomRef.current.transform,d3.zoomIdentity);}
     function fitView(){
+        if(groupedGraphRef.current)return groupedGraphRef.current.fit();
         if(!zoomRef.current||!svgRef.current||!simRef.current)return;
         var nodes=simRef.current.nodes();
         if(!nodes.length)return;
@@ -2635,7 +2675,25 @@ export default function LegacyWorkspaceEngine(){
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='disjoint'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'disjoint'}));}},iconLabel('cluster','Cluster')),
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='bundle'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'bundle'}));}},iconLabel('target','Bundle'))
                     ),
-                    graphConfig.vizType==='graph'&&React.createElement('svg',{ref:svgRef}),
+                    graphConfig.vizType==='graph'&&React.createElement(React.Suspense,{fallback:React.createElement('div',{className:'graph-empty-state'},React.createElement('span',{className:'page-transition-spinner'}),'Laying out graph…')},
+                        React.createElement(GroupedSigmaGraph,{
+                            ref:groupedGraphRef,
+                            model:groupedGraphModel,
+                            selectedId:selectedGraphId,
+                            focusMode:graphFocusMode,
+                            onSelectNode:function(id: string){groupedGraphRef.current?.focusNode(id);},
+                            onOpenFile:function(path: string){if(selectFileRef.current)selectFileRef.current(path);},
+                            onStageClick:function(){setSelected(null);setBlastRadius(null);},
+                            onTooltip:setTooltip,
+                            onToggleFolder:function(id: string){
+                                setExpandedGraphFolders(function(current){
+                                    var next=new Set(current);
+                                    if(next.has(id))next.delete(id);else next.add(id);
+                                    return next;
+                                });
+                            }
+                        })
+                    ),
                     graphConfig.vizType==='treemap'&&React.createElement('div',{ref:treemapRef,className:'treemap-container'}),
                     graphConfig.vizType==='matrix'&&React.createElement('div',{ref:matrixRef,className:'matrix-container',style:{width:'100%',height:'100%',overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center'}}),
                     graphConfig.vizType==='dendro'&&React.createElement('div',{ref:dendroRef,className:'dendro-container',style:{width:'100%',height:'100%',position:'relative'}}),
@@ -2650,6 +2708,15 @@ export default function LegacyWorkspaceEngine(){
                         React.createElement('button',{className:'tool-btn'+(showGraphConfig?' active':''),onClick:function(){setShowGraphConfig(!showGraphConfig);},'aria-label':'Graph settings',style:showGraphConfig?{background:'var(--accbg)',borderColor:'var(--acc)'}:{}},
                             React.createElement(Icon,{name:'settings',size:'m'})
                         ),
+                        React.createElement('button',{
+                            className:'graph-focus-toggle'+(graphFocusMode==='all'?' active':''),
+                            onClick:function(){setGraphFocusMode('all');},
+                        },'All files'),
+                        React.createElement('button',{
+                            className:'graph-focus-toggle'+(graphFocusMode==='selected-only'?' active':''),
+                            onClick:function(){setGraphFocusMode('selected-only');},
+                            disabled:!selectedGraphId,
+                        },'Focus selected'),
                         React.createElement('button',{
                             className:'call-flow-toggle'+(callFlowMode?' active':''),
                             onClick:function(){setCallFlowMode(function(v: any){return !v;});},
@@ -3595,13 +3662,12 @@ export default function LegacyWorkspaceEngine(){
           folders: ((data as any).folders)||[],
           onSelectFile: function(file: any){
             setActiveSection('explorer');
-            setSelected(file);
+            openAndFocusGraphFile(file.path);
             setShowPalette(false);
           },
           onSelectFunction: function(fn: any){
             setActiveSection('explorer');
-            var matchFile = (((data as any).files)||[]).find(function(f: any){ return f.path===fn.file; });
-            if(matchFile) setSelected(matchFile);
+            openAndFocusGraphFile(fn.file);
             setShowPalette(false);
           },
           onSelectFolder: function(folder: any){

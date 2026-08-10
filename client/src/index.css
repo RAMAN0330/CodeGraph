@@ -740,3 +740,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans',Helveti
 .workspace-account-menu>button:hover{background:#2c313a;color:#f2f3f5}
 .workspace-account-menu>button.danger{color:#e06c75}
 .workspace-account-summary{display:flex;align-items:center;gap:8px;padding:7px 10px 10px}.workspace-account-summary img,.workspace-account-summary>span{width:26px;height:26px;border-radius:7px;object-fit:cover;display:grid;place-items:center;background:#c678dd;color:#181a1f;font-weight:700}.workspace-account-summary div{display:flex;flex-direction:column;line-height:1.1}.workspace-account-summary strong{color:#d7dae0;font-size:10px}.workspace-account-summary small{margin-top:2px;color:#98c379;font-size:8px;text-transform:uppercase;letter-spacing:.08em}
+
+.grouped-sigma-graph{position:absolute;inset:0;overflow:hidden}
+.grouped-sigma-stage{position:absolute;inset:0;z-index:2}
+.folder-group-overlay{position:absolute;z-index:1;border:1px solid #3e4652;border-radius:12px;background:rgba(33,37,43,.54)}
+.folder-group-heading{position:absolute;top:0;left:0;right:0;height:34px;display:flex;align-items:center;justify-content:space-between}
+.folder-group-overlay.is-muted{opacity:.28}
+.canvas-toolbar:has(.graph-focus-toggle){max-width:calc(100% - 28px);flex-wrap:wrap}
+.graph-focus-toggle{height:34px;margin-left:6px;padding:0 11px;border:1px solid #3e4451;border-radius:7px;background:transparent;color:#7f8795;font-family:inherit;font-size:11px;cursor:pointer;white-space:nowrap}.graph-focus-toggle:hover:not(:disabled){color:#f2f3f5;border-color:#56b6c2}.graph-focus-toggle.active{border-color:rgba(86,182,194,.45);background:rgba(86,182,194,.1);color:#56b6c2}.graph-focus-toggle:disabled{opacity:.4;cursor:default}
