@@ -38,6 +38,23 @@ The modal remains on the Summary page and supports:
 
 Clicking a modal result must not switch to Explorer or change the active section. Any control that currently selects a file and closes the modal is removed or converted into a non-navigating label.
 
+## Top-Bar Search
+
+The command-palette control is compact by default and shows only the search icon and `⌘ K` shortcut. Hovering the control or moving keyboard focus into it expands the control to reveal the `Search code` label. Expansion uses CSS so no additional interaction state is required.
+
+Clicking the control or using the existing keyboard shortcut continues to open the command palette. The compact state must keep the icon and shortcut legible without shifting other top-bar controls.
+
+## Account Menu
+
+Replace the separate user display and Sign out button with one account-menu button. The closed button shows the avatar and username. Clicking it opens a dropdown containing:
+
+- Avatar and username.
+- Connected status.
+- Account settings action that opens the existing workspace Settings section.
+- Sign out action.
+
+Sign out keeps the existing authenticated logout request and redirect behavior. The menu closes when the user clicks outside it or presses Escape. The standalone Sign out button is removed from the top bar.
+
 ## Data Flow
 
 1. `WorkspaceOverview` receives `onOpenUnused` from `LegacyWorkspaceEngine`.
@@ -45,12 +62,16 @@ Clicking a modal result must not switch to Explorer or change the active section
 3. `LegacyWorkspaceEngine` sets the existing `showUnused` state to `true`.
 4. The existing modal renders from `data.deadFunctions`.
 5. Closing the modal leaves `activeSection` equal to `overview`.
+6. The search control expands through CSS hover/focus state and continues opening the existing command palette.
+7. The account menu owns the existing sign-out handler and closes on outside click or Escape.
 
 ## Accessibility
 
 - Summary unused-code controls remain semantic buttons.
 - Disabled/no-findings behavior does not open an empty modal.
 - Modal close behavior, overlay dismissal, and button labels remain available.
+- The account-menu button exposes `aria-expanded` and the dropdown has an accessible menu label.
+- Search expansion works for pointer hover and keyboard focus.
 
 ## Verification
 
@@ -59,3 +80,5 @@ Clicking a modal result must not switch to Explorer or change the active section
 - Summary `Unused code` opens the existing modal when findings exist.
 - Expanding modal entries works without changing the active workspace section.
 - Closing the modal returns to the unchanged Summary page.
+- Search renders as icon plus `⌘ K`, expands on hover/focus, and opens the command palette.
+- Account dropdown opens and closes correctly, Account settings is reachable, and Sign out completes the existing logout flow.
