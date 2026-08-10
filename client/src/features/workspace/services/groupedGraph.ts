@@ -65,6 +65,10 @@ export interface FocusedGraphState {
 type RecordLike = Record<string, unknown>;
 type PendingNode = GroupedFileNode & { originalFolderId: string };
 
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
 }
@@ -103,7 +107,7 @@ function componentRanks(folderIds: string[], folderEdges: Map<string, Set<string
     lowlinks.set(folderId, index++);
     stack.push(folderId);
     inStack.add(folderId);
-    for (const target of [...(folderEdges.get(folderId) || [])].sort()) {
+    for (const target of [...(folderEdges.get(folderId) || [])].sort(compareText)) {
       if (!indices.has(target)) {
         visit(target);
         lowlinks.set(folderId, Math.min(lowlinks.get(folderId)!, lowlinks.get(target)!));
@@ -163,37 +167,42 @@ export function buildGroupedGraph(rawNodes: unknown[], rawLinks: unknown[], opti
     const source = idOf(link.source);
     const target = idOf(link.target);
     if (!source || !target || source === target || !pending.has(source) || !pending.has(target)) continue;
-    const key = `${source}→${target}`;
+    const key = JSON.stringify([source, target]);
     const previous = edgeCounts.get(key);
     if (previous) previous.count += 1;
     else edgeCounts.set(key, { source, target, count: 1, sourceData });
   }
-  const edges = [...edgeCounts.values()].sort((left, right) => `${left.source}→${left.target}`.localeCompare(`${right.source}→${right.target}`));
+  const edges = [...edgeCounts.values()].sort((left, right) => compareText(left.source, right.source) || compareText(left.target, right.target));
   edges.forEach(edge => {
     pending.get(edge.source)!.outgoing += edge.count;
     pending.get(edge.target)!.incoming += edge.count;
   });
-  pending.forEach(node => { node.degree = node.incoming + node.outgoing; if (!node.degree) node.folderId = 'unconnected'; });
+  const usedFolderIds = new Set([...pending.values()].map(node => node.folderId));
+  let syntheticUnconnectedFolderId = 'unconnected';
+  while (usedFolderIds.has(syntheticUnconnectedFolderId)) syntheticUnconnectedFolderId += ' (disconnected)';
+  pending.forEach(node => { node.degree = node.incoming + node.outgoing; if (!node.degree) node.folderId = syntheticUnconnectedFolderId; });
 
-  const folderIds = [...new Set([...pending.values()].map(node => node.folderId).filter(folderId => folderId !== 'unconnected'))].sort();
+  const hasSyntheticUnconnected = [...pending.values()].some(node => node.folderId === syntheticUnconnectedFolderId);
+  const folderIds = [...new Set([...pending.values()].map(node => node.folderId).filter(folderId => folderId !== syntheticUnconnectedFolderId))].sort(compareText);
   const folderEdges = new Map(folderIds.map(folderId => [folderId, new Set<string>()]));
   edges.forEach(edge => {
     const sourceFolder = pending.get(edge.source)!.folderId;
     const targetFolder = pending.get(edge.target)!.folderId;
-    if (sourceFolder !== 'unconnected' && targetFolder !== 'unconnected' && sourceFolder !== targetFolder) folderEdges.get(sourceFolder)!.add(targetFolder);
+    if (sourceFolder !== syntheticUnconnectedFolderId && targetFolder !== syntheticUnconnectedFolderId && sourceFolder !== targetFolder) folderEdges.get(sourceFolder)!.add(targetFolder);
   });
   const ranks = componentRanks(folderIds, folderEdges);
-  const groupIds = [...folderIds.filter(folderId => folderId !== 'root'), ...(folderIds.includes('root') ? ['root'] : []), ...(pending.size && [...pending.values()].some(node => node.folderId === 'unconnected') ? ['unconnected'] : [])];
+  const groupIds = [...folderIds.filter(folderId => folderId !== 'root'), ...(folderIds.includes('root') ? ['root'] : []), ...(hasSyntheticUnconnected ? [syntheticUnconnectedFolderId] : [])];
   const budget = Math.max(0, Math.floor(options.visibleBudget ?? DEFAULT_VISIBLE_BUDGET));
-  const groupNodes = new Map(groupIds.map(groupId => [groupId, [...pending.values()].filter(node => node.folderId === groupId).sort((left, right) => right.degree - left.degree || left.path.localeCompare(right.path))]));
+  const groupNodes = new Map(groupIds.map(groupId => [groupId, [...pending.values()].filter(node => node.folderId === groupId).sort((left, right) => right.degree - left.degree || compareText(left.path, right.path))]));
 
   const groups: FolderGroup[] = groupIds.map(groupId => {
     const nodes = groupNodes.get(groupId)!;
     const expanded = options.expandedFolders?.has(groupId) || false;
-    const visibleFiles = groupId === 'unconnected' || expanded ? nodes.length : Math.min(nodes.length, budget);
-    return { id: groupId, label: groupId === 'root' ? 'Root' : groupId === 'unconnected' ? 'Unconnected' : groupId,
-      rank: groupId === 'unconnected' ? Math.max(0, ...[...ranks.values()]) + 1 : ranks.get(groupId) || 0,
-      x: 0, y: 0, width: 0, height: 0, totalFiles: nodes.length, visibleFiles, expanded, unconnected: groupId === 'unconnected' };
+    const unconnected = groupId === syntheticUnconnectedFolderId;
+    const visibleFiles = unconnected || expanded ? nodes.length : Math.min(nodes.length, budget);
+    return { id: groupId, label: groupId === 'root' ? 'Root' : unconnected ? 'Unconnected' : groupId,
+      rank: unconnected ? Math.max(0, ...[...ranks.values()]) + 1 : ranks.get(groupId) || 0,
+      x: 0, y: 0, width: 0, height: 0, totalFiles: nodes.length, visibleFiles, expanded, unconnected };
   });
   const byRank = new Map<number, FolderGroup[]>();
   groups.forEach(group => byRank.set(group.rank, [...(byRank.get(group.rank) || []), group]));
@@ -201,7 +210,7 @@ export function buildGroupedGraph(rawNodes: unknown[], rawLinks: unknown[], opti
   [...byRank.keys()].sort((left, right) => left - right).forEach(rank => {
     let y = 0;
     let columnWidth = 0;
-    byRank.get(rank)!.sort((left, right) => left.id.localeCompare(right.id)).forEach(group => {
+    byRank.get(rank)!.sort((left, right) => compareText(left.id, right.id)).forEach(group => {
       const columns = Math.max(1, Math.ceil(Math.sqrt(group.visibleFiles)));
       const rows = Math.max(1, Math.ceil(group.visibleFiles / columns));
       group.x = x;
@@ -228,7 +237,7 @@ export function buildGroupedGraph(rawNodes: unknown[], rawLinks: unknown[], opti
     nodes: [...nodes],
     visibleNodes: nodes.filter(node => !node.hiddenByBudget),
     groups: [...groups],
-    edges: edges.filter(edge => nodeById.get(edge.source)!.folderId !== nodeById.get(edge.target)!.folderId).map(edge => ({ id: `${edge.source}→${edge.target}`, source: edge.source, target: edge.target, count: edge.count,
+    edges: edges.map(edge => ({ id: JSON.stringify([edge.source, edge.target]), source: edge.source, target: edge.target, count: edge.count,
       crossFolder: nodeById.get(edge.source)!.folderId !== nodeById.get(edge.target)!.folderId, sourceData: edge.sourceData })),
   };
 }
