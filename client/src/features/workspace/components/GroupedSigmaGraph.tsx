@@ -110,6 +110,7 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
         labelRenderedSizeThreshold: 5,
         labelColor: { color: LABEL_COLOR },
         defaultDrawNodeLabel: drawGroupedNodeLabel,
+        defaultDrawNodeHover: drawGroupedNodeLabel,
         minCameraRatio: .04,
         defaultEdgeType: 'arrow',
         edgeProgramClasses: { arrow: EdgeArrowProgram },

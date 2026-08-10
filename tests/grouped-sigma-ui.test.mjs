@@ -91,6 +91,12 @@ test('node labels draw a solid dark backplate and readable foreground text', () 
   assert.match(source, /labelColor:\s*\{\s*color:\s*LABEL_COLOR/);
 });
 
+test('hovered and selected labels use the high-contrast dark backplate renderer', () => {
+  assert.match(source, /defaultDrawNodeHover:\s*drawGroupedNodeLabel/);
+  assert.match(source, /highlighted:\s*node === activeId \|\| hovered/);
+  assert.notEqual('#21252b', '#d8dee9');
+});
+
 test('WebGL probe release loses its temporary context', () => {
   const calls = [];
   renderingModule.releaseWebglContext({
