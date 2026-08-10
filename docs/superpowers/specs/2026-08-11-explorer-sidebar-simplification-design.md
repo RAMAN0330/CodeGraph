@@ -23,6 +23,8 @@ The Summary page remains the single location for health, repository metrics, lan
 
 Remove the `Repository overview` eyebrow and the subtitle `A focused snapshot of structure, maintainability, and the areas worth opening next.` Collapse their spacing so the repository name becomes the first heading. Keep the `Analysis complete` badge beside the repository name.
 
+Pass the workspace's existing `repoInfo` into `WorkspaceOverview`. The heading displays the analyzed `owner/repository` value instead of falling back to `Analyzed repository`.
+
 The existing `Unused code` focus-area row becomes interactive through a new `onOpenUnused` callback. Clicking it opens the existing unused-functions modal without changing the active workspace section.
 
 The health card's `Unused` signal may use the same callback so both visible unused-code entry points behave consistently.
@@ -81,6 +83,7 @@ Sign out keeps the existing authenticated logout request and redirect behavior. 
 - Code graph sidebar renders only the Explorer controls and tree.
 - Summary `Unused code` opens the existing modal when findings exist.
 - Summary starts with the repository name and status badge; the removed eyebrow and subtitle leave no empty spacing.
+- Summary receives `repoInfo` from the workspace engine and displays the analyzed `owner/repository` name.
 - Expanding modal entries works without changing the active workspace section.
 - Closing the modal returns to the unchanged Summary page.
 - Search renders as icon plus `⌘ K`, expands on hover/focus, and opens the command palette.
