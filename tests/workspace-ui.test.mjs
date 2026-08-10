@@ -72,3 +72,41 @@ test('Code graph sidebar exposes only Explorer navigation', async () => {
   assert.match(text, /TREE/);
   assert.doesNotMatch(text, /Health Score|Color By|Functions|Unused|Lines of Code/);
 });
+
+test('Header uses compact search and account trigger without standalone sign out', async () => {
+  const React = clientRequire('react');
+  const { renderToStaticMarkup } = clientRequire('react-dom/server');
+  const { MemoryRouter } = clientRequire('react-router-dom');
+  const { default: WorkspaceHeader } = await vite.ssrLoadModule('/src/features/workspace/components/WorkspaceHeader.tsx');
+  const html = renderToStaticMarkup(React.createElement(MemoryRouter, null,
+    React.createElement(WorkspaceHeader, {
+      login: 'RAMAN0330', avatarUrl: '', hasData: true,
+      onPaletteOpen() {}, activeSection: 'overview', onSectionChange() {},
+    })
+  ));
+  assert.match(html, /workspace-command-label/);
+  assert.match(html, /workspace-account-trigger/);
+  assert.doesNotMatch(html, /workspace-signout/);
+});
+
+test('Account menu interactions dismiss outside click and Escape, and select settings', async () => {
+  const {
+    accountMenuDismissHandlers,
+    selectAccountSettings,
+  } = await vite.ssrLoadModule('/src/features/workspace/components/WorkspaceHeader.tsx');
+  const trigger = {};
+  const accountRef = { current: { contains: target => target === trigger } };
+  const openStates = [];
+  const dismiss = accountMenuDismissHandlers(accountRef, open => openStates.push(open));
+
+  dismiss.onMouseDown({ target: {} });
+  dismiss.onMouseDown({ target: trigger });
+  dismiss.onKeyDown({ key: 'Escape' });
+  dismiss.onKeyDown({ key: 'Enter' });
+
+  const sections = [];
+  selectAccountSettings(section => sections.push(section), open => openStates.push(open));
+
+  assert.deepEqual(openStates, [false, false, false]);
+  assert.deepEqual(sections, ['settings']);
+});

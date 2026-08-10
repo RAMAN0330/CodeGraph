@@ -727,3 +727,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans',Helveti
 .explorer-sidebar-heading{min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;border-bottom:1px solid #343a44}
 .explorer-sidebar-heading .sidebar-title{margin:0}
 .explorer-sidebar-heading .top-btn{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.workspace-command-button{width:72px;min-width:72px;overflow:hidden;transition:width .18s ease,border-color .16s ease,background .16s ease}
+.workspace-command-label{max-width:0;overflow:hidden;opacity:0;white-space:nowrap;transition:max-width .18s ease,opacity .14s ease}
+.workspace-command-button:hover,.workspace-command-button:focus-visible{width:166px}
+.workspace-command-button:hover .workspace-command-label,.workspace-command-button:focus-visible .workspace-command-label{max-width:80px;opacity:1}
+.workspace-account{position:relative}
+.workspace-account-trigger{height:38px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid #3e4451;border-radius:9px;background:#282c34;color:#d7dae0;cursor:pointer}
+.workspace-account-trigger img,.workspace-account-trigger>span{width:26px;height:26px;border-radius:7px;object-fit:cover;display:grid;place-items:center;background:#c678dd;color:#181a1f;font-weight:700}
+.workspace-account-menu{position:absolute;top:46px;right:0;width:230px;padding:7px;border:1px solid #3e4451;border-radius:10px;background:#21252b;box-shadow:0 16px 36px rgba(0,0,0,.5)}
+.workspace-account-menu>button{width:100%;height:36px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:#abb2bf;text-align:left;cursor:pointer}
+.workspace-account-menu>button:hover{background:#2c313a;color:#f2f3f5}
+.workspace-account-menu>button.danger{color:#e06c75}
+.workspace-account-summary{display:flex;align-items:center;gap:8px;padding:7px 10px 10px}.workspace-account-summary img,.workspace-account-summary>span{width:26px;height:26px;border-radius:7px;object-fit:cover;display:grid;place-items:center;background:#c678dd;color:#181a1f;font-weight:700}.workspace-account-summary div{display:flex;flex-direction:column;line-height:1.1}.workspace-account-summary strong{color:#d7dae0;font-size:10px}.workspace-account-summary small{margin-top:2px;color:#98c379;font-size:8px;text-transform:uppercase;letter-spacing:.08em}
