@@ -123,3 +123,50 @@ test('hover tooltip includes viewport pointer coordinates', () => {
   ), { title: 'App.tsx', content: 'src/App.tsx', x: 130, y: 85 });
   assert.match(source, /positionGroupedTooltip\(tooltipFor\(node\),\s*event\)/);
 });
+
+test('production Sigma event binder signals readiness and forwards graph interactions', () => {
+  const handlers = new Map();
+  let refreshes = 0;
+  const renderer = {
+    on(event, handler) { handlers.set(event, handler); },
+    refresh() { refreshes += 1; },
+  };
+  const attributes = {
+    label: 'App.tsx', path: 'src/App.tsx', extension: 'tsx', incoming: 2, outgoing: 3,
+  };
+  const graph = {
+    getNodeAttributes(id) { assert.equal(id, 'src/App.tsx'); return attributes; },
+    getNodeAttribute(id, key) { assert.equal(id, 'src/App.tsx'); return attributes[key]; },
+  };
+  const selected = [];
+  const opened = [];
+  const tooltips = [];
+  let ready = 0;
+  let stageClears = 0;
+  const callbacksRef = { current: {
+    onReady() { ready += 1; },
+    onSelectNode(id) { selected.push(id); },
+    onOpenFile(path) { opened.push(path); },
+    onStageClick() { stageClears += 1; },
+    onTooltip(tooltip) { tooltips.push(tooltip); },
+  } };
+  const hoveredNodeRef = { current: null };
+
+  rendererModule.bindGroupedSigmaInteractions(renderer, graph, callbacksRef, hoveredNodeRef);
+  handlers.get('clickNode')({ node: 'src/App.tsx' });
+  handlers.get('enterNode')({ node: 'src/App.tsx', event: { original: { clientX: 12, clientY: 18 } } });
+  handlers.get('leaveNode')();
+  handlers.get('clickStage')();
+
+  assert.equal(ready, 1);
+  assert.deepEqual(selected, ['src/App.tsx']);
+  assert.deepEqual(opened, ['src/App.tsx']);
+  assert.equal(stageClears, 1);
+  assert.equal(refreshes, 2);
+  assert.equal(hoveredNodeRef.current, null);
+  assert.deepEqual(tooltips, [
+    { title: 'App.tsx', content: 'src/App.tsx\ntsx · 2 in / 3 out', x: 22, y: 28 },
+    null,
+    null,
+  ]);
+});

@@ -34,6 +34,46 @@ export function positionGroupedTooltip(
   return { ...tooltip, x: pointer.clientX + 10, y: pointer.clientY + 10 };
 }
 
+type InteractionCallbacks = Pick<GroupedSigmaGraphProps,
+  'onReady' | 'onSelectNode' | 'onOpenFile' | 'onStageClick' | 'onTooltip'>;
+
+export function bindGroupedSigmaInteractions(
+  renderer: Pick<Sigma, 'on' | 'refresh'>,
+  graph: Pick<GraphologyGraph, 'getNodeAttributes' | 'getNodeAttribute'>,
+  callbacksRef: { current: InteractionCallbacks },
+  hoveredNodeRef: { current: string | null },
+) {
+  const tooltipFor = (node: string) => {
+    const data = graph.getNodeAttributes(node);
+    return {
+      title: String(data.label),
+      content: `${String(data.path)}\n${String(data.extension || 'file')} · ${Number(data.incoming)} in / ${Number(data.outgoing)} out`,
+    };
+  };
+
+  callbacksRef.current.onReady?.();
+  renderer.on('clickNode', ({ node }) => {
+    const { onSelectNode, onOpenFile } = callbacksRef.current;
+    onSelectNode(node);
+    onOpenFile?.(String(graph.getNodeAttribute(node, 'path')));
+  });
+  renderer.on('enterNode', ({ node, event }) => {
+    hoveredNodeRef.current = node;
+    renderer.refresh();
+    callbacksRef.current.onTooltip?.(positionGroupedTooltip(tooltipFor(node), event));
+  });
+  renderer.on('leaveNode', () => {
+    hoveredNodeRef.current = null;
+    renderer.refresh();
+    callbacksRef.current.onTooltip?.(null);
+  });
+  renderer.on('clickStage', () => {
+    hoveredNodeRef.current = null;
+    callbacksRef.current.onTooltip?.(null);
+    callbacksRef.current.onStageClick();
+  });
+}
+
 const FOLDER_COLORS = ['#61afef', '#98c379', '#c678dd', '#e5c07b', '#56b6c2', '#e06c75'];
 
 function folderColor(folderId: string): string {
@@ -158,15 +198,6 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
       return;
     }
     rendererRef.current = renderer;
-    callbacksRef.current.onReady?.();
-
-    const tooltipFor = (node: string) => {
-      const data = graph.getNodeAttributes(node);
-      return {
-        title: String(data.label),
-        content: `${String(data.path)}\n${String(data.extension || 'file')} · ${Number(data.incoming)} in / ${Number(data.outgoing)} out`,
-      };
-    };
     const syncOverlays = () => {
       for (const group of model.groups) {
         const overlay = overlaysRef.current.get(group.id);
@@ -192,26 +223,7 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
 
     renderer.on('afterRender', syncOverlays);
     renderer.getCamera().on('updated', syncOverlays);
-    renderer.on('clickNode', ({ node }) => {
-      const { onSelectNode, onOpenFile } = callbacksRef.current;
-      onSelectNode(node);
-      onOpenFile?.(String(graph.getNodeAttribute(node, 'path')));
-    });
-    renderer.on('enterNode', ({ node, event }) => {
-      hoveredNodeRef.current = node;
-      renderer.refresh();
-      callbacksRef.current.onTooltip?.(positionGroupedTooltip(tooltipFor(node), event));
-    });
-    renderer.on('leaveNode', () => {
-      hoveredNodeRef.current = null;
-      renderer.refresh();
-      callbacksRef.current.onTooltip?.(null);
-    });
-    renderer.on('clickStage', () => {
-      hoveredNodeRef.current = null;
-      callbacksRef.current.onTooltip?.(null);
-      callbacksRef.current.onStageClick();
-    });
+    bindGroupedSigmaInteractions(renderer, graph, callbacksRef, hoveredNodeRef);
     renderer.refresh();
 
     return () => {
