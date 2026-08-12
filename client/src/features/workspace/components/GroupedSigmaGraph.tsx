@@ -21,8 +21,16 @@ export interface GroupedSigmaGraphProps {
   onSelectNode(id: string): void;
   onOpenFile?: (path: string) => void;
   onStageClick(): void;
-  onTooltip?: (tooltip: { title: string; content: string } | null) => void;
+  onTooltip?: (tooltip: { title: string; content: string; x: number; y: number } | null) => void;
   onToggleFolder(id: string): void;
+}
+
+export function positionGroupedTooltip(
+  tooltip: { title: string; content: string },
+  event: { original: MouseEvent | TouchEvent },
+) {
+  const pointer = 'touches' in event.original ? event.original.touches[0] : event.original;
+  return { ...tooltip, x: pointer.clientX + 10, y: pointer.clientY + 10 };
 }
 
 const FOLDER_COLORS = ['#61afef', '#98c379', '#c678dd', '#e5c07b', '#56b6c2', '#e06c75'];
@@ -187,10 +195,10 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
       onSelectNode(node);
       onOpenFile?.(String(graph.getNodeAttribute(node, 'path')));
     });
-    renderer.on('enterNode', ({ node }) => {
+    renderer.on('enterNode', ({ node, event }) => {
       hoveredNodeRef.current = node;
       renderer.refresh();
-      callbacksRef.current.onTooltip?.(tooltipFor(node));
+      callbacksRef.current.onTooltip?.(positionGroupedTooltip(tooltipFor(node), event));
     });
     renderer.on('leaveNode', () => {
       hoveredNodeRef.current = null;

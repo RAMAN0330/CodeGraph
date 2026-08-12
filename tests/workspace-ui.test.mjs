@@ -112,6 +112,12 @@ test('Account menu interactions dismiss outside click and Escape, and select set
   assert.deepEqual(sections, ['settings']);
 });
 
+test('Visualization selector excludes Treemap and Matrix while keeping remaining views', async () => {
+  const source = await readFile(resolve('client/src/features/workspace/legacy/LegacyWorkspaceEngine.tsx'), 'utf8');
+  assert.doesNotMatch(source, /vizType:'treemap'|vizType:'matrix'|treemapRef|matrixRef/);
+  for (const view of ['dendro', 'sankey', 'disjoint', 'bundle']) assert.match(source, new RegExp(`vizType:'${view}'`));
+});
+
 test('Explore integrates the grouped Sigma graph without removing alternate views', async () => {
   const source = await readFile(resolve('client/src/features/workspace/legacy/LegacyWorkspaceEngine.tsx'), 'utf8');
   const styles = await readFile(resolve('client/src/index.css'), 'utf8');
@@ -120,7 +126,6 @@ test('Explore integrates the grouped Sigma graph without removing alternate view
   assert.match(source, /React\.lazy\(\(\) => import\('\.\.\/components\/GroupedSigmaGraph'\)\)/);
   assert.doesNotMatch(source, /CosmosGraphCanvas/);
   assert.match(source, /buildGroupedGraph/);
-  assert.match(source, /searchGroupedGraph/);
   assert.match(source, /expandedGraphFolders/);
   assert.match(source, /onOpenFile/);
   assert.match(source, /focusNode/);
@@ -128,6 +133,12 @@ test('Explore integrates the grouped Sigma graph without removing alternate view
   assert.doesNotMatch(groupedModelSource, /graphifyGraph/);
   assert.match(source, /},'All files'\)/);
   assert.match(source, /},'Focus selected'\)/);
+  assert.match(source, /useState<string\|null>\(null\)/);
+  assert.match(source, /setPendingGraphFocus\(path\)/);
+  assert.match(source, /resolveGroupedGraphFocus/);
+  assert.match(source, /selectedGroupedNodeId/);
+  assert.doesNotMatch(source, /pendingGraphFocusRef|Graph settings|Call Flow/);
+  assert.doesNotMatch(source, /vizType:'treemap'|vizType:'matrix'|treemapRef|matrixRef/);
   assert.match(styles, /\.canvas-toolbar:has\(\.graph-focus-toggle\)\{[^}]*flex-wrap:wrap/);
   for (const view of ['graph', 'dendro', 'sankey', 'disjoint', 'bundle']) {
     assert.match(source, new RegExp(`vizType:'${view}'`));

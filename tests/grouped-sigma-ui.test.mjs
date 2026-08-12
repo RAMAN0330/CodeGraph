@@ -115,3 +115,11 @@ test('hover tooltip is cleared on leave and renderer cleanup', () => {
   assert.match(leaveHandler, /onTooltip\?\.\(null\)/);
   assert.match(cleanup, /onTooltip\?\.\(null\)/);
 });
+
+test('hover tooltip includes viewport pointer coordinates', () => {
+  assert.deepEqual(rendererModule.positionGroupedTooltip(
+    { title: 'App.tsx', content: 'src/App.tsx' },
+    { original: { clientX: 120, clientY: 75 } },
+  ), { title: 'App.tsx', content: 'src/App.tsx', x: 130, y: 85 });
+  assert.match(source, /positionGroupedTooltip\(tooltipFor\(node\),\s*event\)/);
+});

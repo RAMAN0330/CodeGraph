@@ -153,3 +153,34 @@ test('folder budgets hide low-priority files until expanded', async () => {
     await vite.close();
   }
 });
+
+test('pending focus expands a budget-hidden file before focusing it', async () => {
+  const vite = await createServer({ root: 'client', server: { middlewareMode: true }, appType: 'custom' });
+  try {
+    const { buildGroupedGraph, resolveGroupedGraphFocus } = await vite.ssrLoadModule('/src/features/workspace/services/groupedGraph.ts');
+    const nodes = Array.from({ length: 41 }, (_, index) => ({ id: `dense/file-${String(index).padStart(2, '0')}.ts`, folder: 'dense' }));
+    const links = nodes.slice(1).map((node, index) => ({ source: node.id, target: nodes[index].id }));
+    const hiddenPath = 'dense/file-40.ts';
+
+    const collapsed = resolveGroupedGraphFocus(buildGroupedGraph(nodes, links), hiddenPath, new Set());
+    assert.deepEqual(collapsed, { expandFolderId: 'dense', focusId: null });
+
+    const expandedFolders = new Set([collapsed.expandFolderId]);
+    const expanded = resolveGroupedGraphFocus(buildGroupedGraph(nodes, links, { expandedFolders }), hiddenPath, expandedFolders);
+    assert.deepEqual(expanded, { expandFolderId: null, focusId: hiddenPath });
+  } finally {
+    await vite.close();
+  }
+});
+
+test('selected node ID is cleared when the active folder filter excludes it', async () => {
+  const vite = await createServer({ root: 'client', server: { middlewareMode: true }, appType: 'custom' });
+  try {
+    const { buildGroupedGraph, selectedGroupedNodeId } = await vite.ssrLoadModule('/src/features/workspace/services/groupedGraph.ts');
+    const model = buildGroupedGraph(inputNodes.filter(node => node.folder === 'server'), inputLinks);
+    assert.equal(selectedGroupedNodeId(model, 'client/src/App.tsx'), null);
+    assert.equal(selectedGroupedNodeId(model, 'server/routes.ts'), 'server/routes.ts');
+  } finally {
+    await vite.close();
+  }
+});

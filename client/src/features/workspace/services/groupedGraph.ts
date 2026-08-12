@@ -62,6 +62,11 @@ export interface FocusedGraphState {
   relatedEdgeIds: Set<string>;
 }
 
+export interface GroupedGraphFocusResolution {
+  expandFolderId: string | null;
+  focusId: string | null;
+}
+
 type RecordLike = Record<string, unknown>;
 type PendingNode = GroupedFileNode & { originalFolderId: string };
 
@@ -260,4 +265,20 @@ export function searchGroupedGraph(model: GroupedGraphModel, query: string): Gro
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
   return model.nodes.filter(node => node.label.toLowerCase().includes(needle) || node.path.toLowerCase().includes(needle)).slice(0, 20);
+}
+
+export function selectedGroupedNodeId(model: GroupedGraphModel, path: string | null): string | null {
+  if (!path) return null;
+  return model.nodes.find(node => node.id === path || node.path === path)?.id ?? null;
+}
+
+export function resolveGroupedGraphFocus(
+  model: GroupedGraphModel,
+  path: string,
+  expandedFolders: ReadonlySet<string>,
+): GroupedGraphFocusResolution {
+  const node = model.nodes.find(candidate => candidate.id === path || candidate.path === path);
+  if (!node) return { expandFolderId: null, focusId: null };
+  if (node.hiddenByBudget && !expandedFolders.has(node.folderId)) return { expandFolderId: node.folderId, focusId: null };
+  return { expandFolderId: null, focusId: node.id };
 }

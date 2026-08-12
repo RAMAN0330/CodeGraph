@@ -21,7 +21,7 @@ import { scanDependencies } from '../../security/services/osv';
 import { fetchTrendData, buildActivityPoints } from '../../analysis/services/trends';
 import { appConfig } from '../../../app/config';
 import { analyzeSource } from '../../analysis/services/sourceAnalysisClient';
-import { buildGroupedGraph, searchGroupedGraph } from '../services/groupedGraph';
+import { buildGroupedGraph, resolveGroupedGraphFocus, selectedGroupedNodeId } from '../services/groupedGraph';
 
 const extractManifestDeps = extractManifestDependencies;
 const ERDiagramGraph = React.lazy(() => import('../../database/components/ERDiagramGraph'));
@@ -81,7 +81,6 @@ export default function LegacyWorkspaceEngine(){
     var _y=useState<any>(new Set()),expandedFns=_y[0],setExpandedFns=_y[1];
     var _z=useState<any>(false),showUnused=_z[0],setShowUnused=_z[1];
     var _aa=useState<any>({spacing:500,linkDist:160,viewMode:'force',vizType:'graph',showLabels:true,curvedLinks:true}),graphConfig=_aa[0],setGraphConfig=_aa[1];
-    var _ab=useState<any>(false),showGraphConfig=_ab[0],setShowGraphConfig=_ab[1];
     var _ac=useState<any>(292),sidebarWidth=_ac[0],setSidebarWidth=_ac[1];
     var _ad=useState<any>(360),rightPanelWidth=_ad[0],setRightPanelWidth=_ad[1];
     var _ae=useState<any>(true),legendCollapsed=_ae[0],setLegendCollapsed=_ae[1];
@@ -120,14 +119,12 @@ export default function LegacyWorkspaceEngine(){
     var _cfm=useState<any>(false),callFlowMode=_cfm[0],setCallFlowMode=_cfm[1];
     const [expandedGraphFolders, setExpandedGraphFolders] = useState<Set<string>>(new Set());
     const [graphFocusMode, setGraphFocusMode] = useState<'all' | 'selected-only'>('all');
+    const [pendingGraphFocus, setPendingGraphFocus] = useState<string|null>(null);
     var _gdd=useState<any>(null),graphDrillDown=_gdd[0],setGraphDrillDown=_gdd[1];
     var svgRef=useRef(null);
     var groupedGraphRef=useRef(null);
-    var pendingGraphFocusRef=useRef<string|null>(null);
     var filePreviewRef=useRef(null);
     var analysisContentCacheRef=useRef({});
-    var treemapRef=useRef(null);
-    var matrixRef=useRef(null);
     var dendroRef=useRef(null);
     var sankeyRef=useRef(null);
     var disjointRef=useRef(null);
@@ -1277,28 +1274,29 @@ export default function LegacyWorkspaceEngine(){
         return buildGroupedGraph(filteredFiles,(data as any).connections,{expandedFolders:expandedGraphFolders});
     },[data,folderFilter,expandedGraphFolders]);
     var selectedGraphId=useMemo(function(){
-        if(!selected)return null;
-        var match=groupedGraphModel.nodes.find(function(node: any){return node.id===selected.path||node.path===selected.path;});
-        return match?match.id:selected.path;
+        return selectedGroupedNodeId(groupedGraphModel,selected?.path||null);
     },[groupedGraphModel,selected]);
 
     useEffect(function(){
-        var path=pendingGraphFocusRef.current;
-        if(!path)return;
-        var match=searchGroupedGraph(groupedGraphModel,path).find(function(node: any){return node.id===path||node.path===path;});
-        if(!match)return;
-        if(match.hiddenByBudget&&!expandedGraphFolders.has(match.folderId)){
-            setExpandedGraphFolders(function(current){var next=new Set(current);next.add(match.folderId);return next;});
+        if(!pendingGraphFocus)return;
+        var resolution=resolveGroupedGraphFocus(groupedGraphModel,pendingGraphFocus,expandedGraphFolders);
+        if(resolution.expandFolderId){
+            setExpandedGraphFolders(function(current){var next=new Set(current);next.add(resolution.expandFolderId);return next;});
             return;
         }
-        pendingGraphFocusRef.current=null;
-        groupedGraphRef.current?.focusNode(match.id);
-    },[groupedGraphModel,expandedGraphFolders]);
+        if(!resolution.focusId)return;
+        groupedGraphRef.current?.focusNode(resolution.focusId);
+        setPendingGraphFocus(null);
+    },[groupedGraphModel,expandedGraphFolders,pendingGraphFocus,graphConfig.vizType]);
+
+    useEffect(function(){
+        if(graphFocusMode==='selected-only'&&!selectedGraphId)setGraphFocusMode('all');
+    },[graphFocusMode,selectedGraphId]);
 
     function openAndFocusGraphFile(path: string){
         var file=data&&((data as any).files||[]).find(function(candidate: any){return candidate.path===path;});
         if(folderFilter&&file&&file.folder!==folderFilter&&!file.folder.startsWith(folderFilter+'/'))setFolderFilter(null);
-        pendingGraphFocusRef.current=path;
+        setPendingGraphFocus(path);
         setGraphConfig(Object.assign({},graphConfig,{vizType:'graph'}));
         if(selectFileRef.current)selectFileRef.current(path);
         groupedGraphRef.current?.focusNode(path);
@@ -1486,161 +1484,6 @@ export default function LegacyWorkspaceEngine(){
         }catch(e){console.error('Force graph error:',e);svg.selectAll('*').remove();svg.append('text').attr('x',20).attr('y',30).attr('fill','var(--t3)').text('Graph rendering error: '+e.message);}
         return function(){if(simRef.current)simRef.current.stop();};
     },[data,colorMap,colorMode,theme,folderFilter,graphConfig,callFlowMode,activeSection]);
-
-    // Treemap - Nested folder hierarchy with group headers
-    useEffect(function(){
-        if(!data||!treemapRef.current||graphConfig.vizType!=='treemap')return;
-        var container=d3.select(treemapRef.current);
-        container.selectAll('*').remove();
-        var w=treemapRef.current.clientWidth||800,h=treemapRef.current.clientHeight||600;
-        var svg=container.append('svg').attr('width',w).attr('height',h).style('cursor','grab');
-        var g=svg.append('g');
-        var zoom=d3.zoom().scaleExtent([0.2,6]).on('zoom',function(e: any){g.attr('transform',e.transform);});
-        svg.call(zoom);
-        var filteredFiles=folderFilter?(data as any).files.filter(function(f: any){return f.folder===folderFilter||f.folder.startsWith(folderFilter+'/');}):(data as any).files;
-
-        // Build true nested folder hierarchy from path segments
-        var rootNode={name:'root',fullPath:'',children:[],_idx:{}};
-        filteredFiles.forEach(function(f: any){
-            var parts=(f.folder||'root').split('/').filter(Boolean);
-            if(!parts.length)parts=['root'];
-            var cur=rootNode,acc='';
-            parts.forEach(function(p: any){
-                acc=acc?acc+'/'+p:p;
-                if(!cur._idx[p]){var child={name:p,fullPath:acc,children:[],_idx:{}};cur._idx[p]=child;cur.children.push(child);}
-                cur=cur._idx[p];
-            });
-            cur.children.push({name:f.name,value:f.lines||1,path:f.path,layer:f.layer,fns:f.functions.length,folder:f.folder||'root'});
-        });
-        function strip(n){delete n._idx;if(n.children)n.children.forEach(strip);}
-        strip(rootNode);
-
-        var root=d3.hierarchy(rootNode).sum(function(d: any){return d.value||0;}).sort(function(a: any, b: any){return b.value-a.value;});
-        d3.treemap().size([w-8,h-8]).paddingOuter(3).paddingTop(function(d: any){return d.depth===0?0:16;}).paddingInner(2).round(true)(root);
-
-        // Draw parent folder groups first (headers)
-        var parents=root.descendants().filter(function(d: any){return d.children&&d.depth>0;});
-        var parentG=g.selectAll('g.tm-parent').data(parents).join('g').attr('class','tm-parent')
-            .attr('transform',function(d: any){return'translate('+d.x0+','+d.y0+')';});
-        parentG.append('rect')
-            .attr('width',function(d: any){return Math.max(0,d.x1-d.x0);})
-            .attr('height',function(d: any){return Math.max(0,d.y1-d.y0);})
-            .attr('fill',function(d: any){var top=d.ancestors().find(function(a: any){return a.depth===1;});return colorMap[top?top.data.fullPath:d.data.fullPath]||COLORS[parents.indexOf(d)%COLORS.length];})
-            .attr('fill-opacity',0.08).attr('stroke',function(d: any){var top=d.ancestors().find(function(a: any){return a.depth===1;});return colorMap[top?top.data.fullPath:d.data.fullPath]||COLORS[parents.indexOf(d)%COLORS.length];})
-            .attr('stroke-opacity',0.45).attr('rx',5).style('cursor','pointer');
-        parentG.filter(function(d: any){return d.x1-d.x0>40&&d.y1-d.y0>18;}).append('text')
-            .attr('x',6).attr('y',12).attr('fill','var(--t1)').attr('font-size','9px').attr('font-weight','600').attr('font-family','JetBrains Mono').style('pointer-events','none')
-            .text(function(d: any){var maxLen=Math.floor((d.x1-d.x0-10)/6);var n=d.data.name;return n.length>maxLen?n.slice(0,maxLen-1)+'…':n;});
-        parentG.on('click',function(e: any, d: any){e.stopPropagation();if(d.data.fullPath)filterByFolder(d.data.fullPath);});
-
-        // Leaves (files)
-        var leafColor=function(d: any){var top=d.ancestors().find(function(a: any){return a.depth===1;});return colorMap[top?top.data.fullPath:d.data.folder]||COLORS[0];};
-        var cells=g.selectAll('g.treemap-cell-g').data(root.leaves()).join('g').attr('class','treemap-cell-g')
-            .attr('transform',function(d: any){return'translate('+d.x0+','+d.y0+')';});
-        cells.append('rect').attr('class','treemap-rect').attr('width',function(d: any){return Math.max(0,d.x1-d.x0);}).attr('height',function(d: any){return Math.max(0,d.y1-d.y0);})
-            .attr('fill',leafColor).attr('opacity',0.85).attr('rx',3).attr('stroke','var(--bg0)').attr('stroke-width',1).style('cursor','pointer');
-        cells.filter(function(d: any){return d.x1-d.x0>45&&d.y1-d.y0>22;}).append('text').attr('class','treemap-text')
-            .attr('x',4).attr('y',14).attr('fill','white').attr('font-size','10px').attr('font-weight','500').style('text-shadow','0 1px 2px rgba(0,0,0,0.5)').style('pointer-events','none')
-            .text(function(d: any){var n=d.data.name.replace(/\.[^.]+$/,'');var maxLen=Math.floor((d.x1-d.x0-8)/6);return n.length>maxLen?n.slice(0,maxLen-1)+'…':n;});
-        cells.filter(function(d: any){return d.x1-d.x0>60&&d.y1-d.y0>35;}).append('text').attr('class','treemap-subtext')
-            .attr('x',4).attr('y',26).attr('fill','rgba(255,255,255,0.7)').attr('font-size','8px').style('pointer-events','none')
-            .text(function(d: any){return d.data.value+' lines';});
-
-        var tooltip=container.append('div').attr('class','treemap-tooltip').style('display','none').style('position','absolute');
-        cells.on('mouseenter',function(e: any, d: any){
-            tooltip.html(renderTooltipHtml(d.data.name,[
-                {label:'Lines',value:d.data.value},
-                {label:'Functions',value:d.data.fns||0},
-                {label:'Layer',value:d.data.layer||'—'},
-                {label:'Folder',value:d.data.folder||'root'}
-            ])).style('display','block').style('left',(e.offsetX+15)+'px').style('top',(e.offsetY+15)+'px');
-            d3.select(this).select('rect').transition().duration(150).attr('opacity',1).attr('stroke','var(--acc)').attr('stroke-width',2);
-        }).on('mousemove',function(e: any){tooltip.style('left',(e.offsetX+15)+'px').style('top',(e.offsetY+15)+'px');})
-        .on('mouseleave',function(e: any, d: any){
-            tooltip.style('display','none');
-            var sel=selected?selected.path:null;
-            var isSelected=d.data.path===sel;
-            var isAffected=blastRadius&&blastRadius.affected.includes(d.data.path);
-            d3.select(this).select('rect').transition().duration(150).attr('opacity',isSelected?1:isAffected?0.95:0.85).attr('stroke',isSelected?'#ff5f5f':isAffected?'var(--orange)':'var(--bg0)').attr('stroke-width',isSelected||isAffected?2:1);
-        }).on('click',function(e: any, d: any){
-            e.stopPropagation();
-            if(d.data.path&&selectFileRef.current){
-                selectFileRef.current(d.data.path);
-                setTimeout(function(){
-                    var blast=blastRadius;
-                    cells.select('rect').transition().duration(300)
-                        .attr('opacity',function(n: any){return n.data.path===d.data.path?1:(blast&&blast.affected.includes(n.data.path))?0.95:0.4;})
-                        .attr('fill',function(n: any){return n.data.path===d.data.path?'#ff5f5f':(blast&&blast.affected.includes(n.data.path))?'#ff9f43':leafColor(n);})
-                        .attr('stroke',function(n: any){return n.data.path===d.data.path?'#ff5f5f':(blast&&blast.affected.includes(n.data.path))?'var(--orange)':'var(--bg0)';})
-                        .attr('stroke-width',function(n: any){return n.data.path===d.data.path||blast&&blast.affected.includes(n.data.path)?2:1;});
-                },100);
-            }
-        });
-        svg.on('click',function(){
-            setSelected(null);setBlastRadius(null);
-            cells.select('rect').transition().duration(300).attr('opacity',0.85).attr('fill',leafColor).attr('stroke','var(--bg0)').attr('stroke-width',1);
-        });
-        svg.on('dblclick.zoom',function(e: any){e.preventDefault();svg.transition().duration(300).call(zoom.scaleTo,1);});
-    },[data,graphConfig.vizType,colorMap,folderFilter,selected,blastRadius,activeSection]);
-
-    // Dependency Matrix visualization - Interactive with zoom, highlighting, selection
-    useEffect(function(){
-        if(!data||!matrixRef.current||graphConfig.vizType!=='matrix')return;
-        var container=d3.select(matrixRef.current);
-        container.selectAll('*').remove();
-        var w=matrixRef.current.clientWidth||800,h=matrixRef.current.clientHeight||600;
-        var svg=container.append('svg').attr('width',w).attr('height',h);
-        var g=svg.append('g').attr('transform','translate(100,80)');
-        var zoom=d3.zoom().scaleExtent([0.5,3]).on('zoom',function(e: any){g.attr('transform','translate('+(100+e.transform.x)+','+(80+e.transform.y)+') scale('+e.transform.k+')');});
-        svg.call(zoom);
-        var filteredFiles=folderFilter?(data as any).files.filter(function(f: any){return f.folder===folderFilter||f.folder.startsWith(folderFilter+'/');}):(data as any).files;
-        var files=filteredFiles.slice(0,40);
-        var n=files.length;
-        var cellSize=Math.min(18,Math.max(10,(Math.min(w-120,h-100))/n));
-        var matrix=[];var fileIdx={};
-        files.forEach(function(f: any, i: any){fileIdx[f.path]=i;matrix[i]=[];for(var j=0;j<n;j++)matrix[i][j]=0;});
-        (data as any).connections.forEach(function(c: any){
-            var src=typeof c.source==='object'?c.source.id:c.source;
-            var tgt=typeof c.target==='object'?c.target.id:c.target;
-            if(fileIdx[src]!==undefined&&fileIdx[tgt]!==undefined)matrix[fileIdx[src]][fileIdx[tgt]]+=c.count||1;
-        });
-        var maxVal=1;matrix.forEach(function(row: any){row.forEach(function(v: any){if(v>maxVal)maxVal=v;});});
-        var colLabels=g.selectAll('text.col-label').data(files).join('text').attr('class','col-label')
-            .attr('x',function(d: any, i: any){return i*cellSize+cellSize/2;}).attr('y',-8).attr('text-anchor','start').attr('transform',function(d: any, i: any){return'rotate(-45,'+(i*cellSize+cellSize/2)+','+-8+')';})
-            .attr('fill','var(--t2)').attr('font-size','9px').text(function(d: any){var n=d.name.replace(/\.[^.]+$/,'');return n.length>10?n.slice(0,8)+'…':n;}).style('cursor','pointer')
-            .on('click',function(e: any, d: any){if(selectFileRef.current)selectFileRef.current(d.path);});
-        var rowLabels=g.selectAll('text.row-label').data(files).join('text').attr('class','row-label')
-            .attr('x',-8).attr('y',function(d: any, i: any){return i*cellSize+cellSize/2+3;}).attr('text-anchor','end')
-            .attr('fill','var(--t2)').attr('font-size','9px').text(function(d: any){var n=d.name.replace(/\.[^.]+$/,'');return n.length>10?n.slice(0,8)+'…':n;}).style('cursor','pointer')
-            .on('click',function(e: any, d: any){if(selectFileRef.current)selectFileRef.current(d.path);});
-        var cellData=[];
-        files.forEach(function(f: any, i: any){files.forEach(function(g: any, j: any){cellData.push({row:i,col:j,value:matrix[i][j],source:f,target:g});});});
-        var tooltip=container.append('div').attr('class','treemap-tooltip').style('display','none').style('position','absolute');
-        var cells=g.selectAll('rect.matrix-cell-rect').data(cellData).join('rect').attr('class','matrix-cell-rect')
-            .attr('x',function(d: any){return d.col*cellSize;}).attr('y',function(d: any){return d.row*cellSize;})
-            .attr('width',cellSize-1).attr('height',cellSize-1).attr('rx',2)
-            .attr('fill',function(d: any){return d.value>0?'rgba(0,255,157,'+Math.max(0.15,d.value/maxVal)+')':'var(--bg2)';})
-            .attr('stroke','var(--bg0)').attr('stroke-width',0.5).style('cursor','pointer');
-        cells.on('mouseenter',function(e: any, d: any){
-            tooltip.html(renderTooltipHtml(d.source.name+' → '+d.target.name,[
-                {label:'Connections',value:d.value}
-            ]))
-                .style('display','block').style('left',(e.offsetX+15)+'px').style('top',(e.offsetY+15)+'px');
-            g.selectAll('rect.matrix-cell-rect').attr('opacity',function(c: any){return c.row===d.row||c.col===d.col?1:0.3;});
-            colLabels.attr('fill',function(f: any, i: any){return i===d.col?'var(--acc)':'var(--t2)';}).attr('font-weight',function(f: any, i: any){return i===d.col?'600':'400';});
-            rowLabels.attr('fill',function(f: any, i: any){return i===d.row?'var(--acc)':'var(--t2)';}).attr('font-weight',function(f: any, i: any){return i===d.row?'600':'400';});
-            d3.select(this).attr('stroke','var(--acc)').attr('stroke-width',2);
-        }).on('mousemove',function(e: any){tooltip.style('left',(e.offsetX+15)+'px').style('top',(e.offsetY+15)+'px');})
-        .on('mouseleave',function(){
-            tooltip.style('display','none');
-            cells.attr('opacity',1);
-            colLabels.attr('fill','var(--t2)').attr('font-weight','400');
-            rowLabels.attr('fill','var(--t2)').attr('font-weight','400');
-            d3.select(this).attr('stroke','var(--bg0)').attr('stroke-width',0.5);
-        }).on('click',function(e: any, d: any){e.stopPropagation();if(selectFileRef.current)selectFileRef.current(d.source.path);});
-        var legend=container.append('div').attr('class','heatmap-legend').style('position','absolute').style('bottom','60px').style('right','20px');
-        legend.html('<div style="font-size:9px;color:var(--t2)">Connection Strength</div><div class="heatmap-gradient"></div><div style="display:flex;justify-content:space-between;font-size:8px;color:var(--t3)"><span>0</span><span>'+maxVal+'</span></div>');
-    },[data,graphConfig.vizType,folderFilter,activeSection]);
 
     // Tree - Radial cluster of nested folder/file hierarchy
     useEffect(function(){
@@ -2668,8 +2511,6 @@ export default function LegacyWorkspaceEngine(){
                 React.createElement(React.Fragment,null,
                     React.createElement('div',{className:'viz-selector'},
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='graph'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'graph'}));}},iconLabel('graph','Graph')),
-                        React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='treemap'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'treemap'}));}},iconLabel('treemap','Treemap')),
-                        React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='matrix'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'matrix'}));}},iconLabel('matrix','Matrix')),
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='dendro'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'dendro'}));}},iconLabel('tree','Tree')),
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='sankey'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'sankey'}));}},iconLabel('flow','Flow')),
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='disjoint'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'disjoint'}));}},iconLabel('cluster','Cluster')),
@@ -2694,8 +2535,6 @@ export default function LegacyWorkspaceEngine(){
                             }
                         })
                     ),
-                    graphConfig.vizType==='treemap'&&React.createElement('div',{ref:treemapRef,className:'treemap-container'}),
-                    graphConfig.vizType==='matrix'&&React.createElement('div',{ref:matrixRef,className:'matrix-container',style:{width:'100%',height:'100%',overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center'}}),
                     graphConfig.vizType==='dendro'&&React.createElement('div',{ref:dendroRef,className:'dendro-container',style:{width:'100%',height:'100%',position:'relative'}}),
                     graphConfig.vizType==='sankey'&&React.createElement('div',{ref:sankeyRef,className:'sankey-container',style:{width:'100%',height:'100%',position:'relative'}}),
                     graphConfig.vizType==='disjoint'&&React.createElement('div',{ref:disjointRef,className:'disjoint-container',style:{width:'100%',height:'100%',position:'relative'}}),
@@ -2705,9 +2544,6 @@ export default function LegacyWorkspaceEngine(){
                         React.createElement('button',{className:'tool-btn',onClick:zoomOut,'aria-label':'Zoom out'},'−'),
                         React.createElement('button',{className:'tool-btn',onClick:resetZoom,'aria-label':'Reset zoom'},'⟲'),
                         React.createElement('button',{className:'tool-btn',onClick:fitView,'aria-label':'Fit view'},'⊡'),
-                        React.createElement('button',{className:'tool-btn'+(showGraphConfig?' active':''),onClick:function(){setShowGraphConfig(!showGraphConfig);},'aria-label':'Graph settings',style:showGraphConfig?{background:'var(--accbg)',borderColor:'var(--acc)'}:{}},
-                            React.createElement(Icon,{name:'settings',size:'m'})
-                        ),
                         React.createElement('button',{
                             className:'graph-focus-toggle'+(graphFocusMode==='all'?' active':''),
                             onClick:function(){setGraphFocusMode('all');},
@@ -2717,10 +2553,6 @@ export default function LegacyWorkspaceEngine(){
                             onClick:function(){setGraphFocusMode('selected-only');},
                             disabled:!selectedGraphId,
                         },'Focus selected'),
-                        React.createElement('button',{
-                            className:'call-flow-toggle'+(callFlowMode?' active':''),
-                            onClick:function(){setCallFlowMode(function(v: any){return !v;});},
-                        },callFlowMode?'Call Flow ✓':'Call Flow'),
                         branches.length>1&&React.createElement('select',{
                             className:'canvas-branch-select',
                             value:currentBranch,
@@ -2732,36 +2564,6 @@ export default function LegacyWorkspaceEngine(){
                             branches.map(function(b: any){
                                 return React.createElement('option',{key:b.name,value:b.name},b.name);
                             })
-                        )
-                    ),
-                    graphConfig.vizType==='graph'&&showGraphConfig&&React.createElement('div',{className:'graph-config'},
-                        React.createElement('div',{className:'graph-config-title'},'Layout'),
-                        React.createElement('div',{className:'view-toggle',style:{flexWrap:'wrap'}},
-                            React.createElement('button',{className:'view-btn'+(graphConfig.viewMode==='force'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{viewMode:'force'}));}},'Force'),
-                            React.createElement('button',{className:'view-btn'+(graphConfig.viewMode==='radial'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{viewMode:'radial'}));}},'Radial'),
-                            React.createElement('button',{className:'view-btn'+(graphConfig.viewMode==='hierarchical'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{viewMode:'hierarchical'}));}},'Layers'),
-                            React.createElement('button',{className:'view-btn'+(graphConfig.viewMode==='grid'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{viewMode:'grid'}));}},'Grid'),
-                            React.createElement('button',{className:'view-btn'+(graphConfig.viewMode==='metro'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{viewMode:'metro'}));}},'Metro')
-                        ),
-                        React.createElement('div',{className:'graph-config-title',style:{marginTop:8}},'Spacing'),
-                        React.createElement('div',{className:'config-row'},
-                            React.createElement('span',{className:'config-label'},'Spread'),
-                            React.createElement('input',{type:'range',className:'config-slider',min:'50',max:'500',value:graphConfig.spacing,onChange:function(e: any){setGraphConfig(Object.assign({},graphConfig,{spacing:parseInt(e.target.value)}));}}),
-                            React.createElement('span',{className:'config-value'},graphConfig.spacing)
-                        ),
-                        React.createElement('div',{className:'config-row'},
-                            React.createElement('span',{className:'config-label'},'Links'),
-                            React.createElement('input',{type:'range',className:'config-slider',min:'30',max:'200',value:graphConfig.linkDist,onChange:function(e: any){setGraphConfig(Object.assign({},graphConfig,{linkDist:parseInt(e.target.value)}));}}),
-                            React.createElement('span',{className:'config-value'},graphConfig.linkDist)
-                        ),
-                        React.createElement('div',{className:'graph-config-title',style:{marginTop:8}},'Display'),
-                        React.createElement('label',{className:'config-check'},
-                            React.createElement('input',{type:'checkbox',checked:graphConfig.showLabels,onChange:function(e: any){setGraphConfig(Object.assign({},graphConfig,{showLabels:e.target.checked}));}}),
-                            'Show labels'
-                        ),
-                        React.createElement('label',{className:'config-check',style:{marginTop:6}},
-                            React.createElement('input',{type:'checkbox',checked:graphConfig.curvedLinks,onChange:function(e: any){setGraphConfig(Object.assign({},graphConfig,{curvedLinks:e.target.checked}));}}),
-                            'Curved links'
                         )
                     ),
                     React.createElement('div',{className:'canvas-info'},
