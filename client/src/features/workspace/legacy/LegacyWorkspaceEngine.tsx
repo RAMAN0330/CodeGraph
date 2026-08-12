@@ -11,6 +11,7 @@ import WorkspaceHeader from '../components/WorkspaceHeader';
 import WorkspaceSubnav from '../components/WorkspaceSubnav';
 import WorkspaceOverview from '../components/WorkspaceOverview';
 import WorkspaceExplorerSidebar from '../components/WorkspaceExplorerSidebar';
+import GroupedGraphFocusController from '../components/GroupedGraphFocusController';
 import { dbSchemaToFlowSchema, parseDbSchema } from '../../database/services/dbParser';
 import { saveBookmark } from '../services/bookmarks';
 import CommandPalette from '../components/CommandPalette';
@@ -21,7 +22,7 @@ import { scanDependencies } from '../../security/services/osv';
 import { fetchTrendData, buildActivityPoints } from '../../analysis/services/trends';
 import { appConfig } from '../../../app/config';
 import { analyzeSource } from '../../analysis/services/sourceAnalysisClient';
-import { advanceGroupedGraphFocus, buildGroupedGraph, selectedGroupedNodeId } from '../services/groupedGraph';
+import { buildGroupedGraph, selectedGroupedNodeId } from '../services/groupedGraph';
 
 const extractManifestDeps = extractManifestDependencies;
 const ERDiagramGraph = React.lazy(() => import('../../database/components/ERDiagramGraph'));
@@ -120,7 +121,6 @@ export default function LegacyWorkspaceEngine(){
     const [expandedGraphFolders, setExpandedGraphFolders] = useState<Set<string>>(new Set());
     const [graphFocusMode, setGraphFocusMode] = useState<'all' | 'selected-only'>('all');
     const [pendingGraphFocus, setPendingGraphFocus] = useState<string|null>(null);
-    const [groupedGraphReady, setGroupedGraphReady] = useState(0);
     var _gdd=useState<any>(null),graphDrillDown=_gdd[0],setGraphDrillDown=_gdd[1];
     var svgRef=useRef(null);
     var groupedGraphRef=useRef(null);
@@ -1277,16 +1277,6 @@ export default function LegacyWorkspaceEngine(){
     var selectedGraphId=useMemo(function(){
         return selectedGroupedNodeId(groupedGraphModel,selected?.path||null);
     },[groupedGraphModel,selected]);
-
-    useEffect(function(){
-        if(!pendingGraphFocus)return;
-        var next=advanceGroupedGraphFocus(groupedGraphModel,pendingGraphFocus,expandedGraphFolders,groupedGraphRef.current?function(id: string){groupedGraphRef.current.focusNode(id);}:null);
-        if(next.expandFolderId){
-            setExpandedGraphFolders(function(current){var expanded=new Set(current);expanded.add(next.expandFolderId);return expanded;});
-            return;
-        }
-        if(next.pendingPath!==pendingGraphFocus)setPendingGraphFocus(next.pendingPath);
-    },[groupedGraphModel,expandedGraphFolders,pendingGraphFocus,graphConfig.vizType,groupedGraphReady]);
 
     useEffect(function(){
         if(graphFocusMode==='selected-only'&&!selectedGraphId)setGraphFocusMode('all');
@@ -2499,7 +2489,11 @@ export default function LegacyWorkspaceEngine(){
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='disjoint'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'disjoint'}));}},iconLabel('cluster','Cluster')),
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='bundle'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'bundle'}));}},iconLabel('target','Bundle'))
                     ),
-                    graphConfig.vizType==='graph'&&React.createElement(React.Suspense,{fallback:React.createElement('div',{className:'graph-empty-state'},React.createElement('span',{className:'page-transition-spinner'}),'Laying out graph…')},
+                    React.createElement(GroupedGraphFocusController,{
+                        model:groupedGraphModel,pendingPath:pendingGraphFocus,expandedFolders:expandedGraphFolders,graphRef:groupedGraphRef,
+                        onExpandFolder:function(id: string){setExpandedGraphFolders(function(current){var next=new Set(current);next.add(id);return next;});},
+                        onPendingPathChange:setPendingGraphFocus,
+                    },function(onReady: () => void){return graphConfig.vizType==='graph'?React.createElement(React.Suspense,{fallback:React.createElement('div',{className:'graph-empty-state'},React.createElement('span',{className:'page-transition-spinner'}),'Laying out graph…')},
                         React.createElement(GroupedSigmaGraph,{
                             ref:groupedGraphRef,
                             model:groupedGraphModel,
@@ -2509,7 +2503,7 @@ export default function LegacyWorkspaceEngine(){
                             onOpenFile:function(path: string){if(selectFileRef.current)selectFileRef.current(path);},
                             onStageClick:function(){setSelected(null);setBlastRadius(null);},
                             onTooltip:setTooltip,
-                            onReady:function(){setGroupedGraphReady(function(value){return value+1;});},
+                            onReady:onReady,
                             onToggleFolder:function(id: string){
                                 setExpandedGraphFolders(function(current){
                                     var next=new Set(current);
@@ -2518,7 +2512,7 @@ export default function LegacyWorkspaceEngine(){
                                 });
                             }
                         })
-                    ),
+                    ):null;}),
                     graphConfig.vizType==='dendro'&&React.createElement('div',{ref:dendroRef,className:'dendro-container',style:{width:'100%',height:'100%',position:'relative'}}),
                     graphConfig.vizType==='sankey'&&React.createElement('div',{ref:sankeyRef,className:'sankey-container',style:{width:'100%',height:'100%',position:'relative'}}),
                     graphConfig.vizType==='disjoint'&&React.createElement('div',{ref:disjointRef,className:'disjoint-container',style:{width:'100%',height:'100%',position:'relative'}}),

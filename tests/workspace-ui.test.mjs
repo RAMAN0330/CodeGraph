@@ -135,7 +135,7 @@ test('Explore integrates the grouped Sigma graph without removing alternate view
   assert.match(source, /},'Focus selected'\)/);
   assert.match(source, /useState<string\|null>\(null\)/);
   assert.match(source, /setPendingGraphFocus\(path\)/);
-  assert.match(source, /advanceGroupedGraphFocus/);
+  assert.match(source, /GroupedGraphFocusController/);
   assert.match(source, /selectedGroupedNodeId/);
   assert.doesNotMatch(source, /pendingGraphFocusRef|Graph settings|Call Flow/);
   assert.doesNotMatch(source, /vizType:'treemap'|vizType:'matrix'|treemapRef|matrixRef/);
