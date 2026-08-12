@@ -21,7 +21,7 @@ import { scanDependencies } from '../../security/services/osv';
 import { fetchTrendData, buildActivityPoints } from '../../analysis/services/trends';
 import { appConfig } from '../../../app/config';
 import { analyzeSource } from '../../analysis/services/sourceAnalysisClient';
-import { buildGroupedGraph, resolveGroupedGraphFocus, selectedGroupedNodeId } from '../services/groupedGraph';
+import { advanceGroupedGraphFocus, buildGroupedGraph, selectedGroupedNodeId } from '../services/groupedGraph';
 
 const extractManifestDeps = extractManifestDependencies;
 const ERDiagramGraph = React.lazy(() => import('../../database/components/ERDiagramGraph'));
@@ -120,6 +120,7 @@ export default function LegacyWorkspaceEngine(){
     const [expandedGraphFolders, setExpandedGraphFolders] = useState<Set<string>>(new Set());
     const [graphFocusMode, setGraphFocusMode] = useState<'all' | 'selected-only'>('all');
     const [pendingGraphFocus, setPendingGraphFocus] = useState<string|null>(null);
+    const [groupedGraphReady, setGroupedGraphReady] = useState(0);
     var _gdd=useState<any>(null),graphDrillDown=_gdd[0],setGraphDrillDown=_gdd[1];
     var svgRef=useRef(null);
     var groupedGraphRef=useRef(null);
@@ -1279,15 +1280,13 @@ export default function LegacyWorkspaceEngine(){
 
     useEffect(function(){
         if(!pendingGraphFocus)return;
-        var resolution=resolveGroupedGraphFocus(groupedGraphModel,pendingGraphFocus,expandedGraphFolders);
-        if(resolution.expandFolderId){
-            setExpandedGraphFolders(function(current){var next=new Set(current);next.add(resolution.expandFolderId);return next;});
+        var next=advanceGroupedGraphFocus(groupedGraphModel,pendingGraphFocus,expandedGraphFolders,groupedGraphRef.current?function(id: string){groupedGraphRef.current.focusNode(id);}:null);
+        if(next.expandFolderId){
+            setExpandedGraphFolders(function(current){var expanded=new Set(current);expanded.add(next.expandFolderId);return expanded;});
             return;
         }
-        if(!resolution.focusId)return;
-        groupedGraphRef.current?.focusNode(resolution.focusId);
-        setPendingGraphFocus(null);
-    },[groupedGraphModel,expandedGraphFolders,pendingGraphFocus,graphConfig.vizType]);
+        if(next.pendingPath!==pendingGraphFocus)setPendingGraphFocus(next.pendingPath);
+    },[groupedGraphModel,expandedGraphFolders,pendingGraphFocus,graphConfig.vizType,groupedGraphReady]);
 
     useEffect(function(){
         if(graphFocusMode==='selected-only'&&!selectedGraphId)setGraphFocusMode('all');
@@ -2455,23 +2454,7 @@ export default function LegacyWorkspaceEngine(){
         } as any)
 
         ,activeSection==='settings'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',maxWidth:'480px'}},
-            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Settings'),
-            React.createElement('div',{style:{background:'#161b22',border:'1px solid #30363d',borderRadius:'8px',padding:'16px'}},
-                React.createElement('h3',{style:{color:'#f0f6fc',marginBottom:'12px',fontSize:'14px'}},'Graph Configuration'),
-                ['showLabels','curvedLinks'].map(function(key: any){
-                    return React.createElement('label',{key:key,style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',color:'#c9d1d9',cursor:'pointer'}},
-                        React.createElement('input',{type:'checkbox',checked:(graphConfig as any)[key],onChange:function(e: any){setGraphConfig(function(c: any){return Object.assign({},c,{[key]:e.target.checked});});}}),
-                        key==='showLabels'?'Show Labels':'Curved Links'
-                    );
-                }),
-                React.createElement('div',{style:{marginTop:'12px',color:'#8b949e',fontSize:'13px'}},'View Mode: ',
-                    ['force','tree','radial'].map(function(mode: any){
-                        return React.createElement('button',{key:mode,onClick:function(){setGraphConfig(function(c: any){return Object.assign({},c,{viewMode:mode});});},
-                            style:{marginLeft:'6px',padding:'3px 10px',background:graphConfig.viewMode===mode?'#1f6feb':'#21262d',color:'#f0f6fc',border:'1px solid #30363d',borderRadius:'4px',cursor:'pointer',fontSize:'12px'}
-                        },mode);
-                    })
-                )
-            )
+            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Settings')
         ),
         activeSection==='explorer'&&React.createElement('div',{className:'main',style:{'--sidebar-w':sidebarWidth+'px','--panel-w':(showContextPanel?rightPanelWidth:0)+'px'}},
             React.createElement('div',{className:'sidebar',style:{width:sidebarWidth}},
@@ -2526,6 +2509,7 @@ export default function LegacyWorkspaceEngine(){
                             onOpenFile:function(path: string){if(selectFileRef.current)selectFileRef.current(path);},
                             onStageClick:function(){setSelected(null);setBlastRadius(null);},
                             onTooltip:setTooltip,
+                            onReady:function(){setGroupedGraphReady(function(value){return value+1;});},
                             onToggleFolder:function(id: string){
                                 setExpandedGraphFolders(function(current){
                                     var next=new Set(current);

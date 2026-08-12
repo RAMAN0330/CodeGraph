@@ -23,6 +23,7 @@ export interface GroupedSigmaGraphProps {
   onStageClick(): void;
   onTooltip?: (tooltip: { title: string; content: string; x: number; y: number } | null) => void;
   onToggleFolder(id: string): void;
+  onReady?: () => void;
 }
 
 export function positionGroupedTooltip(
@@ -157,6 +158,7 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
       return;
     }
     rendererRef.current = renderer;
+    callbacksRef.current.onReady?.();
 
     const tooltipFor = (node: string) => {
       const data = graph.getNodeAttributes(node);

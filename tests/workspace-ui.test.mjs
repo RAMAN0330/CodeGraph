@@ -135,11 +135,19 @@ test('Explore integrates the grouped Sigma graph without removing alternate view
   assert.match(source, /},'Focus selected'\)/);
   assert.match(source, /useState<string\|null>\(null\)/);
   assert.match(source, /setPendingGraphFocus\(path\)/);
-  assert.match(source, /resolveGroupedGraphFocus/);
+  assert.match(source, /advanceGroupedGraphFocus/);
   assert.match(source, /selectedGroupedNodeId/);
   assert.doesNotMatch(source, /pendingGraphFocusRef|Graph settings|Call Flow/);
   assert.doesNotMatch(source, /vizType:'treemap'|vizType:'matrix'|treemapRef|matrixRef/);
   assert.match(styles, /\.canvas-toolbar:has\(\.graph-focus-toggle\)\{[^}]*flex-wrap:wrap/);
+  for (const view of ['graph', 'dendro', 'sankey', 'disjoint', 'bundle']) {
+    assert.match(source, new RegExp(`vizType:'${view}'`));
+  }
+});
+
+test('Settings omits graph controls ignored by the grouped renderer', async () => {
+  const source = await readFile(resolve('client/src/features/workspace/legacy/LegacyWorkspaceEngine.tsx'), 'utf8');
+  assert.doesNotMatch(source, /Graph Configuration|Show Labels|Curved Links|View Mode:/);
   for (const view of ['graph', 'dendro', 'sankey', 'disjoint', 'bundle']) {
     assert.match(source, new RegExp(`vizType:'${view}'`));
   }

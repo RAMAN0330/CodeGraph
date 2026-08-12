@@ -184,3 +184,27 @@ test('selected node ID is cleared when the active folder filter excludes it', as
     await vite.close();
   }
 });
+
+test('focus lifecycle survives non-Graph selection, expansion, rebuild, and renderer mount', async () => {
+  const vite = await createServer({ root: 'client', server: { middlewareMode: true }, appType: 'custom' });
+  try {
+    const { advanceGroupedGraphFocus, buildGroupedGraph } = await vite.ssrLoadModule('/src/features/workspace/services/groupedGraph.ts');
+    const nodes = Array.from({ length: 41 }, (_, index) => ({ id: `dense/file-${String(index).padStart(2, '0')}.ts`, folder: 'dense' }));
+    const links = nodes.slice(1).map((node, index) => ({ source: node.id, target: nodes[index].id }));
+    const path = 'dense/file-40.ts';
+    const focused = [];
+
+    const fromOtherView = advanceGroupedGraphFocus(buildGroupedGraph(nodes, links), path, new Set(), null);
+    assert.deepEqual(fromOtherView, { pendingPath: path, expandFolderId: 'dense' });
+
+    const expandedFolders = new Set([fromOtherView.expandFolderId]);
+    const beforeMount = advanceGroupedGraphFocus(buildGroupedGraph(nodes, links, { expandedFolders }), fromOtherView.pendingPath, expandedFolders, null);
+    assert.deepEqual(beforeMount, { pendingPath: path, expandFolderId: null });
+
+    const afterMount = advanceGroupedGraphFocus(buildGroupedGraph(nodes, links, { expandedFolders }), beforeMount.pendingPath, expandedFolders, id => focused.push(id));
+    assert.deepEqual(afterMount, { pendingPath: null, expandFolderId: null });
+    assert.deepEqual(focused, [path]);
+  } finally {
+    await vite.close();
+  }
+});

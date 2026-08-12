@@ -282,3 +282,17 @@ export function resolveGroupedGraphFocus(
   if (node.hiddenByBudget && !expandedFolders.has(node.folderId)) return { expandFolderId: node.folderId, focusId: null };
   return { expandFolderId: null, focusId: node.id };
 }
+
+export function advanceGroupedGraphFocus(
+  model: GroupedGraphModel,
+  pendingPath: string | null,
+  expandedFolders: ReadonlySet<string>,
+  focusNode: ((id: string) => void) | null,
+): { pendingPath: string | null; expandFolderId: string | null } {
+  if (!pendingPath) return { pendingPath: null, expandFolderId: null };
+  const resolution = resolveGroupedGraphFocus(model, pendingPath, expandedFolders);
+  if (resolution.expandFolderId) return { pendingPath, expandFolderId: resolution.expandFolderId };
+  if (!resolution.focusId || !focusNode) return { pendingPath, expandFolderId: null };
+  focusNode(resolution.focusId);
+  return { pendingPath: null, expandFolderId: null };
+}
