@@ -1,0 +1,86 @@
+{
+  "title": "Choose GitGraph's visual world",
+  "question": "One direction will govern repository selection, architecture exploration, and risk intelligence. Choose it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "The Engineering Field Station",
+      "kicker": "THE ROLL",
+      "lineage": "mission-control panels and field instruments",
+      "thesis": "A calm operational console where every signal earns its place.",
+      "palette": ["#101826", "#1D2A3A", "#D9E2EC", "#22C55E"],
+      "materials": ["matte instrument panels", "fine data markers", "restrained signal green"],
+      "viewport": "A stable three-zone workspace: repository context, living architecture map, and focused evidence.",
+      "risk": "Can feel familiar if the graph does not remain the clear centre of gravity.",
+      "raised": [
+        {"from": "Phosphor Terminal", "raise": "Keyboard-first command access and visible operational feedback."},
+        {"from": "Data Field", "raise": "Dense data remains disciplined through a strong positional grid, never decorative noise."}
+      ],
+      "comp": ".impeccable/mocks/decision/field-station.png"
+    },
+    {
+      "id": "model-pick",
+      "label": "The Codebase Atlas",
+      "kicker": "MY PICK",
+      "lineage": "technical cartography and architectural drafting tables",
+      "thesis": "The repository becomes a map that engineers can read, search, and annotate under pressure.",
+      "palette": ["#0E1726", "#E8EEF5", "#4263EB", "#F59F00"],
+      "materials": ["inked topology", "layered tracing sheets", "precise annotation"],
+      "viewport": "Architecture fills the working field while navigation and diagnostics sit in measured margins.",
+      "risk": "The map metaphor requires careful density management on smaller screens.",
+      "comp": ".impeccable/mocks/decision/codebase-atlas.png"
+    },
+    {
+      "id": "challenger-terminal",
+      "label": "Phosphor Command Line",
+      "verdict": "competitive",
+      "lineage": "green-phosphor terminals in midnight machine rooms",
+      "thesis": "A keyboard-led workspace where exploration reads like a precise system transcript.",
+      "palette": ["#09110D", "#9EF0A8", "#3E8050", "#E6F4EA"],
+      "materials": ["curved-glass restraint", "phosphor contrast", "monospaced evidence"],
+      "viewport": "A command rail frames the live repository graph and a searchable analysis transcript.",
+      "case": "Strong audience identification, but it risks reducing visual relationships to text-first interaction.",
+      "risk": "Can privilege nostalgia over spatial comprehension.",
+      "comp": ".impeccable/mocks/decision/phosphor-command.png"
+    },
+    {
+      "id": "challenger-datamatics",
+      "label": "Data Field",
+      "verdict": "declined",
+      "lineage": "black-and-white data visualisation installations",
+      "thesis": "Information density becomes a crisp, kinetic field.",
+      "palette": ["#111827", "#F8FAFC", "#64748B"],
+      "materials": ["hairline rules", "dense numerics", "high-contrast fields"],
+      "viewport": "A wide evidence field makes repository scale feel physical.",
+      "case": "Too abstract for daily code exploration.",
+      "kept": "Its courage to make dense data structurally quiet rather than card-heavy.",
+      "risk": "Accessibility and sustained reading become harder at full commitment."
+    },
+    {
+      "id": "challenger-pixel-city",
+      "label": "Pixel Metropolis",
+      "verdict": "declined",
+      "lineage": "isometric pixel-city illustrations",
+      "thesis": "The codebase is a discoverable city of modules.",
+      "palette": ["#143D59", "#F4B41A", "#F0F0F0", "#E4572E"],
+      "materials": ["hard pixel grid", "isometric blocks", "discovery at zoom"],
+      "viewport": "Modules become city blocks in a zoomable graph.",
+      "case": "Memorable but too metaphorical for evidence-heavy engineering work.",
+      "kept": "Its clear zoom-level transitions for moving between overview and detail.",
+      "risk": "Novelty competes with the product's analytical purpose."
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A polished GitHub-inspired developer workspace.",
+    "palette": ["#0D1117", "#161B22", "#C9D1D9", "#58A6FF"],
+    "materials": ["familiar sidebars", "compact panels", "conventional graph controls"],
+    "viewport": "A clean dark application shell with a repository tree, graph canvas, and inspector.",
+    "risk": "Clear and safe, but less distinctive from the tools engineers already use.",
+    "comp": ".impeccable/mocks/decision/category-standard.png"
+  },
+  "steer": true,
+  "followup": true
+}

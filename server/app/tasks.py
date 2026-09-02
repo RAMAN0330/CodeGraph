@@ -1,16 +1,22 @@
 import os
 import json
+import logging
 import shutil
+import subprocess
 import tempfile
+from pathlib import Path
 import redis
 from git import Repo
 from .worker import celery_app
 
 _redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 TASK_TTL = 3600  # 1 hour
+GRAPHIFY_MAX_NODES = 10_000
+GRAPHIFY_MAX_LINKS = 30_000
+logger = logging.getLogger(__name__)
 
 
-def _set(task_id: str, data: dict):
+def set_task_status(task_id: str, data: dict):
     try:
         _redis.setex(f"cf:task:{task_id}", TASK_TTL, json.dumps(data))
     except Exception as e:
@@ -28,9 +34,67 @@ def get_task_status(task_id: str):
         return None
 
 
+def load_graphify_output(graph_path, max_nodes=GRAPHIFY_MAX_NODES, max_links=GRAPHIFY_MAX_LINKS):
+    with Path(graph_path).open("r", encoding="utf-8") as graph_file:
+        raw = json.load(graph_file)
+    if not isinstance(raw, dict):
+        raise ValueError("Graphify output must be a JSON object")
+
+    nodes = []
+    node_ids = set()
+    for node in raw.get("nodes", []):
+        if not isinstance(node, dict) or not isinstance(node.get("id"), str) or not node["id"]:
+            continue
+        if node["id"] in node_ids:
+            continue
+        nodes.append(node)
+        node_ids.add(node["id"])
+        if len(nodes) >= max_nodes:
+            break
+
+    links = []
+    for link in raw.get("links", []):
+        if not isinstance(link, dict):
+            continue
+        if link.get("source") not in node_ids or link.get("target") not in node_ids:
+            continue
+        links.append(link)
+        if len(links) >= max_links:
+            break
+
+    graph_meta = raw.get("graph") if isinstance(raw.get("graph"), dict) else {}
+    return {
+        "nodes": nodes,
+        "links": links,
+        "hyperedges": [edge for edge in raw.get("hyperedges", []) if isinstance(edge, dict)][:max_links],
+        "built_at_commit": raw.get("built_at_commit") or graph_meta.get("built_at_commit"),
+    }
+
+
+def run_graphify(repo_path):
+    subprocess.run(
+        ["graphify", "extract", str(repo_path), "--code-only", "--out", str(repo_path)],
+        cwd=repo_path,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=int(os.getenv("GRAPHIFY_TIMEOUT_SECONDS", "900")),
+    )
+    return load_graphify_output(Path(repo_path) / "graphify-out" / "graph.json")
+
+
+def perform_analysis(path):
+    analysis = perform_introspection(path)
+    try:
+        analysis["graphify"] = run_graphify(path)
+    except Exception as exc:
+        logger.warning("Graphify extraction failed; using browser graph fallback: %s", exc)
+    return analysis
+
+
 @celery_app.task(name="analyze_repo_task")
 def analyze_repo_task(task_id, repo_url, token=None, branch="main"):
-    _set(task_id, {"status": "processing", "progress": 0})
+    set_task_status(task_id, {"status": "processing", "progress": 0})
 
     tmp_dir = tempfile.mkdtemp()
     try:
@@ -38,15 +102,16 @@ def analyze_repo_task(task_id, repo_url, token=None, branch="main"):
         if token:
             auth_url = repo_url.replace("https://", f"https://{token}@")
 
-        _set(task_id, {"status": "processing", "progress": 20})
-        Repo.clone_from(auth_url, tmp_dir, branch=branch)
+        set_task_status(task_id, {"status": "processing", "progress": 20})
+        clone_options = {"branch": branch} if branch else {}
+        Repo.clone_from(auth_url, tmp_dir, **clone_options)
 
-        _set(task_id, {"status": "processing", "progress": 50})
-        analysis = perform_introspection(tmp_dir)
+        set_task_status(task_id, {"status": "processing", "progress": 50})
+        analysis = perform_analysis(tmp_dir)
 
-        _set(task_id, {"status": "completed", "progress": 100, "result": analysis})
+        set_task_status(task_id, {"status": "completed", "progress": 100, "result": analysis})
     except Exception as e:
-        _set(task_id, {"status": "failed", "error": str(e)})
+        set_task_status(task_id, {"status": "failed", "error": str(e)})
     finally:
         if os.path.exists(tmp_dir):
             shutil.rmtree(tmp_dir)
@@ -133,4 +198,3 @@ def perform_introspection(path):
                     continue
                     
     return results
-

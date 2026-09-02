@@ -2,9 +2,11 @@
 node_modules/
 dist/
 build/
+server-go/bin/
 .next/
 target/
 __pycache__/
+.venv/
 
 # Temp, coverage, and cache files
 *.log
@@ -40,3 +42,4 @@ Thumbs.db
 
 # Git worktrees
 .worktrees/
+.claude/worktrees/

@@ -59,6 +59,24 @@ test('grouped graph validates IDs and ignores invalid links', async () => {
   }
 });
 
+test('grouped graph handles a deep folder dependency chain without overflowing the stack', async () => {
+  const vite = await createServer({ root: 'client', server: { middlewareMode: true }, appType: 'custom' });
+  try {
+    const { buildGroupedGraph } = await vite.ssrLoadModule('/src/features/workspace/services/groupedGraph.ts');
+    const nodes = Array.from({ length: 12_000 }, (_, index) => ({
+      id: `folder-${index}/file.ts`, folder: `folder-${index}`,
+    }));
+    const links = nodes.slice(1).map((node, index) => ({ source: nodes[index].id, target: node.id }));
+
+    const model = buildGroupedGraph(nodes, links);
+
+    assert.equal(model.groups.length, nodes.length);
+    assert.equal(model.groups.find(group => group.id === 'folder-11999').rank, 11_999);
+  } finally {
+    await vite.close();
+  }
+});
+
 test('focus and search expose a selected neighborhood', async () => {
   const vite = await createServer({ root: 'client', server: { middlewareMode: true }, appType: 'custom' });
   try {

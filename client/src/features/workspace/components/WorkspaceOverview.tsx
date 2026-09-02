@@ -13,17 +13,6 @@ function ArrowIcon() {
   return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 10h12m-4-4 4 4-4 4" /></svg>;
 }
 
-const METRIC_ICONS = [
-  'M4 4h5v5H4zM11 4h5v5h-5zM4 11h5v5H4zM11 11h5v5h-5z',
-  'M7 4 3 10l4 6M13 4l4 6-4 6M11 3 9 17',
-  'M6 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM8 7h3a3 3 0 0 1 3 3v1',
-  'M4 3h12v14H4zM7 7h6M7 10h6M7 13h4',
-];
-
-function MetricIcon({ index }: { index: number }) {
-  return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"><path d={METRIC_ICONS[index]} /></svg>;
-}
-
 export default function WorkspaceOverview({ repoInfo, data, health, loading, progress, error, onOpen, onOpenUnused }: Props) {
   if (!data) {
     return (
@@ -45,7 +34,7 @@ export default function WorkspaceOverview({ repoInfo, data, health, loading, pro
         {loading ? (
           <div className="overview-analysis-progress" role="status" aria-live="polite">
             <span><i /></span>
-            <small>Analysis runs automatically—no second selection is required.</small>
+            <small>Analysis runs automatically. No second selection is required.</small>
           </div>
         ) : error ? (
           <button onClick={() => window.location.reload()}>Retry analysis <ArrowIcon /></button>
@@ -64,6 +53,8 @@ export default function WorkspaceOverview({ repoInfo, data, health, loading, pro
   const deadCount = stats.dead ?? data.deadFunctions?.length ?? 0;
   const violationCount = stats.violations ?? data.layerViolations?.length ?? 0;
   const riskTotal = securityCount + violationCount;
+  const attentionTotal = securityCount + deadCount + violationCount;
+  const attentionChecks = [securityCount, deadCount, violationCount].filter(Boolean).length;
   const languages = (stats.languages ?? []).slice(0, 5);
 
   return (
@@ -80,59 +71,70 @@ export default function WorkspaceOverview({ repoInfo, data, health, loading, pro
         </button>
       </header>
 
-      <section className="overview-health-card">
-        <div className={`overview-health-score ${health.score >= 80 ? 'good' : health.score >= 60 ? 'warn' : 'risk'}`}>
-          <span>{health.score}</span><small>/100</small>
-        </div>
-        <div className="overview-health-copy">
-          <p>Codebase health</p>
-          <h2>Grade {health.grade}</h2>
-          <span>{riskTotal === 0 ? 'No high-priority risks detected.' : `${riskTotal} priority item${riskTotal === 1 ? '' : 's'} deserve attention.`}</span>
-        </div>
-        <div className="overview-health-signals" aria-label="Health signals">
-          <div><span className={securityCount ? 'risk' : 'good'} /> <b>{securityCount}</b><small>Security</small></div>
-          <div><span className={deadCount ? 'warn' : 'good'} /> <b>{deadCount}</b><small>Unused</small></div>
-          <div><span className={violationCount ? 'warn' : 'good'} /> <b>{violationCount}</b><small>Violations</small></div>
-        </div>
-        <button onClick={() => onOpen(riskTotal ? 'security' : 'debt')}>Review quality <ArrowIcon /></button>
-      </section>
+      <section className="overview-summary-shell">
+        <article className="overview-health-card">
+          <div className={`overview-health-score ${health.score >= 80 ? 'good' : health.score >= 60 ? 'warn' : 'risk'}`}>
+            <span>{health.score}</span><small>/100</small>
+          </div>
+          <div className="overview-health-copy">
+            <p>Codebase health</p>
+            <h2>Grade {health.grade}</h2>
+            <span>{riskTotal === 0 ? 'No high-priority risks detected.' : `${riskTotal} priority item${riskTotal === 1 ? '' : 's'} deserve attention.`}</span>
+          </div>
+          <div className="overview-health-signals" aria-label="Health signals">
+            <div><span className={securityCount ? 'risk' : 'good'} /> <b>{securityCount}</b><small>Security</small></div>
+            <div><span className={deadCount ? 'warn' : 'good'} /> <b>{deadCount}</b><small>Unused</small></div>
+            <div><span className={violationCount ? 'warn' : 'good'} /> <b>{violationCount}</b><small>Violations</small></div>
+          </div>
+          <button onClick={() => onOpen(riskTotal ? 'security' : 'debt')}>Review quality <ArrowIcon /></button>
+        </article>
 
-      <section className="overview-metrics" aria-label="Repository metrics">
-        {[
-          ['Files', stats.files ?? 0, 'Indexed source files'],
-          ['Functions', stats.functions ?? 0, 'Detected functions'],
-          ['Dependencies', stats.connections ?? 0, 'Mapped relationships'],
-          ['Lines of code', (stats.loc ?? 0).toLocaleString(), 'Analyzed code'],
-        ].map(([label, value, description], index) => (
-          <article key={label as string}>
-            <div className="overview-metric-icon"><MetricIcon index={index} /></div>
-            <div><span>{label}</span><strong>{value}</strong><small>{description}</small></div>
-          </article>
-        ))}
+        <div className="overview-metrics" aria-label="Repository metrics">
+          {[
+            ['Files', stats.files ?? 0, 'Indexed'],
+            ['Functions', stats.functions ?? 0, 'Detected'],
+            ['Dependencies', stats.connections ?? 0, 'Mapped'],
+            ['Lines', (stats.loc ?? 0).toLocaleString(), 'Analyzed'],
+          ].map(([label, value, description]) => (
+            <div key={label as string}>
+              <span>{label}</span><strong>{value}</strong><small>{description}</small>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="overview-grid">
         <article className="overview-panel overview-focus-panel">
-          <div className="overview-panel-heading"><div><span>Focus areas</span><h2>What needs your attention</h2></div><small>Open a category to inspect the findings</small></div>
-          <button onClick={() => onOpen('security')}>
+          <div className="overview-panel-heading"><div><h2>What needs your attention</h2></div><small>Prioritized by impact</small></div>
+          <div className={`overview-focus-summary${attentionTotal ? '' : ' clear'}`}>
+            <div><strong>{attentionTotal}</strong><span>{attentionTotal ? `open signal${attentionTotal === 1 ? '' : 's'} across ${attentionChecks} check${attentionChecks === 1 ? '' : 's'}` : 'open signals'}</span></div>
+            <small>{attentionTotal ? 'Start with security and structural findings, then clear maintenance debt.' : 'All automated checks are clear.'}</small>
+          </div>
+          <button className="overview-focus-item" onClick={() => onOpen('security')}>
             <i className={securityCount ? 'risk' : 'good'} />
-            <span><strong>Security</strong><small>{securityCount ? `${securityCount} high-severity finding${securityCount === 1 ? '' : 's'}` : 'No high-severity findings'}</small></span>
+            <span><strong>Security</strong><small>{securityCount ? `${securityCount} high-severity finding${securityCount === 1 ? '' : 's'} require review` : 'No high-severity findings detected'}</small></span>
+            <em className={securityCount ? 'risk' : 'clear'}>{securityCount ? 'Critical' : 'Clear'}</em>
             <b>{securityCount}</b>
+            <ArrowIcon />
           </button>
-          <button onClick={() => deadCount > 0 && onOpenUnused()} disabled={deadCount === 0}>
+          <button className="overview-focus-item" onClick={() => deadCount > 0 && onOpenUnused()} disabled={deadCount === 0}>
             <i className={deadCount ? 'warn' : 'good'} />
-            <span><strong>Unused code</strong><small>{deadCount ? 'Candidates for cleanup' : 'No unused functions detected'}</small></span>
+            <span><strong>Unused code</strong><small>{deadCount ? `${deadCount} function${deadCount === 1 ? '' : 's'} can be reviewed for safe removal` : 'No unused functions detected'}</small></span>
+            <em className={deadCount ? 'warn' : 'clear'}>{deadCount ? 'Cleanup' : 'Clear'}</em>
             <b>{deadCount}</b>
+            <ArrowIcon />
           </button>
-          <button onClick={() => onOpen('architecture')}>
+          <button className="overview-focus-item" onClick={() => onOpen('architecture')}>
             <i className={violationCount ? 'warn' : 'good'} />
-            <span><strong>Architecture</strong><small>{violationCount ? 'Layer boundaries need review' : 'No layer violations detected'}</small></span>
+            <span><strong>Architecture</strong><small>{violationCount ? `${violationCount} layer boundar${violationCount === 1 ? 'y' : 'ies'} break the expected structure` : 'No layer violations detected'}</small></span>
+            <em className={violationCount ? 'warn' : 'clear'}>{violationCount ? 'Structural' : 'Clear'}</em>
             <b>{violationCount}</b>
+            <ArrowIcon />
           </button>
         </article>
 
         <article className="overview-panel overview-language-panel">
-          <div className="overview-panel-heading"><div><span>Composition</span><h2>Language breakdown</h2></div><small>Share of analyzed lines</small></div>
+          <div className="overview-panel-heading"><div><h2>Language breakdown</h2></div><small>Share of analyzed lines</small></div>
           {languages.length ? languages.map((language: any, index: number) => {
             const name = language.name ?? language.language ?? language.ext ?? `Language ${index + 1}`;
             const percent = Math.round(language.percent ?? language.percentage ?? language.pct ?? language.value ?? 0);
@@ -146,11 +148,11 @@ export default function WorkspaceOverview({ repoInfo, data, health, loading, pro
         </article>
 
         <article className="overview-panel overview-next-panel">
-          <div className="overview-panel-heading"><div><span>Recommended next steps</span><h2>Continue exploring</h2></div><small>Move from summary to repository detail</small></div>
+          <div className="overview-panel-heading"><div><h2>Continue exploring</h2></div><small>Move from summary to repository detail</small></div>
           <div className="overview-next-actions">
-            <button onClick={() => onOpen('architecture')}><i>01</i><span><strong>Understand the architecture</strong><small>See modules and structural relationships</small></span><ArrowIcon /></button>
-            <button onClick={() => onOpen('commits')}><i>02</i><span><strong>Inspect recent changes</strong><small>Review activity and repository history</small></span><ArrowIcon /></button>
-            <button onClick={() => onOpen('ownership')}><i>03</i><span><strong>Find code owners</strong><small>Understand responsibility across files</small></span><ArrowIcon /></button>
+            <button onClick={() => onOpen('architecture')}><span><strong>Understand the architecture</strong><small>See modules and structural relationships</small></span><ArrowIcon /></button>
+            <button onClick={() => onOpen('commits')}><span><strong>Inspect recent changes</strong><small>Review activity and repository history</small></span><ArrowIcon /></button>
+            <button onClick={() => onOpen('ownership')}><span><strong>Find code owners</strong><small>Understand responsibility across files</small></span><ArrowIcon /></button>
           </div>
         </article>
       </section>

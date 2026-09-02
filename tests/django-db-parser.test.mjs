@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 const ts = require('../client/node_modules/typescript');
 
 async function loadDbParser() {
-  const parserPath = resolve(__dirname, '../client/src/lib/dbParser.ts');
+  const parserPath = resolve(__dirname, '../client/src/features/database/services/dbParser.ts');
   const source = readFileSync(parserPath, 'utf8');
   const js = ts.transpileModule(source, {
     compilerOptions: {

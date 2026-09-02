@@ -1,0 +1,51 @@
+<h2>How should Explore reveal node names?</h2>
+<p class="subtitle">All three avoid showing every file and function at once. Choose how you want to move from repository structure to code details.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="min-height:260px;background:#15181d;padding:16px;color:#d7dce5;font-family:ui-monospace,monospace">
+      <div style="font-size:10px;color:#69717f;margin-bottom:18px">ZOOM: REPOSITORY / AUTO LEVEL</div>
+      <svg viewBox="0 0 330 190" style="width:100%;height:190px">
+        <g stroke="#46505e" stroke-width="2"><path d="M165 92L70 45M165 92L265 45M165 92L95 155M165 92L255 150"/></g>
+        <g fill="#203b40" stroke="#56b6c2" stroke-width="2">
+          <rect x="120" y="70" width="90" height="44" rx="9"/><rect x="22" y="25" width="96" height="38" rx="8"/><rect x="214" y="25" width="94" height="38" rx="8"/><rect x="43" y="137" width="104" height="38" rx="8"/><rect x="207" y="132" width="102" height="38" rx="8"/>
+        </g>
+        <g fill="#e5e9ef" font-size="11" text-anchor="middle"><text x="165" y="96">CodeGraph</text><text x="70" y="49">client</text><text x="261" y="49">server</text><text x="95" y="161">server-go</text><text x="258" y="156">tests</text></g>
+      </svg>
+      <div style="font-size:10px;color:#8d95a3;text-align:center">Zooming automatically replaces folders with children</div>
+    </div>
+    <div class="card-body"><h3>A. Semantic zoom</h3><p>Levels change automatically with zoom. Fast and map-like, but accidental level changes can be disorienting.</p></div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="min-height:260px;background:#15181d;padding:16px;color:#d7dce5;font-family:ui-monospace,monospace">
+      <div style="display:flex;gap:7px;font-size:10px;color:#56b6c2;margin-bottom:18px"><span>CodeGraph</span><span>›</span><span>client</span><span>›</span><span>src</span></div>
+      <svg viewBox="0 0 330 190" style="width:100%;height:190px">
+        <g stroke="#46505e" stroke-width="2"><path d="M64 50L165 92L265 50M165 92L78 150M165 92L252 150"/></g>
+        <g fill="#29243b" stroke="#a985e8" stroke-width="2"><rect x="116" y="70" width="98" height="44" rx="9"/></g>
+        <g fill="#1d3039" stroke="#61afef" stroke-width="2"><rect x="20" y="31" width="88" height="38" rx="8"/><rect x="222" y="31" width="88" height="38" rx="8"/><rect x="27" y="132" width="102" height="38" rx="8"/><rect x="202" y="132" width="108" height="38" rx="8"/></g>
+        <g fill="#e5e9ef" font-size="11" text-anchor="middle"><text x="165" y="96">src</text><text x="64" y="55">app</text><text x="266" y="55">features</text><text x="78" y="156">shared</text><text x="256" y="156">workers</text></g>
+      </svg>
+      <div style="font-size:10px;color:#8d95a3;text-align:center">Double-click a node to enter; breadcrumb returns upward</div>
+    </div>
+    <div class="card-body"><h3>B. Explicit drill-down</h3><p>Each level is deliberate and labels stay stable. Clear, but exploring many branches requires more clicks.</p></div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="min-height:260px;background:#15181d;padding:16px;color:#d7dce5;font-family:ui-monospace,monospace">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px"><div style="display:flex;gap:7px;font-size:10px;color:#56b6c2"><span>CodeGraph</span><span>›</span><span>client</span><span>›</span><span>features</span></div><div style="font-size:9px;border:1px solid #3e4652;border-radius:6px;padding:5px 8px;color:#8d95a3">Level 2 · Files</div></div>
+      <svg viewBox="0 0 330 190" style="width:100%;height:190px">
+        <g stroke="#46505e" stroke-width="1.5"><path d="M165 88L58 44M165 88L270 44M165 88L70 151M165 88L258 151"/></g>
+        <g fill="#17333a" stroke="#56b6c2" stroke-width="2"><rect x="117" y="68" width="96" height="40" rx="8"/><rect x="18" y="26" width="82" height="34" rx="7"/><rect x="229" y="26" width="82" height="34" rx="7"/><rect x="23" y="134" width="96" height="34" rx="7"/><rect x="210" y="134" width="100" height="34" rx="7"/></g>
+        <g fill="#e5e9ef" font-size="10" text-anchor="middle"><text x="165" y="92">workspace/</text><text x="59" y="47">analysis/</text><text x="270" y="47">auth/</text><text x="71" y="155">repository/</text><text x="260" y="155">database/</text></g>
+      </svg>
+      <div style="display:flex;gap:8px;justify-content:center;font-size:9px;color:#8d95a3"><span style="color:#56b6c2">Hover = name</span><span>•</span><span>Zoom = reveal nearby labels</span><span>•</span><span>Double-click = enter</span></div>
+    </div>
+    <div class="card-body"><h3>C. Hybrid hierarchy — recommended</h3><p>Explicit folder/file/function levels with breadcrumbs; zoom only reveals labels within the current level. Predictable and still quick to scan.</p></div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:22px">
+  <div class="label">Recommended level model</div>
+  <p style="color:#aeb5c0;line-height:1.7"><strong>L0</strong> repository packages/root folders → <strong>L1</strong> nested folders/modules → <strong>L2</strong> files → <strong>L3</strong> classes/functions. At every level, only nodes in the current scope render; names appear for selected, hovered, and sufficiently separated nodes.</p>
+</div>

@@ -8,21 +8,19 @@ import { VirtualizedRepoTree } from '../../../shared/components/VirtualizedRepoT
 import { Parser, COLORS, LAYER_COLORS, IGNORE, DEFAULT_EXCLUDE_CHIPS, compileExcludePatterns, parseExcludePatterns, shouldExcludeFile, shouldIgnoreDirectory, getSeverityColor, getAccentBlockStyle, getFilePreviewIconName, getDialogTone, buildAppUrl, renderTooltipHtml, escapeHtml } from '../../analysis/services/parser';
 import { GitHub, buildTree, calcBlast, calcHealth, calcPRRisk, findSuggestedReviewers, findTestImpact, findDependencyChains } from '../../repository/services/github';
 import WorkspaceHeader from '../components/WorkspaceHeader';
-import WorkspaceSubnav from '../components/WorkspaceSubnav';
+import WorkspaceSidebar from '../components/WorkspaceSidebar';
 import WorkspaceOverview from '../components/WorkspaceOverview';
 import WorkspaceExplorerSidebar from '../components/WorkspaceExplorerSidebar';
-import GroupedGraphFocusController from '../components/GroupedGraphFocusController';
 import { dbSchemaToFlowSchema, parseDbSchema } from '../../database/services/dbParser';
 import { saveBookmark } from '../services/bookmarks';
 import CommandPalette from '../components/CommandPalette';
-import FileDrillDown from '../components/FileDrillDown';
 import { decodeShareLink } from '../../export/services/exporters';
 import { extractManifestDependencies } from '../../security/services/manifestParser';
 import { scanDependencies } from '../../security/services/osv';
 import { fetchTrendData, buildActivityPoints } from '../../analysis/services/trends';
 import { appConfig } from '../../../app/config';
 import { analyzeSource } from '../../analysis/services/sourceAnalysisClient';
-import { buildGroupedGraph, selectedGroupedNodeId } from '../services/groupedGraph';
+import { adaptGraphifyGraph } from '../../analysis/services/graphifyAdapter';
 
 const extractManifestDeps = extractManifestDependencies;
 const ERDiagramGraph = React.lazy(() => import('../../database/components/ERDiagramGraph'));
@@ -38,7 +36,10 @@ const ExportModal = React.lazy(() => import('../../export/components/ExportModal
 const VulnerabilityScanner = React.lazy(() => import('../../security/components/VulnerabilityScanner'));
 const MetricsTrendChart = React.lazy(() => import('../../analysis/components/MetricsTrendChart'));
 const ArchitectureDiagram = React.lazy(() => import('../components/ArchitectureDiagram'));
-const GroupedSigmaGraph = React.lazy(() => import('../components/GroupedSigmaGraph'));
+
+export function canAutoRunSelectedRepo(authResolved: boolean, repo: string | null) {
+    return authResolved && !!repo;
+}
 
 function iconLabel(name, label, size, className) {
     return React.createElement(React.Fragment, null,
@@ -49,10 +50,11 @@ function iconLabel(name, label, size, className) {
 }
 
 export default function LegacyWorkspaceEngine(){
-    var _a=useState<any>('dark'),theme=_a[0],setTheme=_a[1];
     var _b=useState<any>(''),repoUrl=_b[0],setRepoUrl=_b[1];
     var _c=useState<any>(''),token=_c[0],setToken=_c[1];
     var _auth=useState<any>(null),authUser=_auth[0],setAuthUser=_auth[1];
+    var _authResolved=useState<any>(false),authResolved=_authResolved[0],setAuthResolved=_authResolved[1];
+    var _autoRunRepo=useState<any>(null),autoRunRepo=_autoRunRepo[0],setAutoRunRepo=_autoRunRepo[1];
     var _authMethod=useState<any>('none'),authMethod=_authMethod[0],setAuthMethod=_authMethod[1];// 'none', 'pat', 'github_app'
     var _appId=useState<any>(''),appId=_appId[0],setAppId=_appId[1];
     var _privateKey=useState<any>(''),privateKey=_privateKey[0],setPrivateKey=_privateKey[1];
@@ -61,6 +63,8 @@ export default function LegacyWorkspaceEngine(){
     var _e=useState<any>(''),progress=_e[0],setProgress=_e[1];
     var _f=useState<any>(null),error=_f[0],setError=_f[1];
     var _g=useState<any>(null),data=_g[0],setData=_g[1];
+    var _graphify=useState<any>(null),graphifyGraph=_graphify[0],setGraphifyGraph=_graphify[1];
+    var _graphifyStatus=useState<any>('fallback'),graphifyStatus=_graphifyStatus[0],setGraphifyStatus=_graphifyStatus[1];
     var _h=useState<any>(null),repoInfo=_h[0],setRepoInfo=_h[1];
     var _i=useState<any>('folder'),colorMode=_i[0],setColorMode=_i[1];
     var _j=useState<any>(null),selected=_j[0],setSelected=_j[1];
@@ -81,7 +85,7 @@ export default function LegacyWorkspaceEngine(){
     var _x=useState<any>(null),folderFilter=_x[0],setFolderFilter=_x[1];
     var _y=useState<any>(new Set()),expandedFns=_y[0],setExpandedFns=_y[1];
     var _z=useState<any>(false),showUnused=_z[0],setShowUnused=_z[1];
-    var _aa=useState<any>({spacing:500,linkDist:160,viewMode:'force',vizType:'graph',showLabels:true,curvedLinks:true}),graphConfig=_aa[0],setGraphConfig=_aa[1];
+    var _aa=useState<any>({spacing:500,linkDist:160,viewMode:'force',vizType:'dendro',showLabels:true,curvedLinks:true}),graphConfig=_aa[0],setGraphConfig=_aa[1];
     var _ac=useState<any>(292),sidebarWidth=_ac[0],setSidebarWidth=_ac[1];
     var _ad=useState<any>(360),rightPanelWidth=_ad[0],setRightPanelWidth=_ad[1];
     var _ae=useState<any>(true),legendCollapsed=_ae[0],setLegendCollapsed=_ae[1];
@@ -118,17 +122,10 @@ export default function LegacyWorkspaceEngine(){
     var _dbapp=useState<any>('all'),dbAppFilter=_dbapp[0],setDbAppFilter=_dbapp[1];
     var _dbtbl=useState<any>(null),selectedDbTable=_dbtbl[0],setSelectedDbTable=_dbtbl[1];
     var _cfm=useState<any>(false),callFlowMode=_cfm[0],setCallFlowMode=_cfm[1];
-    const [expandedGraphFolders, setExpandedGraphFolders] = useState<Set<string>>(new Set());
-    const [graphFocusMode, setGraphFocusMode] = useState<'all' | 'selected-only'>('all');
-    const [pendingGraphFocus, setPendingGraphFocus] = useState<string|null>(null);
-    var _gdd=useState<any>(null),graphDrillDown=_gdd[0],setGraphDrillDown=_gdd[1];
     var svgRef=useRef(null);
-    var groupedGraphRef=useRef(null);
     var filePreviewRef=useRef(null);
     var analysisContentCacheRef=useRef({});
     var dendroRef=useRef(null);
-    var sankeyRef=useRef(null);
-    var disjointRef=useRef(null);
     var bundleRef=useRef(null);
     var zoomRef=useRef(null);
     var simRef=useRef(null);
@@ -139,7 +136,6 @@ export default function LegacyWorkspaceEngine(){
     var activeExcludePatterns=useMemo(function(){return compileExcludePatterns(excludePatternInput);},[excludePatternInput]);
     var customExcludeCount=activeExcludePatterns.length;
 
-    var pendingAutoRunRef=useRef<{repo:string}|null>(null);
     useEffect(function(){
       Promise.all([
         fetch(`${appConfig.apiUrl}/auth/config`,{cache:'no-store'}).then(function(r){return r.ok?r.json():{github:false};}),
@@ -150,18 +146,17 @@ export default function LegacyWorkspaceEngine(){
           if(!user&&config.github){window.location.href='/';return;}
           if(user){
             setAuthUser(user);
-            setToken(user.token);
-            if(pendingAutoRunRef.current){
-              var repo=pendingAutoRunRef.current.repo;
-              pendingAutoRunRef.current=null;
-              setTimeout(function(){internal_analyze(undefined,repo,user.token);},50);
+            if(user.github){
+              fetch(`${appConfig.apiUrl}/api/github/token`,{credentials:'include'})
+                .then(function(r){return r.ok?r.json():null;})
+                .then(function(data){if(data&&data.token)setToken(data.token);})
+                .catch(function(){});
             }
           }
+          setAuthResolved(true);
         })
-        .catch(function(){/* Local/public-repository mode remains available. */});
+        .catch(function(){setAuthResolved(true);});
     },[]);
-
-    useEffect(function(){document.body.className=theme==='light'?'light':'';},[theme]);
 
     useEffect(function(){
         return function(){
@@ -196,12 +191,6 @@ export default function LegacyWorkspaceEngine(){
     }, [data]);
 
     useEffect(function(){
-        function onKey(e: any){if(e.key==='Escape')setGraphDrillDown(null);}
-        window.addEventListener('keydown',onKey);
-        return function(){window.removeEventListener('keydown',onKey);};
-    },[]);
-
-    useEffect(function(){
         var params=new URLSearchParams(window.location.search);
         var shareParam=params.get('share');
         if(shareParam){
@@ -217,10 +206,16 @@ export default function LegacyWorkspaceEngine(){
         if(repo&&repo.length<200&&!repo.includes('{')&&/^[a-zA-Z0-9_.\/-]+$/.test(repo)){
             setRepoUrl(repo);
             if(shouldAutoRun){
-                pendingAutoRunRef.current={repo};
+                setAutoRunRepo(repo);
             }
         }
     },[]);
+
+    useEffect(function(){
+        if(!canAutoRunSelectedRepo(authResolved,autoRunRepo))return;
+        setAutoRunRepo(null);
+        internal_analyze(undefined,autoRunRepo,token||undefined);
+    },[authResolved,autoRunRepo,token]);
 
     useEffect(function(){
         if(!prData||!prData.files||!prData.files.length||!repoInfo)return;
@@ -336,28 +331,39 @@ export default function LegacyWorkspaceEngine(){
             });
             showNotification('Switched to '+br+' — '+files.length+' files','success');
             setProgress('');
+            triggerDjangoIntrospection(br);
         }).catch(function(e: any){
             showNotification('Failed to switch branch: '+e.message,'error');
             setCurrentBranch(currentBranch);
         }).finally(function(){setBranchLoading(false);});
     }
 
-    function triggerDjangoIntrospection(branchOverride?: any) {
+    function triggerDjangoIntrospection(branchOverride?: any, repoUrlOverride?: string) {
         const API = appConfig.apiUrl;
+        const targetUrl = repoUrlOverride || repoUrl;
+        if (!targetUrl) return;
+        setGraphifyGraph(null);
+        setGraphifyStatus('mapping');
         fetch(`${API}/api/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: repoUrl, token, branch: branchOverride || currentBranch || 'main' })
+            body: JSON.stringify({ url: targetUrl, token, branch: branchOverride || currentBranch || 'main' })
         }).then(res => res.json()).then(resp => {
             if (!resp.task_id) return;
             const interval = setInterval(async () => {
                 try {
                     const r = await fetch(`${API}/api/tasks/${resp.task_id}`, { credentials: 'include' });
                     const d = await r.json();
-                    if (d.status === 'completed' && d.result?.models?.length > 0) {
+                    if (d.status === 'completed') {
                         clearInterval(interval);
+                        if (d.result?.graphify?.nodes?.length) {
+                            setGraphifyGraph(adaptGraphifyGraph(d.result.graphify));
+                            setGraphifyStatus('ready');
+                        } else {
+                            setGraphifyStatus('fallback');
+                        }
                         // Convert Django models → dbSchema format
-                        var tables = d.result.models.map(function(m: any) {
+                        var tables = (d.result?.models || []).map(function(m: any) {
                             return {
                                 name: m.name,
                                 app: m.file ? m.file.split('/')[0] : 'django',
@@ -369,14 +375,17 @@ export default function LegacyWorkspaceEngine(){
                                     .map(function(r: any) { return { column: r.field, references: { table: r.target, column: 'id' } }; })
                             };
                         });
-                        setDbSchema({ source: 'django', tables });
-                        setDbSchemaDetected(true);
-                    } else if (d.status === 'failed' || d.status === 'completed') {
+                        if (tables.length) {
+                            setDbSchema({ source: 'django', tables });
+                            setDbSchemaDetected(true);
+                        }
+                    } else if (d.status === 'failed') {
                         clearInterval(interval);
+                        setGraphifyStatus('fallback');
                     }
-                } catch { clearInterval(interval); }
+                } catch { clearInterval(interval); setGraphifyStatus('fallback'); }
             }, 2000);
-        }).catch(() => {});
+        }).catch(() => { setGraphifyStatus('fallback'); });
     }
 
     function analyze(branchOverride?: any, repoUrlOverride?: string) {
@@ -384,7 +393,7 @@ export default function LegacyWorkspaceEngine(){
         // Always run the main JS analysis; trigger Django introspection in parallel
         internal_analyze(branchOverride, repoUrlOverride);
         if (parseUrl(repoUrlOverride||repoUrl)) {
-            triggerDjangoIntrospection(branchOverride);
+            triggerDjangoIntrospection(branchOverride, repoUrlOverride);
         }
     }
 
@@ -473,7 +482,7 @@ export default function LegacyWorkspaceEngine(){
                     try{
                         var content=contentCache[f.path];
                         if(content===undefined){
-                            content=await GitHub.getFile(p.owner,p.repo,f.path,currentBranch||undefined);
+                            content=await GitHub.getFile(p.owner,p.repo,f.path,detectedBranch||undefined);
                             contentCache[f.path]=content||'';
                         }
                         var layer=Parser.detectLayer(f.path);
@@ -1122,7 +1131,7 @@ export default function LegacyWorkspaceEngine(){
         if(affectedPaths.size===0||!nodesRef.current)return;
         nodesRef.current.selectAll('.nc')
             .filter(function(n: any){return affectedPaths.has(n.id);})
-            .attr('stroke','#f85149')
+            .attr('stroke','var(--color-danger)')
             .attr('stroke-width',3);
     },[vulns,data]);
 
@@ -1134,7 +1143,7 @@ export default function LegacyWorkspaceEngine(){
             .attr('fill',function(n: any){if(n.id===path)return'#ff5f5f';if(affectedSet.has(n.id))return'#ff9f43';return getNodeColor(n);});
         linksRef.current.transition().duration(200)
             .attr('stroke-opacity',function(l: any){var src=l.source.id||l.source;var tgt=l.target.id||l.target;if(src===path||tgt===path)return 0.8;return path?0.05:0.4;})
-            .attr('stroke',function(l: any){var src=l.source.id||l.source;var tgt=l.target.id||l.target;if(src===path||tgt===path)return'var(--acc)';return theme==='light'?'#ccc':'#333';});
+            .attr('stroke',function(l: any){var src=l.source.id||l.source;var tgt=l.target.id||l.target;if(src===path||tgt===path)return'var(--acc)';return'#333';});
     }
 
     function getNodeColor(d){
@@ -1269,26 +1278,10 @@ export default function LegacyWorkspaceEngine(){
         return m;
     },[data,colorMode]);
 
-    var groupedGraphModel=useMemo(function(){
-        if(!data)return buildGroupedGraph([],[],{expandedFolders:expandedGraphFolders});
-        var filteredFiles=folderFilter?(data as any).files.filter(function(f: any){return f.folder===folderFilter||f.folder.startsWith(folderFilter+'/');}):(data as any).files;
-        return buildGroupedGraph(filteredFiles,(data as any).connections,{expandedFolders:expandedGraphFolders});
-    },[data,folderFilter,expandedGraphFolders]);
-    var selectedGraphId=useMemo(function(){
-        return selectedGroupedNodeId(groupedGraphModel,selected?.path||null);
-    },[groupedGraphModel,selected]);
-
-    useEffect(function(){
-        if(graphFocusMode==='selected-only'&&!selectedGraphId)setGraphFocusMode('all');
-    },[graphFocusMode,selectedGraphId]);
-
-    function openAndFocusGraphFile(path: string){
+    function openExplorerFile(path: string){
         var file=data&&((data as any).files||[]).find(function(candidate: any){return candidate.path===path;});
         if(folderFilter&&file&&file.folder!==folderFilter&&!file.folder.startsWith(folderFilter+'/'))setFolderFilter(null);
-        setPendingGraphFocus(path);
-        setGraphConfig(Object.assign({},graphConfig,{vizType:'graph'}));
         if(selectFileRef.current)selectFileRef.current(path);
-        groupedGraphRef.current?.focusNode(path);
     }
 
     useEffect(function(){
@@ -1298,19 +1291,21 @@ export default function LegacyWorkspaceEngine(){
         try{
         var w=svgRef.current.clientWidth;
         var h=svgRef.current.clientHeight;
-        var filteredFiles=folderFilter?(data as any).files.filter(function(f: any){return f.folder===folderFilter||f.folder.startsWith(folderFilter+'/');}):(data as any).files;
-        var fileIds=new Set(filteredFiles.map(function(f: any){return f.path;}));
-        var nodes=filteredFiles.map(function(f: any){return{id:f.path,name:f.name,folder:f.folder,fnCount:f.functions.length,layer:f.layer,churn:f.churn||0};});
+        var graphFiles=graphifyGraph?(graphifyGraph as any).nodes:(data as any).files;
+        var filteredFiles=folderFilter?graphFiles.filter(function(f: any){var path=graphifyGraph?f.sourceFile:f.folder;return path===folderFilter||path.startsWith(folderFilter+'/');}):graphFiles;
+        var fileIds=new Set(filteredFiles.map(function(f: any){return graphifyGraph?f.id:f.path;}));
+        var nodes=graphifyGraph?filteredFiles.map(function(f: any){return Object.assign({},f);}):filteredFiles.map(function(f: any){return{id:f.path,name:f.name,folder:f.folder,fnCount:f.functions.length,layer:f.layer,churn:f.churn||0};});
+        var graphConnections=graphifyGraph?(graphifyGraph as any).links:(data as any).connections;
         var linkMap=new Map();
-        (data as any).connections.forEach(function(c: any){
+        graphConnections.forEach(function(c: any){
             if(!fileIds.has(c.source)||!fileIds.has(c.target))return;
             if(c.source===c.target)return;// Skip self-links
             var k=c.source+'|'+c.target;
-            if(!linkMap.has(k))linkMap.set(k,{source:c.source,target:c.target,count:0});
+            if(!linkMap.has(k))linkMap.set(k,{source:c.source,target:c.target,count:0,relationship:c.relationship||c.fn||'',confidence:c.confidence||'',confidenceScore:c.confidenceScore});
             linkMap.get(k).count+=c.count;
         });
         var rawLinks: any[]=[];
-        (data as any).connections.forEach(function(c: any){
+        graphConnections.forEach(function(c: any){
             if(!fileIds.has(c.source)||!fileIds.has(c.target))return;
             if(c.source===c.target)return;
             rawLinks.push({source:c.source,target:c.target,fn:c.fn||'',count:c.count||1});
@@ -1318,6 +1313,7 @@ export default function LegacyWorkspaceEngine(){
         var links=callFlowMode?rawLinks:Array.from(linkMap.values());
         function getR(d: any){return Math.max(8,Math.min(24,5+d.fnCount*0.8));}
         function getC(d){
+            if(graphifyGraph)return COLORS[Math.max(0,folders.indexOf(d.folder))%COLORS.length];
             if(colorMode==='folder')return colorMap[d.folder]||COLORS[0];
             if(colorMode==='layer')return LAYER_COLORS[d.layer]||LAYER_COLORS['utils'];
             if(colorMode==='churn')return colorMap[d.id]||'#22c55e';
@@ -1334,7 +1330,7 @@ export default function LegacyWorkspaceEngine(){
         zoomRef.current=zoom;
         var container=svg.append('g');
         var defs=svg.append('defs');
-        defs.append('marker').attr('id','arr').attr('viewBox','0 -5 10 10').attr('refX',14).attr('markerWidth',4).attr('markerHeight',4).attr('orient','auto').append('path').attr('d','M0,-4L10,0L0,4').attr('fill',theme==='light'?'#aaa':'#5a6270');
+        defs.append('marker').attr('id','arr').attr('viewBox','0 -5 10 10').attr('refX',14).attr('markerWidth',4).attr('markerHeight',4).attr('orient','auto').append('path').attr('d','M0,-4L10,0L0,4').attr('fill','#5a6270');
         var hullLayer=container.append('g');
         var linkLayer=container.append('g');
         var nodeLayer=container.append('g');
@@ -1415,25 +1411,25 @@ export default function LegacyWorkspaceEngine(){
         var velDecay=isLargeGraph?0.7:0.4;
         sim.velocityDecay(velDecay).alphaDecay(alphaDecay);
         simRef.current=sim;
-        var link=linkLayer.selectAll('path').data(links).join('path').attr('fill','none').attr('stroke',theme==='light'?'#ccc':'#3d444d').attr('stroke-width',function(d: any){return callFlowMode?1:Math.max(1.2,Math.min(2.5,Math.sqrt(d.count)*0.5));}).attr('stroke-opacity',callFlowMode?0.45:0.65).attr('marker-end','url(#arr)');
+        var link=linkLayer.selectAll('path').data(links).join('path').attr('fill','none').attr('stroke','#3d444d').attr('stroke-width',function(d: any){return callFlowMode?1:Math.max(1.2,Math.min(2.5,Math.sqrt(d.count)*0.5));}).attr('stroke-opacity',callFlowMode?0.45:0.65).attr('marker-end','url(#arr)');
+        if(graphifyGraph)link.style('cursor','help').on('mouseenter',function(e: any,d: any){var r=svgRef.current.getBoundingClientRect();var source=d.source.name||d.source.id||d.source,target=d.target.name||d.target.id||d.target;setTooltip({x:e.clientX-r.left+10,y:e.clientY-r.top,title:source+' → '+target,content:(d.relationship||d.fn||'related')+'\n'+(d.confidence||'EXTRACTED')+(d.confidenceScore!=null?' · '+Math.round(d.confidenceScore*100)+'%':'')});}).on('mouseleave',function(){setTooltip(null);});
         linksRef.current=link;
         var dedupedLabelLinks: any[]=(function(){if(!callFlowMode)return [];var seen=new Set();return rawLinks.filter(function(d: any){if(!d.fn)return false;if(seen.has(d.fn))return false;seen.add(d.fn);return true;});})();
-        var linkLabel=linkLayer.append('g').selectAll('text').data(dedupedLabelLinks).enter().append('text').attr('font-size',9).attr('fill','#8b949e').attr('text-anchor','middle').attr('dy',-3).attr('pointer-events','none').text(function(d: any){return d.fn||'';});
+        var linkLabel=linkLayer.append('g').selectAll('text').data(dedupedLabelLinks).enter().append('text').attr('font-size',9).attr('fill','var(--text-muted)').attr('text-anchor','middle').attr('dy',-3).attr('pointer-events','none').text(function(d: any){return d.fn||'';});
         var node=nodeLayer.selectAll('g').data(nodes).join('g').style('cursor','pointer');
         nodesRef.current=node;
         node.call(d3.drag().on('start',function(e: any, d: any){if(!e.active)sim.alphaTarget(0.1).restart();d.fx=d.x;d.fy=d.y;}).on('drag',function(e: any, d: any){d.fx=e.x;d.fy=e.y;}).on('end',function(e: any, d: any){if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}));
         node.on('click',function(e: any, d: any){
             e.stopPropagation();
-            if(selectFileRef.current)selectFileRef.current(d.id);
-            var rect=svgRef.current?(svgRef.current as any).getBoundingClientRect():{left:0,top:0};
-            setGraphDrillDown({file:d,x:rect.left+(d.x||0)+20,y:rect.top+(d.y||0)-100});
+            var filePath=graphifyGraph?d.sourceFile:d.id;
+            if(selectFileRef.current&&filePath)selectFileRef.current(filePath,d.line||null);
         });
-        node.on('mouseenter',function(e: any, d: any){var r=svgRef.current.getBoundingClientRect();setTooltip({x:e.clientX-r.left+10,y:e.clientY-r.top,title:d.name,content:d.fnCount+' functions\n'+d.layer+' layer\n'+d.churn+' recent commits'});}).on('mouseleave',function(){setTooltip(null);});
-        svg.on('click',function(e: any){if(e.target===svgRef.current){setSelected(null);setBlastRadius(null);link.attr('stroke',theme==='light'?'#ccc':'#3d444d').attr('stroke-opacity',0.65);node.selectAll('.nc').attr('opacity',1).attr('fill',getC);}});
+        node.on('mouseenter',function(e: any, d: any){var r=svgRef.current.getBoundingClientRect();var content=graphifyGraph?((d.sourceFile||'Unknown source')+(d.sourceLocation?' · '+d.sourceLocation:'')+'\n'+d.fileType+' · '+d.communityName+'\n'+d.degree+' relationships · '+d.incoming+' in / '+d.outgoing+' out'):(d.fnCount+' functions\n'+d.layer+' layer\n'+d.churn+' recent commits');setTooltip({x:e.clientX-r.left+10,y:e.clientY-r.top,title:d.name,content:content});}).on('mouseleave',function(){setTooltip(null);});
+        svg.on('click',function(e: any){if(e.target===svgRef.current){setSelected(null);setBlastRadius(null);link.attr('stroke','#3d444d').attr('stroke-opacity',0.65);node.selectAll('.nc').attr('opacity',1).attr('fill',getC);}});
         node.append('circle').attr('class','nc').attr('r',getR).attr('fill',getC).attr('stroke',function(d: any){var c=d3.color(getC(d));return c?c.brighter(0.3):'#fff';}).attr('stroke-width',1.5);
         // Hide labels for large graphs to reduce DOM overhead
         if(!isLargeGraph||graphConfig.showLabels){
-            node.append('text').attr('text-anchor','middle').attr('dy',0).attr('fill',theme==='light'?'#333':'#eee').attr('font-size',function(d: any){return Math.max(6,Math.min(10,getR(d)*0.6))+'px';}).attr('font-family','JetBrains Mono').attr('font-weight','500').attr('pointer-events','none').text(function(d: any){var n=d.name.replace(/\.[^.]+$/,'');var maxLen=Math.max(4,Math.floor(getR(d)/2));return n.length>maxLen+1?n.slice(0,maxLen)+'…':n;});
+            node.append('text').attr('text-anchor','middle').attr('dy',0).attr('fill','#eee').attr('font-size',function(d: any){return Math.max(6,Math.min(10,getR(d)*0.6))+'px';}).attr('font-family','JetBrains Mono').attr('font-weight','500').attr('pointer-events','none').text(function(d: any){var n=d.name.replace(/\.[^.]+$/,'');var maxLen=Math.max(4,Math.floor(getR(d)/2));return n.length>maxLen+1?n.slice(0,maxLen)+'…':n;});
         }
         // Pre-index nodes by folder for faster hull computation
         var nodesByFolder={};
@@ -1472,7 +1468,7 @@ export default function LegacyWorkspaceEngine(){
         node.selectAll('text').attr('opacity',graphConfig.showLabels?1:0);
         }catch(e){console.error('Force graph error:',e);svg.selectAll('*').remove();svg.append('text').attr('x',20).attr('y',30).attr('fill','var(--t3)').text('Graph rendering error: '+e.message);}
         return function(){if(simRef.current)simRef.current.stop();};
-    },[data,colorMap,colorMode,theme,folderFilter,graphConfig,callFlowMode,activeSection]);
+    },[data,graphifyGraph,colorMap,colorMode,folderFilter,graphConfig,callFlowMode,activeSection]);
 
     // Tree - Radial cluster of nested folder/file hierarchy
     useEffect(function(){
@@ -1557,228 +1553,6 @@ export default function LegacyWorkspaceEngine(){
             if(d.data.path&&selectFileRef.current)selectFileRef.current(d.data.path);
             else if(d.data.fullPath)filterByFolder(d.data.fullPath);
         });
-    },[data,graphConfig.vizType,colorMap,folderFilter,activeSection]);
-
-    // Flow Diagram - Layered left-to-right DAG of folder dependencies with animated arrows
-    useEffect(function(){
-        if(!data||!sankeyRef.current||graphConfig.vizType!=='sankey')return;
-        var container=d3.select(sankeyRef.current);
-        container.selectAll('*').remove();
-        var w=sankeyRef.current.clientWidth||800,h=sankeyRef.current.clientHeight||600;
-        var svg=container.append('svg').attr('width',w).attr('height',h);
-        var gRoot=svg.append('g');
-        var zoom=d3.zoom().scaleExtent([0.2,3]).on('zoom',function(e: any){gRoot.attr('transform',e.transform);});
-        svg.call(zoom);
-
-        var filteredFiles=folderFilter?(data as any).files.filter(function(f: any){return f.folder===folderFilter||f.folder.startsWith(folderFilter+'/');}):(data as any).files;
-        var folders=[...new Set(filteredFiles.map(function(f: any){return f.folder||'root';}))];
-        var filteredPaths=new Set(filteredFiles.map(function(f: any){return f.path;}));
-        var folderIdx={};folders.forEach(function(f: any, i: any){folderIdx[f]=i;});
-        var fileCountByFolder={};filteredFiles.forEach(function(f: any){var k=f.folder||'root';fileCountByFolder[k]=(fileCountByFolder[k]||0)+1;});
-
-        // Aggregate directed cross-folder edges
-        var edgeMap={};
-        (data as any).connections.forEach(function(c: any){
-            var src=typeof c.source==='object'?c.source.id:c.source;
-            var tgt=typeof c.target==='object'?c.target.id:c.target;
-            if(!filteredPaths.has(src)||!filteredPaths.has(tgt))return;
-            var sf=(data as any).files.find(function(f: any){return f.path===src;});
-            var tf=(data as any).files.find(function(f: any){return f.path===tgt;});
-            if(!sf||!tf)return;
-            var sFolder=sf.folder||'root',tFolder=tf.folder||'root';
-            if(sFolder===tFolder)return;
-            var k=sFolder+''+tFolder;
-            edgeMap[k]=(edgeMap[k]||0)+(c.count||1);
-        });
-        var nodes=folders.map(function(f: any){return{id:f,name:f.split('/').pop()||'root',fullPath:f,fileCount:fileCountByFolder[f]||0,layer:0};});
-        var nodeById={};nodes.forEach(function(n: any){nodeById[n.id]=n;});
-        var edges=Object.keys(edgeMap).map(function(k: any){var p=k.split('');return{source:p[0],target:p[1],value:edgeMap[k]};});
-
-        if(!edges.length){
-            gRoot.append('text').attr('x',w/2).attr('y',h/2).attr('fill','var(--t3)').attr('font-size','12px').attr('text-anchor','middle').text('No cross-folder flow to visualize');
-            return;
-        }
-
-        // Assign layers via longest-path from sources; cycles handled by iteration cap
-        var adj={},indeg={};
-        nodes.forEach(function(n: any){adj[n.id]=[];indeg[n.id]=0;});
-        edges.forEach(function(e: any){adj[e.source].push(e.target);indeg[e.target]++;});
-        var changed=true,iter=0;
-        while(changed&&iter++<nodes.length+5){
-            changed=false;
-            edges.forEach(function(e: any){
-                var s=nodeById[e.source],t=nodeById[e.target];
-                if(t.layer<=s.layer){t.layer=s.layer+1;changed=true;}
-            });
-        }
-        var maxLayer=Math.max(0,d3.max(nodes,function(n: any){return n.layer;})||0);
-        var layers=[];for(var i=0;i<=maxLayer;i++)layers.push([]);
-        nodes.forEach(function(n: any){layers[n.layer].push(n);});
-
-        // Position nodes
-        var padX=80,padY=40;
-        var colW=Math.max(180,(w-padX*2)/Math.max(1,maxLayer));
-        var nodeW=140,nodeH=38;
-        layers.forEach(function(col: any, li: any){
-            var total=col.length;
-            var slot=(h-padY*2)/Math.max(1,total);
-            col.sort(function(a: any, b: any){return b.fileCount-a.fileCount;});
-            col.forEach(function(n: any, ni: any){
-                n.x=padX+li*colW;
-                n.y=padY+slot*(ni+0.5);
-            });
-        });
-
-        // Arrowhead marker
-        var defs=svg.append('defs');
-        defs.append('marker').attr('id','flow-arrow').attr('viewBox','0 -5 10 10').attr('refX',9).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
-            .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','var(--acc)').attr('opacity',0.85);
-
-        // Edge layer
-        var maxVal=d3.max(edges,function(e: any){return e.value;})||1;
-        var edgeG=gRoot.append('g').attr('class','flow-edges');
-        var edgePaths=edgeG.selectAll('path').data(edges).join('path')
-            .attr('class','flow-edge')
-            .attr('fill','none')
-            .attr('stroke',function(e: any){return colorMap[e.source]||COLORS[folderIdx[e.source]%COLORS.length];})
-            .attr('stroke-width',function(e: any){return Math.max(1.5,Math.min(6,1+Math.log2(e.value+1)*1.4));})
-            .attr('stroke-opacity',0.55)
-            .attr('stroke-linecap','round')
-            .attr('marker-end','url(#flow-arrow)')
-            .attr('d',function(e: any){
-                var s=nodeById[e.source],t=nodeById[e.target];
-                var x1=s.x+nodeW/2,y1=s.y,x2=t.x-nodeW/2,y2=t.y;
-                var mx=(x1+x2)/2;
-                return'M'+x1+','+y1+'C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2;
-            });
-
-        // Animated dashed overlay for flow direction
-        var flowAnim=edgeG.selectAll('path.flow-anim').data(edges).join('path')
-            .attr('class','flow-anim')
-            .attr('fill','none')
-            .attr('stroke',function(e: any){return colorMap[e.source]||COLORS[folderIdx[e.source]%COLORS.length];})
-            .attr('stroke-width',function(e: any){return Math.max(1.5,Math.min(6,1+Math.log2(e.value+1)*1.4));})
-            .attr('stroke-opacity',0.9)
-            .attr('stroke-dasharray','6 10')
-            .attr('pointer-events','none')
-            .attr('d',function(e: any){
-                var s=nodeById[e.source],t=nodeById[e.target];
-                var x1=s.x+nodeW/2,y1=s.y,x2=t.x-nodeW/2,y2=t.y;
-                var mx=(x1+x2)/2;
-                return'M'+x1+','+y1+'C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2;
-            });
-        function animate(){
-            flowAnim.transition().duration(1400).ease(d3.easeLinear)
-                .attrTween('stroke-dashoffset',function(){return d3.interpolate(0,-32);})
-                .on('end',animate);
-        }
-        animate();
-
-        // Node layer
-        var tooltip=container.append('div').attr('class','treemap-tooltip').style('display','none').style('position','absolute');
-        var nodeG=gRoot.append('g').attr('class','flow-nodes');
-        var nodeSel=nodeG.selectAll('g').data(nodes).join('g').attr('class','flow-node').style('cursor','pointer')
-            .attr('transform',function(n: any){return'translate('+n.x+','+n.y+')';});
-        nodeSel.append('rect')
-            .attr('x',-nodeW/2).attr('y',-nodeH/2).attr('width',nodeW).attr('height',nodeH)
-            .attr('rx',10)
-            .attr('fill',function(n: any){return colorMap[n.id]||COLORS[folderIdx[n.id]%COLORS.length];})
-            .attr('fill-opacity',0.15)
-            .attr('stroke',function(n: any){return colorMap[n.id]||COLORS[folderIdx[n.id]%COLORS.length];})
-            .attr('stroke-width',1.5);
-        nodeSel.append('text').attr('text-anchor','middle').attr('dy',-2)
-            .attr('fill','var(--t0)').attr('font-size','11px').attr('font-weight','600').attr('font-family','JetBrains Mono')
-            .text(function(n: any){var nm=n.name;return nm.length>18?nm.slice(0,17)+'…':nm;});
-        nodeSel.append('text').attr('text-anchor','middle').attr('dy',12)
-            .attr('fill','var(--t2)').attr('font-size','9px').attr('font-family','JetBrains Mono')
-            .text(function(n: any){return n.fileCount+' file'+(n.fileCount===1?'':'s');});
-
-        nodeSel.on('mouseenter',function(e: any, d: any){
-            tooltip.html(renderTooltipHtml(d.fullPath,[{label:'Files',value:d.fileCount}]))
-                .style('display','block').style('left',(e.offsetX+15)+'px').style('top',(e.offsetY+15)+'px');
-            edgePaths.attr('stroke-opacity',function(l: any){return l.source===d.id||l.target===d.id?0.9:0.08;});
-            flowAnim.attr('stroke-opacity',function(l: any){return l.source===d.id||l.target===d.id?1:0;});
-        }).on('mouseleave',function(){
-            tooltip.style('display','none');
-            edgePaths.attr('stroke-opacity',0.55);
-            flowAnim.attr('stroke-opacity',0.9);
-        }).on('click',function(e: any, d: any){e.stopPropagation();filterByFolder(d.fullPath);});
-
-        edgePaths.on('mouseenter',function(e: any, d: any){
-            d3.select(this).attr('stroke-opacity',0.95);
-            tooltip.html(renderTooltipHtml(d.source+' → '+d.target,[{label:'Connections',value:d.value}]))
-                .style('display','block').style('left',(e.offsetX+15)+'px').style('top',(e.offsetY+15)+'px');
-        }).on('mouseleave',function(){d3.select(this).attr('stroke-opacity',0.55);tooltip.style('display','none');});
-    },[data,graphConfig.vizType,colorMap,folderFilter,activeSection]);
-
-    // Disjoint Force-Directed - Separate clusters per folder
-    useEffect(function(){
-        if(!data||!disjointRef.current||graphConfig.vizType!=='disjoint')return;
-        var container=d3.select(disjointRef.current);
-        container.selectAll('*').remove();
-        var w=disjointRef.current.clientWidth||800,h=disjointRef.current.clientHeight||600;
-        var svg=container.append('svg').attr('width',w).attr('height',h);
-        var g=svg.append('g');
-        var zoom=d3.zoom().scaleExtent([0.2,4]).on('zoom',function(e: any){g.attr('transform',e.transform);});
-        svg.call(zoom);
-        var filteredFiles=folderFilter?(data as any).files.filter(function(f: any){return f.folder===folderFilter||f.folder.startsWith(folderFilter+'/');}):(data as any).files;
-        var files=filteredFiles.slice(0,100);
-        var fileIdx={};files.forEach(function(f: any, i: any){fileIdx[f.path]=i;});
-        var folders=[...new Set(files.map(function(f: any){return f.folder||'root';}))];
-        var cols=Math.ceil(Math.sqrt(folders.length));
-        var cellW=w/cols,cellH=h/Math.ceil(folders.length/cols);
-        var centers={};
-        folders.forEach(function(f: any, i: any){centers[f]={x:(i%cols+0.5)*cellW,y:(Math.floor(i/cols)+0.5)*cellH};});
-        var nodes=files.map(function(f: any){return{id:f.path,name:f.name,folder:f.folder||'root',fns:f.functions.length,lines:f.lines,layer:f.layer,cx:centers[f.folder||'root'].x,cy:centers[f.folder||'root'].y};});
-        var links=[];
-        (data as any).connections.forEach(function(c: any){
-            var src=typeof c.source==='object'?c.source.id:c.source;
-            var tgt=typeof c.target==='object'?c.target.id:c.target;
-            if(fileIdx[src]!==undefined&&fileIdx[tgt]!==undefined&&src!==tgt)links.push({source:src,target:tgt,count:c.count||1});
-        });
-        var sim=d3.forceSimulation(nodes)
-            .force('link',d3.forceLink(links).id(function(d: any){return d.id;}).distance(40).strength(0.3))
-            .force('charge',d3.forceManyBody().strength(-80))
-            .force('x',d3.forceX(function(d: any){return d.cx;}).strength(0.15))
-            .force('y',d3.forceY(function(d: any){return d.cy;}).strength(0.15))
-            .force('collide',d3.forceCollide(15));
-        g.selectAll('rect.cluster-bg').data(folders).join('rect').attr('class','cluster-bg')
-            .attr('x',function(d: any, i: any){return(i%cols)*cellW+10;}).attr('y',function(d: any, i: any){return Math.floor(i/cols)*cellH+10;})
-            .attr('width',cellW-20).attr('height',cellH-20).attr('rx',12)
-            .attr('fill',function(d: any){return colorMap[d]||COLORS[folders.indexOf(d)%COLORS.length];}).attr('opacity',0.08)
-            .attr('stroke',function(d: any){return colorMap[d]||COLORS[folders.indexOf(d)%COLORS.length];}).attr('stroke-width',1).attr('stroke-opacity',0.3);
-        g.selectAll('text.cluster-label').data(folders).join('text').attr('class','cluster-label')
-            .attr('x',function(d: any, i: any){return(i%cols)*cellW+20;}).attr('y',function(d: any, i: any){return Math.floor(i/cols)*cellH+28;})
-            .attr('fill','var(--t2)').attr('font-size','11px').attr('font-weight','600').text(function(d: any){return d.split('/').pop()||'root';});
-        var link=g.selectAll('line.disjoint-link').data(links).join('line').attr('class','disjoint-link')
-            .attr('stroke','var(--border)').attr('stroke-width',1).attr('stroke-opacity',0.3);
-        var tooltip=container.append('div').attr('class','treemap-tooltip').style('display','none').style('position','absolute');
-        var node=g.selectAll('g.disjoint-node').data(nodes).join('g').attr('class','disjoint-node').style('cursor','pointer')
-            .call(d3.drag().on('start',function(e: any, d: any){if(!e.active)sim.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
-                .on('drag',function(e: any, d: any){d.fx=e.x;d.fy=e.y;}).on('end',function(e: any, d: any){if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null;}));
-        node.append('circle').attr('class','disjoint-circle').attr('r',function(d: any){return Math.max(6,Math.min(14,4+d.fns));})
-            .attr('fill',function(d: any){return colorMap[d.folder]||COLORS[0];}).attr('stroke','var(--bg0)').attr('stroke-width',1.5);
-        node.on('mouseenter',function(e: any, d: any){
-            tooltip.html(renderTooltipHtml(d.name,[
-                {label:'Lines',value:d.lines||0},
-                {label:'Functions',value:d.fns||0},
-                {label:'Folder',value:d.folder}
-            ]))
-                .style('display','block').style('left',(e.offsetX+15)+'px').style('top',(e.offsetY+15)+'px');
-            link.attr('stroke-opacity',function(l: any){return l.source.id===d.id||l.target.id===d.id?0.8:0.05;}).attr('stroke',function(l: any){return l.source.id===d.id||l.target.id===d.id?'var(--acc)':'var(--border)';});
-            d3.select(this).select('circle').transition().duration(150).attr('r',14).attr('stroke','var(--acc)').attr('stroke-width',2);
-        }).on('mousemove',function(e: any){tooltip.style('left',(e.offsetX+15)+'px').style('top',(e.offsetY+15)+'px');})
-        .on('mouseleave',function(e: any, d: any){
-            tooltip.style('display','none');
-            link.attr('stroke-opacity',0.3).attr('stroke','var(--border)');
-            d3.select(this).select('circle').transition().duration(150).attr('r',Math.max(6,Math.min(14,4+d.fns))).attr('stroke','var(--bg0)').attr('stroke-width',1.5);
-        }).on('click',function(e: any, d: any){e.stopPropagation();if(selectFileRef.current)selectFileRef.current(d.id);});
-        sim.on('tick',function(){
-            link.attr('x1',function(d: any){return d.source.x;}).attr('y1',function(d: any){return d.source.y;}).attr('x2',function(d: any){return d.target.x;}).attr('y2',function(d: any){return d.target.y;});
-            node.attr('transform',function(d: any){return'translate('+d.x+','+d.y+')';});
-        });
-        svg.on('click',function(){setSelected(null);setBlastRadius(null);});
-        return function(){sim.stop();};
     },[data,graphConfig.vizType,colorMap,folderFilter,activeSection]);
 
     // Circular Bundle visualization - Interactive with zoom, selection, blast radius
@@ -1937,11 +1711,10 @@ export default function LegacyWorkspaceEngine(){
         }
     },[data,graphConfig.vizType,colorMap,folderFilter,selected,blastRadius,activeSection]);
 
-    function zoomIn(){if(groupedGraphRef.current)return groupedGraphRef.current.zoomIn();if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(200).call(zoomRef.current.scaleBy,1.4);}
-    function zoomOut(){if(groupedGraphRef.current)return groupedGraphRef.current.zoomOut();if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(200).call(zoomRef.current.scaleBy,0.7);}
-    function resetZoom(){if(groupedGraphRef.current)return groupedGraphRef.current.reset();if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(300).call(zoomRef.current.transform,d3.zoomIdentity);}
+    function zoomIn(){if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(200).call(zoomRef.current.scaleBy,1.4);}
+    function zoomOut(){if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(200).call(zoomRef.current.scaleBy,0.7);}
+    function resetZoom(){if(zoomRef.current&&svgRef.current)d3.select(svgRef.current).transition().duration(300).call(zoomRef.current.transform,d3.zoomIdentity);}
     function fitView(){
-        if(groupedGraphRef.current)return groupedGraphRef.current.fit();
         if(!zoomRef.current||!svgRef.current||!simRef.current)return;
         var nodes=simRef.current.nodes();
         if(!nodes.length)return;
@@ -1951,8 +1724,8 @@ export default function LegacyWorkspaceEngine(){
         var scale=0.8/Math.max((maxX-minX+100)/w,(maxY-minY+100)/h);
         d3.select(svgRef.current).transition().duration(400).call(zoomRef.current.transform,d3.zoomIdentity.translate(w/2-scale*(minX+maxX)/2,h/2-scale*(minY+maxY)/2).scale(Math.min(scale,2)));
     }
-    function exportSVG(){if(!svgRef.current)return;var svgClone=svgRef.current.cloneNode(true);svgClone.setAttribute('xmlns','http://www.w3.org/2000/svg');svgClone.setAttribute('width',svgRef.current.clientWidth);svgClone.setAttribute('height',svgRef.current.clientHeight);var style=document.createElementNS('http://www.w3.org/2000/svg','style');style.textContent='text{font-family:JetBrains Mono,monospace;pointer-events:none}';svgClone.insertBefore(style,svgClone.firstChild);var blob=new Blob([new XMLSerializer().serializeToString(svgClone)],{type:'image/svg+xml'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='codeflow-'+Date.now()+'.svg';a.click();URL.revokeObjectURL(url);}
-    function exportJSON(){if(!data)return;var blob=new Blob([JSON.stringify({stats:(data as any).stats,files:(data as any).files.map(function(f: any){return{path:f.path,fns:f.functions.length,layer:f.layer,lines:f.lines,dependencies:f.dependencies||[]};}),connections:(data as any).connections,issues:(data as any).issues,patterns:(data as any).patterns,security:(data as any).securityIssues},null,2)],{type:'application/json'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='codegraph-analysis.json';a.click();}
+    function exportSVG(){if(!svgRef.current)return;var svgClone=svgRef.current.cloneNode(true);svgClone.setAttribute('xmlns','http://www.w3.org/2000/svg');svgClone.setAttribute('width',svgRef.current.clientWidth);svgClone.setAttribute('height',svgRef.current.clientHeight);var style=document.createElementNS('http://www.w3.org/2000/svg','style');style.textContent='text{font-family:JetBrains Mono,monospace;pointer-events:none}';svgClone.insertBefore(style,svgClone.firstChild);var blob=new Blob([new XMLSerializer().serializeToString(svgClone)],{type:'image/svg+xml'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='graphkeep-'+Date.now()+'.svg';a.click();URL.revokeObjectURL(url);}
+    function exportJSON(){if(!data)return;var blob=new Blob([JSON.stringify({stats:(data as any).stats,files:(data as any).files.map(function(f: any){return{path:f.path,fns:f.functions.length,layer:f.layer,lines:f.lines,dependencies:f.dependencies||[]};}),connections:(data as any).connections,issues:(data as any).issues,patterns:(data as any).patterns,security:(data as any).securityIssues},null,2)],{type:'application/json'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='graphkeep-analysis.json';a.click();}
     function generateReport(format){
         if(!data)return;
         var repo=repoInfo?(localDirHandle?'Local Folder':repoInfo.owner+'/'+repoInfo.repo):'Unknown Repository';
@@ -1960,7 +1733,7 @@ export default function LegacyWorkspaceEngine(){
         var report={
             repository:repo,
             analyzedAt:new Date().toISOString(),
-            codegraphVersion:'1.0',
+            graphkeepVersion:'1.0',
             summary:{
                 healthScore:h.score,
                 healthGrade:h.grade,
@@ -2040,9 +1813,9 @@ export default function LegacyWorkspaceEngine(){
         };
         if(format==='json'){
             var blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'});
-            var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='codegraph-report.json';a.click();URL.revokeObjectURL(url);
+            var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='graphkeep-report.json';a.click();URL.revokeObjectURL(url);
         }else if(format==='md'){
-            var md='# CodeGraph Analysis Report\n\n';
+            var md='# GraphKeep Analysis Report\n\n';
             md+='**Repository:** '+repo+'\n';
             md+='**Analyzed:** '+new Date().toLocaleString()+'\n\n';
             md+='## Summary\n\n';
@@ -2110,9 +1883,9 @@ export default function LegacyWorkspaceEngine(){
             });
             if((data as any).files.length>100)md+='\n*...and '+((data as any).files.length-100)+' more files*\n';
             var blob=new Blob([md],{type:'text/markdown'});
-            var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='codegraph-report.md';a.click();URL.revokeObjectURL(url);
+            var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='graphkeep-report.md';a.click();URL.revokeObjectURL(url);
         }else if(format==='txt'){
-            var txt='CODEGRAPH ANALYSIS REPORT\n';
+            var txt='GRAPHKEEP ANALYSIS REPORT\n';
             txt+='========================\n\n';
             txt+='Repository: '+repo+'\n';
             txt+='Analyzed: '+new Date().toLocaleString()+'\n\n';
@@ -2174,7 +1947,7 @@ export default function LegacyWorkspaceEngine(){
             });
             if((data as any).connections.length>100)txt+='\n...and '+((data as any).connections.length-100)+' more dependencies\n';
             var blob=new Blob([txt],{type:'text/plain'});
-            var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='codegraph-report.txt';a.click();URL.revokeObjectURL(url);
+            var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='graphkeep-report.txt';a.click();URL.revokeObjectURL(url);
         }
         showNotification('Report exported as '+format.toUpperCase(),'success');
     }
@@ -2188,7 +1961,7 @@ export default function LegacyWorkspaceEngine(){
         navigator.clipboard.writeText(shareUrl).then(function(){showNotification('Link copied to clipboard!');}).catch(function(){showNotification('Failed to copy link','error');});
     }
     function analyzePR(){if(!prUrl||!repoInfo)return;var m=prUrl.match(/\/pull\/(\d+)/);if(!m){showNotification('Invalid PR URL','error');return;}GitHub.getPR(repoInfo.owner,repoInfo.repo,m[1]).then(function(pr: any){if(pr)setPrData(pr);else showNotification('Could not load PR','error');});}
-    function resetAnalysis(){setData(null);setSelected(null);setBlastRadius(null);setOwnership(null);setRepoInfo(null);setRepoUrl('');setPrData(null);setFolderFilter(null);setLocalDirHandle(null);setCurrentBranch('');setBranches([]);analysisContentCacheRef.current={};window.history.replaceState({},'',window.location.pathname);}
+    function resetAnalysis(){setData(null);setGraphifyGraph(null);setGraphifyStatus('fallback');setSelected(null);setBlastRadius(null);setOwnership(null);setRepoInfo(null);setRepoUrl('');setPrData(null);setFolderFilter(null);setLocalDirHandle(null);setCurrentBranch('');setBranches([]);analysisContentCacheRef.current={};window.history.replaceState({},'',window.location.pathname);}
     function filterByFolder(path){setFolderFilter(function(prev: any){return prev===path?null:path;});}
     function isSchemaFile(path: string, name: string){
         var ext=(name.split('.').pop()||'').toLowerCase();
@@ -2305,13 +2078,8 @@ export default function LegacyWorkspaceEngine(){
         });
     },[dbSchema,dbSearchQuery,dbAppFilter,selectedDbTable]);
 
-    return React.createElement('div',{
-        className:'app workspace-one-dark'+(activeSection==='overview'?'':' workspace-tool-mode'),
-        style:{paddingTop:'142px',paddingLeft:0}
-    },
+    return React.createElement('div',{className:'workspace-shell'},
         React.createElement(WorkspaceHeader,{
-            login:authUser?.login??'',
-            avatarUrl:authUser?.avatar_url??'',
             repoInfo:repoInfo,
             loading:loading,
             hasData:!!data,
@@ -2321,15 +2089,19 @@ export default function LegacyWorkspaceEngine(){
             onBranchSwitch:function(br: any){switchBranchLight(br);},
             onPaletteOpen: function(){ if(data) setShowPalette(true); },
             onExport: data ? function(){ setShowExport(true); } : undefined,
-            onGoHome: function(){ window.location.href='/select-repo'; },
+            onGoHome:function(){ window.location.href='/select-repo'; },
+            activeSection:activeSection,
+        }),
+        React.createElement(WorkspaceSidebar,{
+            login:authUser?.login??'',
+            avatarUrl:authUser?.avatar_url??'',
             activeSection:activeSection,
             onSectionChange:function(s: any){setActiveSection(s);if(s==='database'&&data&&!dbSchema)openDbSchema();},
         }),
-        React.createElement(WorkspaceSubnav,{
-            activeSection:activeSection,
-            hasData:!!data,
-            onSectionChange:function(s: any){setActiveSection(s);if(s==='database'&&data&&!dbSchema)openDbSchema();},
-        }),
+        React.createElement('div',{
+        className:'app workspace-one-dark'+(activeSection==='overview'?'':' workspace-tool-mode'),
+        style:{paddingTop:0,paddingLeft:0}
+    },
         activeSection==='overview'&&React.createElement(WorkspaceOverview,{
             repoInfo:repoInfo,
             data:data,
@@ -2350,7 +2122,7 @@ export default function LegacyWorkspaceEngine(){
                     onClose:function(){setActiveSection('explorer');},
                 })
             )
-            :React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'#8b949e',flexDirection:'column',gap:'12px'}},
+            :React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--text-muted)',flexDirection:'column',gap:'12px'}},
                 React.createElement('div',{style:{fontSize:'32px'}},'🌿'),
                 React.createElement('p',null,'Analyze a repository first to view branches.')
             )
@@ -2370,53 +2142,58 @@ export default function LegacyWorkspaceEngine(){
         activeSection==='database'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',height:'calc(100vh - 80px)'}},
             dbSchema
                 ?React.createElement(ERDiagramGraph,{schema:dbSchemaToFlowSchema(filteredDbSchema||dbSchema),selectedTable:selectedDbTable})
-                :React.createElement('div',{style:{color:'#8b949e',textAlign:'center',paddingTop:'80px'}},
+                :React.createElement('div',{style:{color:'var(--text-muted)',textAlign:'center',paddingTop:'80px'}},
                     React.createElement('div',{style:{fontSize:'48px',marginBottom:'16px'}},'🗄️'),
                     React.createElement('p',null,'No database schema detected yet.'),
                     React.createElement('p',{style:{fontSize:'13px'}},'Analyze a Django repository to see the ER diagram here.')
                 )
         ),
         activeSection==='pullrequests'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',maxWidth:'600px',margin:'24px auto'}},
-            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'PR Review'),
+            React.createElement('h2',{style:{color:'var(--text-primary)',marginBottom:'16px'}},'PR Review'),
             React.createElement('input',{
                 type:'text',
                 placeholder:'GitHub PR URL (e.g. https://github.com/owner/repo/pull/123)',
                 value:prUrl,
                 onChange:function(e: any){setPrUrl(e.target.value);},
-                style:{width:'100%',padding:'10px 14px',background:'#161b22',border:'1px solid #30363d',borderRadius:'6px',color:'#f0f6fc',fontSize:'14px',boxSizing:'border-box'}
+                style:{width:'100%',padding:'10px 14px',background:'var(--surface-card)',border:'1px solid var(--border-subtle)',borderRadius:'6px',color:'var(--text-primary)',fontSize:'14px',boxSizing:'border-box'}
             }),
             React.createElement('button',{
                 onClick:function(){setShowPR(true);},
-                style:{marginTop:'12px',padding:'8px 20px',background:'#238636',color:'#fff',border:'none',borderRadius:'6px',cursor:'pointer',fontSize:'14px'}
+                style:{marginTop:'12px',padding:'8px 20px',background:'var(--color-success)',color:'#fff',border:'none',borderRadius:'6px',cursor:'pointer',fontSize:'14px'}
             },'Load PR')
         ),
         activeSection==='migrations'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',textAlign:'center'}},
-            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Migrations'),
-            React.createElement('p',{style:{color:'#8b949e',marginBottom:'24px'}},'View and manage Django migrations in the Database Visualizer.'),
+            React.createElement('h2',{style:{color:'var(--text-primary)',marginBottom:'16px'}},'Migrations'),
+            React.createElement('p',{style:{color:'var(--text-muted)',marginBottom:'24px'}},'View and manage Django migrations in the Database Visualizer.'),
             React.createElement('a',{
                 href:'/db',
-                style:{padding:'10px 24px',background:'#1f6feb',color:'#fff',borderRadius:'6px',textDecoration:'none',fontSize:'14px'}
+                style:{padding:'10px 24px',background:'var(--teal-600)',color:'#fff',borderRadius:'6px',textDecoration:'none',fontSize:'14px'}
             },'Open Database Visualizer')
         ),
         activeSection==='security'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px'}},
-            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Security'),
+            React.createElement('h2',{style:{color:'var(--text-primary)',marginBottom:'16px'}},'Security'),
             data
                 ?React.createElement('div',null,
-                    React.createElement('p',{style:{color:'#8b949e',marginBottom:'8px'}},'Security issues detected by static analysis:'),
+                    React.createElement('p',{style:{color:'var(--text-muted)',marginBottom:'8px'}},'Security issues detected by static analysis:'),
                     (data as any).issues&&(data as any).issues.filter(function(i: any){return i.type==='security';}).length>0
                         ?(data as any).issues.filter(function(i: any){return i.type==='security';}).map(function(issue: any,idx: number){
-                            return React.createElement('div',{key:idx,style:{background:'#161b22',border:'1px solid #da3633',borderRadius:'6px',padding:'12px',marginBottom:'8px'}},
-                                React.createElement('div',{style:{color:'#f85149',fontWeight:600,marginBottom:'4px'}},issue.title||issue.message),
-                                React.createElement('div',{style:{color:'#8b949e',fontSize:'13px'}},issue.file||'')
+                            return React.createElement('div',{key:idx,style:{background:'var(--surface-card)',border:'1px solid #da3633',borderRadius:'6px',padding:'12px',marginBottom:'8px'}},
+                                React.createElement('div',{style:{color:'var(--color-danger)',fontWeight:600,marginBottom:'4px'}},issue.title||issue.message),
+                                React.createElement('div',{style:{color:'var(--text-muted)',fontSize:'13px'}},issue.file||'')
                             );
                         })
-                        :React.createElement('p',{style:{color:'#3fb950'}},'✓ No security issues detected.'),
+                        :React.createElement('p',{style:{color:'var(--color-success)'}},'✓ No security issues detected.'),
                     React.createElement(VulnerabilityScanner,{vulns:vulns,loading:vulnLoading,error:vulnError})
                 )
-                :React.createElement('p',{style:{color:'#8b949e'}},'Analyze a repository to see security findings.')
+                :React.createElement('p',{style:{color:'var(--text-muted)'}},'Analyze a repository to see security findings.')
         ),
         activeSection==='trends'&&React.createElement(MetricsTrendChart,{snapshots:trendSnapshots,activityPoints:activityPoints,loading:trendLoading,onCommitClick:function(sha: any){setActiveSection('commits');}}),
-        activeSection==='architecture'&&React.createElement(ArchitectureDiagram,{nodes:data?((data as any).files||[]):[],connections:data?((data as any).connections||[]):[]}),
+        activeSection==='architecture'&&React.createElement(ArchitectureDiagram,{
+            nodes:data?((data as any).files||[]):[],
+            connections:data?((data as any).connections||[]):[],
+            repoName:repoInfo?repoInfo.owner+'/'+repoInfo.repo:'Repository',
+            onOpenFile:function(path: string){if(selectFileRef.current)selectFileRef.current(path);}
+        }),
         activeSection==='radar' && repoInfo && React.createElement(StaleCodeRadar, {
           owner: repoInfo.owner,
           repo: repoInfo.repo,
@@ -2444,7 +2221,7 @@ export default function LegacyWorkspaceEngine(){
         } as any)
 
         ,activeSection==='settings'&&React.createElement('div',{style:{padding:'24px',marginTop:'8px',maxWidth:'480px'}},
-            React.createElement('h2',{style:{color:'#f0f6fc',marginBottom:'16px'}},'Settings')
+            React.createElement('h2',{style:{color:'var(--text-primary)',marginBottom:'16px'}},'Settings')
         ),
         activeSection==='explorer'&&React.createElement('div',{className:'main',style:{'--sidebar-w':sidebarWidth+'px','--panel-w':(showContextPanel?rightPanelWidth:0)+'px'}},
             React.createElement('div',{className:'sidebar',style:{width:sidebarWidth}},
@@ -2469,7 +2246,7 @@ export default function LegacyWorkspaceEngine(){
                     React.createElement('div',{className:'empty-state-glow'}),
                     React.createElement('div',{className:'empty-state-content'},
                         React.createElement(Icon,{name:'logo',size:'xxl',className:'empty-icon'}),
-                        React.createElement('div',{className:'empty-title'},'CodeFlow'),
+                        React.createElement('div',{className:'empty-title'},'GraphKeep'),
                         React.createElement('div',{className:'empty-desc'},'High-performance repository introspection and database visualization.\nEnter a GitHub URL above or open a local folder to get started.'),
                         React.createElement('div',{className:'empty-features'},
                             React.createElement('span',{className:'empty-feature'},React.createElement(Icon,{name:'graph',size:'s'}),' Dependency Graph'),
@@ -2483,67 +2260,11 @@ export default function LegacyWorkspaceEngine(){
                 ):
                 React.createElement(React.Fragment,null,
                     React.createElement('div',{className:'viz-selector'},
-                        React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='graph'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'graph'}));}},iconLabel('graph','Graph')),
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='dendro'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'dendro'}));}},iconLabel('tree','Tree')),
-                        React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='sankey'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'sankey'}));}},iconLabel('flow','Flow')),
-                        React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='disjoint'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'disjoint'}));}},iconLabel('cluster','Cluster')),
                         React.createElement('button',{className:'viz-selector-btn'+(graphConfig.vizType==='bundle'?' active':''),onClick:function(){setGraphConfig(Object.assign({},graphConfig,{vizType:'bundle'}));}},iconLabel('target','Bundle'))
                     ),
-                    React.createElement(GroupedGraphFocusController,{
-                        model:groupedGraphModel,pendingPath:pendingGraphFocus,expandedFolders:expandedGraphFolders,graphRef:groupedGraphRef,
-                        onExpandFolder:function(id: string){setExpandedGraphFolders(function(current){var next=new Set(current);next.add(id);return next;});},
-                        onPendingPathChange:setPendingGraphFocus,
-                    },function(onReady: () => void){return graphConfig.vizType==='graph'?React.createElement(React.Suspense,{fallback:React.createElement('div',{className:'graph-empty-state'},React.createElement('span',{className:'page-transition-spinner'}),'Laying out graph…')},
-                        React.createElement(GroupedSigmaGraph,{
-                            ref:groupedGraphRef,
-                            model:groupedGraphModel,
-                            selectedId:selectedGraphId,
-                            focusMode:graphFocusMode,
-                            onSelectNode:function(id: string){groupedGraphRef.current?.focusNode(id);},
-                            onOpenFile:function(path: string){if(selectFileRef.current)selectFileRef.current(path);},
-                            onStageClick:function(){setSelected(null);setBlastRadius(null);},
-                            onTooltip:setTooltip,
-                            onReady:onReady,
-                            onToggleFolder:function(id: string){
-                                setExpandedGraphFolders(function(current){
-                                    var next=new Set(current);
-                                    if(next.has(id))next.delete(id);else next.add(id);
-                                    return next;
-                                });
-                            }
-                        })
-                    ):null;}),
                     graphConfig.vizType==='dendro'&&React.createElement('div',{ref:dendroRef,className:'dendro-container',style:{width:'100%',height:'100%',position:'relative'}}),
-                    graphConfig.vizType==='sankey'&&React.createElement('div',{ref:sankeyRef,className:'sankey-container',style:{width:'100%',height:'100%',position:'relative'}}),
-                    graphConfig.vizType==='disjoint'&&React.createElement('div',{ref:disjointRef,className:'disjoint-container',style:{width:'100%',height:'100%',position:'relative'}}),
                     graphConfig.vizType==='bundle'&&React.createElement('div',{ref:bundleRef,className:'bundle-container'}),
-                    graphConfig.vizType==='graph'&&React.createElement('div',{className:'canvas-toolbar'},
-                        React.createElement('button',{className:'tool-btn',onClick:zoomIn,'aria-label':'Zoom in'},'+'),
-                        React.createElement('button',{className:'tool-btn',onClick:zoomOut,'aria-label':'Zoom out'},'−'),
-                        React.createElement('button',{className:'tool-btn',onClick:resetZoom,'aria-label':'Reset zoom'},'⟲'),
-                        React.createElement('button',{className:'tool-btn',onClick:fitView,'aria-label':'Fit view'},'⊡'),
-                        React.createElement('button',{
-                            className:'graph-focus-toggle'+(graphFocusMode==='all'?' active':''),
-                            onClick:function(){setGraphFocusMode('all');},
-                        },'All files'),
-                        React.createElement('button',{
-                            className:'graph-focus-toggle'+(graphFocusMode==='selected-only'?' active':''),
-                            onClick:function(){setGraphFocusMode('selected-only');},
-                            disabled:!selectedGraphId,
-                        },'Focus selected'),
-                        branches.length>1&&React.createElement('select',{
-                            className:'canvas-branch-select',
-                            value:currentBranch,
-                            onChange:function(e: any){
-                                var br=e.target.value;
-                                switchBranchLight(br);
-                            },
-                        },
-                            branches.map(function(b: any){
-                                return React.createElement('option',{key:b.name,value:b.name},b.name);
-                            })
-                        )
-                    ),
                     React.createElement('div',{className:'canvas-info'},
                         React.createElement('div',{className:'info-chip'},React.createElement('strong',null,folderFilter?(data as any).files.filter(function(f: any){return f.folder===folderFilter||f.folder.startsWith(folderFilter+'/');}).length:(data as any).files.length),' files'),
                         React.createElement('div',{className:'info-chip'},React.createElement('strong',null,(data as any).connections.length),' links'),
@@ -2568,7 +2289,6 @@ export default function LegacyWorkspaceEngine(){
                         ),
                         React.createElement('div',{className:'legend-content'},
                             colorMode==='folder'&&(((data as any).folders)||[]).slice(0,12).map(function(f: any, i: any){return React.createElement('div',{key:f,className:'legend-item'+(folderFilter===f?' active':''),onClick:function(e: any){e.stopPropagation();filterByFolder(f);}},React.createElement('div',{className:'legend-color',style:{background:colorMap[f]||COLORS[i%COLORS.length]}}),f||'root');}),
-                            colorMode==='folder'&&(((data as any).folders)||[]).length>12&&React.createElement('div',{style:{fontSize:9,color:'var(--t3)',marginTop:4}},'+',(((data as any).folders)||[]).length-12,' more'),
                             colorMode==='layer'&&Object.entries(LAYER_COLORS).map(function(e: any){return React.createElement('div',{key:e[0],className:'legend-item'},React.createElement('div',{className:'legend-color',style:{background:e[1]}}),e[0]=== 'modules' ? 'Modules' : e[0]=== 'forms' ? 'UserForms' : e[0]=== 'classes' ? 'Classes' : e[0]);}),
                             colorMode==='churn'&&React.createElement(React.Fragment,null,React.createElement('div',{className:'legend-item'},React.createElement('div',{className:'legend-color',style:{background:'#ff5f5f'}}),'High (7+ commits)'),React.createElement('div',{className:'legend-item'},React.createElement('div',{className:'legend-color',style:{background:'#ff9f43'}}),'Medium (4-6)'),React.createElement('div',{className:'legend-item'},React.createElement('div',{className:'legend-color',style:{background:'#22c55e'}}),'Low (0-3)'))
                         )
@@ -2593,7 +2313,7 @@ export default function LegacyWorkspaceEngine(){
                     ),
                     React.createElement('div',{className:'panel-content'},
                         rightTab==='details'&&(selected?React.createElement(React.Fragment,null,
-                            React.createElement('button',{className:'top-btn',style:{width:'100%',marginBottom:12},onClick:function(){setSelected(null);setBlastRadius(null);if(nodesRef.current){nodesRef.current.selectAll('.nc').transition().duration(200).attr('opacity',1).attr('fill',getNodeColor);}if(linksRef.current){linksRef.current.transition().duration(200).attr('stroke-opacity',0.4).attr('stroke',theme==='light'?'#ccc':'#333');}}},'← Back to Issues'),
+                            React.createElement('button',{className:'top-btn',style:{width:'100%',marginBottom:12},onClick:function(){setSelected(null);setBlastRadius(null);if(nodesRef.current){nodesRef.current.selectAll('.nc').transition().duration(200).attr('opacity',1).attr('fill',getNodeColor);}if(linksRef.current){linksRef.current.transition().duration(200).attr('stroke-opacity',0.4).attr('stroke','#333');}}},'← Back to Issues'),
                             React.createElement('div',{className:'panel-header',style:{margin:'0 -12px 12px',padding:12}},
                                 React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
                                     React.createElement('div',null,
@@ -3019,7 +2739,7 @@ export default function LegacyWorkspaceEngine(){
                                                 f.additions>0&&React.createElement('span',{className:'pr-mini-badge',style:{background:'rgba(34,197,94,0.2)',color:'var(--green)'}},'+',f.additions),
                                                 f.deletions>0&&React.createElement('span',{className:'pr-mini-badge',style:{background:'rgba(255,95,95,0.2)',color:'var(--red)'}},'-',f.deletions),
                                                 blast&&React.createElement('span',{className:'pr-mini-badge',style:{background:blast.level==='low'?'rgba(34,197,94,0.2)':blast.level==='medium'?'rgba(255,159,67,0.2)':'rgba(255,95,95,0.2)',color:blast.level==='low'?'var(--green)':blast.level==='medium'?'var(--orange)':'var(--red)'}},React.createElement(Icon,{name:'impact',size:'s'}),' ',blast.count),
-                                                revertCounts[f.filename||f.path||'']>0&&React.createElement('span',{style:{background:'#9e2a2b',color:'#f0f6fc',borderRadius:4,padding:'1px 6px',fontSize:11,marginLeft:8}},revertCounts[f.filename||f.path||'']+' reverts')
+                                                revertCounts[f.filename||f.path||'']>0&&React.createElement('span',{style:{background:'#9e2a2b',color:'var(--text-primary)',borderRadius:4,padding:'1px 6px',fontSize:11,marginLeft:8}},revertCounts[f.filename||f.path||'']+' reverts')
                                             )
                                         );
                                     }),
@@ -3166,7 +2886,7 @@ export default function LegacyWorkspaceEngine(){
                 React.createElement('div',{className:'modal-body'},
                     React.createElement('div',{className:'privacy-item'},
                         React.createElement('div',{className:'privacy-icon'},React.createElement(Icon,{name:'globe',size:'l'})),
-                        React.createElement('div',null,React.createElement('div',{className:'privacy-title'},'100% Browser-Based'),React.createElement('div',{className:'privacy-text'},'CodeFlow runs entirely in your browser. No backend servers, no data collection.'))
+                        React.createElement('div',null,React.createElement('div',{className:'privacy-title'},'100% Browser-Based'),React.createElement('div',{className:'privacy-text'},'GraphKeep runs entirely in your browser. No backend servers, no data collection.'))
                     ),
                     React.createElement('div',{className:'privacy-item'},
                         React.createElement('div',{className:'privacy-icon'},React.createElement(Icon,{name:'key',size:'l'})),
@@ -3442,12 +3162,12 @@ export default function LegacyWorkspaceEngine(){
           folders: ((data as any).folders)||[],
           onSelectFile: function(file: any){
             setActiveSection('explorer');
-            openAndFocusGraphFile(file.path);
+            openExplorerFile(file.path);
             setShowPalette(false);
           },
           onSelectFunction: function(fn: any){
             setActiveSection('explorer');
-            openAndFocusGraphFile(fn.file);
+            openExplorerFile(fn.file);
             setShowPalette(false);
           },
           onSelectFolder: function(folder: any){
@@ -3456,12 +3176,6 @@ export default function LegacyWorkspaceEngine(){
           },
           onClose: function(){ setShowPalette(false); },
         })
-        ,graphDrillDown&&React.createElement(FileDrillDown,{
-            file:graphDrillDown.file,
-            allFunctions:((data as any).functions)||[],
-            onClose:function(){setGraphDrillDown(null);},
-            x:graphDrillDown.x,
-            y:graphDrillDown.y,
-        })
+    )
     );
 }

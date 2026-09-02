@@ -1,0 +1,70 @@
+services:
+  client:
+    build: ./client
+    # 8080 serves the app; 5001 also enters through nginx so the GitHub OAuth
+    # callback registered for localhost:5001 reaches the internal auth service.
+    ports: ["8080:80", "5001:80"]
+    depends_on: [gateway]
+    restart: unless-stopped
+
+  gateway:
+    build: ./server-go
+    environment:
+      PORT: "5000"
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
+      FASTAPI_URL: http://analysis:8000
+      LEGACY_API_URL: http://legacy-api:5001
+      RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-50}
+      MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-256}
+    depends_on:
+      analysis: { condition: service_healthy }
+      legacy-api: { condition: service_healthy }
+    restart: unless-stopped
+    deploy: { replicas: 3 }
+
+  legacy-api:
+    build: { context: ./server, dockerfile: Dockerfile.node }
+    environment:
+      PORT: "5001"
+      NODE_ENV: production
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
+      REDIS_URL: redis://redis:6379/0
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-http://localhost:8080/auth/github/callback}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+    depends_on:
+      redis: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "wget", "-q", "--spider", "http://localhost:5001/health/live"], interval: 10s, timeout: 3s, retries: 3 }
+    restart: unless-stopped
+    deploy: { replicas: 2 }
+
+  analysis:
+    build: { context: ./server, dockerfile: Dockerfile.python }
+    environment: { REDIS_URL: "redis://redis:6379/0" }
+    depends_on:
+      redis: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"], interval: 10s, timeout: 3s, retries: 3 }
+    restart: unless-stopped
+    deploy: { replicas: 2 }
+
+  worker:
+    build: { context: ./server, dockerfile: Dockerfile.python }
+    command: ["celery", "-A", "app.worker", "worker", "--loglevel=warning", "--concurrency=${CELERY_CONCURRENCY:-4}", "--max-tasks-per-child=25"]
+    environment: { REDIS_URL: "redis://redis:6379/0" }
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    deploy: { replicas: 4 }
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes: ["redis-data:/data"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 10 }
+    restart: unless-stopped
+
+volumes:
+  redis-data:

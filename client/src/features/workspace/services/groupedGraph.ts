@@ -101,54 +101,66 @@ function extension(path: string): string {
 }
 
 function componentRanks(folderIds: string[], folderEdges: Map<string, Set<string>>): Map<string, number> {
-  let index = 0;
-  const indices = new Map<string, number>();
-  const lowlinks = new Map<string, number>();
-  const stack: string[] = [];
-  const inStack = new Set<string>();
+  const reverseEdges = new Map(folderIds.map(folderId => [folderId, new Set<string>()]));
+  folderEdges.forEach((targets, source) => targets.forEach(target => reverseEdges.get(target)?.add(source)));
+
+  const visited = new Set<string>();
+  const order: string[] = [];
+  for (const start of folderIds) {
+    if (visited.has(start)) continue;
+    const stack: Array<[string, boolean]> = [[start, false]];
+    while (stack.length) {
+      const [folderId, exiting] = stack.pop()!;
+      if (exiting) { order.push(folderId); continue; }
+      if (visited.has(folderId)) continue;
+      visited.add(folderId);
+      stack.push([folderId, true]);
+      const targets = [...(folderEdges.get(folderId) || [])].sort(compareText).reverse();
+      targets.forEach(target => { if (!visited.has(target)) stack.push([target, false]); });
+    }
+  }
+
   const components: string[][] = [];
-  const visit = (folderId: string) => {
-    indices.set(folderId, index);
-    lowlinks.set(folderId, index++);
-    stack.push(folderId);
-    inStack.add(folderId);
-    for (const target of [...(folderEdges.get(folderId) || [])].sort(compareText)) {
-      if (!indices.has(target)) {
-        visit(target);
-        lowlinks.set(folderId, Math.min(lowlinks.get(folderId)!, lowlinks.get(target)!));
-      } else if (inStack.has(target)) {
-        lowlinks.set(folderId, Math.min(lowlinks.get(folderId)!, indices.get(target)!));
+  const assigned = new Set<string>();
+  for (let index = order.length - 1; index >= 0; index -= 1) {
+    const start = order[index];
+    if (assigned.has(start)) continue;
+    const component: string[] = [];
+    const stack = [start];
+    assigned.add(start);
+    while (stack.length) {
+      const folderId = stack.pop()!;
+      component.push(folderId);
+      for (const source of reverseEdges.get(folderId) || []) {
+        if (!assigned.has(source)) { assigned.add(source); stack.push(source); }
       }
     }
-    if (lowlinks.get(folderId) === indices.get(folderId)) {
-      const component: string[] = [];
-      let item = '';
-      do {
-        item = stack.pop()!;
-        inStack.delete(item);
-        component.push(item);
-      } while (item !== folderId);
-      components.push(component.sort());
-    }
-  };
-  folderIds.forEach(visit);
+    components.push(component.sort(compareText));
+  }
 
   const componentByFolder = new Map<string, number>();
   components.forEach((component, componentId) => component.forEach(folderId => componentByFolder.set(folderId, componentId)));
-  const predecessors = components.map(() => new Set<number>());
+  const successors = components.map(() => new Set<number>());
+  const indegrees = components.map(() => 0);
   folderEdges.forEach((targets, source) => targets.forEach(target => {
     const sourceComponent = componentByFolder.get(source)!;
     const targetComponent = componentByFolder.get(target)!;
-    if (sourceComponent !== targetComponent) predecessors[targetComponent].add(sourceComponent);
+    if (sourceComponent !== targetComponent && !successors[sourceComponent].has(targetComponent)) {
+      successors[sourceComponent].add(targetComponent);
+      indegrees[targetComponent] += 1;
+    }
   }));
-  const ranks = new Map<number, number>();
-  const rankFor = (componentId: number): number => {
-    if (ranks.has(componentId)) return ranks.get(componentId)!;
-    const rank = [...predecessors[componentId]].reduce((maximum, predecessor) => Math.max(maximum, rankFor(predecessor) + 1), 0);
-    ranks.set(componentId, rank);
-    return rank;
-  };
-  return new Map(folderIds.map(folderId => [folderId, rankFor(componentByFolder.get(folderId)!)]));
+  const ranks = components.map(() => 0);
+  const queue = indegrees.map((degree, componentId) => degree === 0 ? componentId : -1).filter(componentId => componentId >= 0);
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const componentId = queue[cursor];
+    successors[componentId].forEach(target => {
+      ranks[target] = Math.max(ranks[target], ranks[componentId] + 1);
+      indegrees[target] -= 1;
+      if (indegrees[target] === 0) queue.push(target);
+    });
+  }
+  return new Map(folderIds.map(folderId => [folderId, ranks[componentByFolder.get(folderId)!]]));
 }
 
 export function buildGroupedGraph(rawNodes: unknown[], rawLinks: unknown[], options: GroupedGraphOptions = {}): GroupedGraphModel {

@@ -1,11 +1,11 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 import uuid
-from .tasks import analyze_repo_task, get_task_status
+from .tasks import analyze_repo_task, get_task_status, set_task_status
 
-app = FastAPI(title="CodeFlow Engine")
+app = FastAPI(title="GraphKeep Engine")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,7 +17,7 @@ app.add_middleware(
 class RepoAnalysisRequest(BaseModel):
     url: str
     token: Optional[str] = None
-    branch: Optional[str] = "main"
+    branch: Optional[str] = None
 
 @app.get("/")
 async def root():
@@ -27,6 +27,7 @@ async def root():
 async def trigger_analysis(request: RepoAnalysisRequest):
     task_id = str(uuid.uuid4())
     try:
+        set_task_status(task_id, {"status": "queued", "progress": 0})
         analyze_repo_task.delay(task_id, request.url, request.token, request.branch)
     except Exception as e:
         raise HTTPException(

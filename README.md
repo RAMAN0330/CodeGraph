@@ -1,6 +1,6 @@
 <div align="center">
 
-# CodeFlow
+# GraphKeep
 
 ### Visualize Your Codebase Architecture in Seconds
 
@@ -11,15 +11,15 @@
 
 [**Try it Now**](https://codeflow-five.vercel.app/) · [Report Bug](https://github.com/braedonsaunders/codeflow/issues) · [Request Feature](https://github.com/braedonsaunders/codeflow/issues)
 
-<img src="./screenshot.png" alt="CodeFlow Screenshot" width="100%"/>
+<img src="./screenshot.png" alt="GraphKeep Screenshot" width="100%"/>
 
 </div>
 
 ---
 
-## Why CodeFlow?
+## Why GraphKeep?
 
-Ever opened a new codebase and felt completely lost? **CodeFlow** turns any GitHub repository or local codebase into an interactive architecture map in seconds.
+Ever opened a new codebase and felt completely lost? **GraphKeep** turns any GitHub repository or local codebase into an interactive architecture map in seconds.
 
 - **No installation required** — runs entirely in your browser
 - **No data collection** — your code never leaves your machine
@@ -38,7 +38,7 @@ Paste URL / Select Files -> See Architecture -> Make Better Decisions
 See how your files connect at a glance. Click any node to highlight its dependencies. Drag, zoom, and explore.
 
 ### Blast Radius Analysis
-*"If I change this file, what breaks?"* — CodeFlow answers this instantly. Select any file and see exactly how many files would be affected by changes.
+*"If I change this file, what breaks?"* — GraphKeep answers this instantly. Select any file and see exactly how many files would be affected by changes.
 
 ### Code Ownership
 Know who owns what. See the top contributors for any file based on git history. Perfect for code reviews and knowing who to ask.
@@ -72,7 +72,7 @@ Color files by commit frequency to see which parts of your codebase are most act
 Paste a PR URL to see exactly which files it affects and calculate the blast radius of proposed changes.
 
 ### Markdown & Wiki-Link Graph
-Point CodeFlow at an Obsidian vault or any markdown directory to see notes as a connected graph. Both `[[wiki-links]]` and `[text](./relative.md)` links become edges; each note is a `note`-layer node (distinct color) with a `dependencies[]` array in the JSON export.
+Point GraphKeep at an Obsidian vault or any markdown directory to see notes as a connected graph. Both `[[wiki-links]]` and `[text](./relative.md)` links become edges; each note is a `note`-layer node (distinct color) with a `dependencies[]` array in the JSON export.
 
 ### Local File Analysis
 Analyze code directly from your computer without uploading to GitHub:
@@ -87,7 +87,7 @@ Analyze code directly from your computer without uploading to GitHub:
 
 ## Privacy First
 
-**Your code stays on your machine.** CodeFlow:
+**Your code stays on your machine.** GraphKeep:
 
 - Runs 100% in the browser
 - Makes API calls directly from your browser to GitHub
@@ -102,7 +102,7 @@ Your GitHub token (if used) is only stored in your browser's memory and is clear
 ## Quick Start
 
 ### Option 1: Use Online (Recommended)
-Just visit [CodeFlow](https://codeflow-five.vercel.app/) and paste any GitHub URL.
+Just visit [GraphKeep](https://codeflow-five.vercel.app/) and paste any GitHub URL.
 
 ### Option 2: Self-Host
 ```bash
@@ -118,10 +118,10 @@ No build process. No npm install. It is a single `index.html` app that loads pin
 ### Option 3: Analyze Local Files
 You can now analyze code directly from your local machine without uploading to GitHub:
 
-1. Open CodeFlow in your browser
+1. Open GraphKeep in your browser
 2. Click the "Open Folder" button
 3. Select the folder or files you want to analyze
-4. CodeFlow will process them entirely in your browser
+4. GraphKeep will process them entirely in your browser
 
 **Perfect for:**
 - Private projects you don't want to upload
@@ -181,7 +181,7 @@ Click the "Export" button in the top bar after analysis to access all export opt
 
 ## Supported Languages
 
-CodeFlow extracts functions and analyzes dependencies for:
+GraphKeep extracts functions and analyzes dependencies for:
 
 | Language | Extensions |
 |----------|------------|
@@ -279,7 +279,7 @@ For larger repositories or team usage, we recommend using GitHub App authenticat
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                   CodeFlow                      │
+│                    GraphKeep                    │
 ├─────────────────────────────────────────────────┤
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
 │  │  Parser  │  │  GitHub  │  │    D3    │       │
@@ -331,7 +331,7 @@ node --test tests/
 ## FAQ
 
 **Q: How does it work without a backend?**
-> CodeFlow runs entirely in your browser. It calls the GitHub API directly from your browser and processes everything client-side.
+> GraphKeep runs entirely in your browser. It calls the GitHub API directly from your browser and processes everything client-side.
 
 **Q: Is my code safe?**
 > Yes. Your code is fetched directly from GitHub to your browser. Nothing is sent to any server we control. Check the source — it's one file!
@@ -349,7 +349,7 @@ node --test tests/
 
 ## Star History
 
-If you find CodeFlow useful, please star the repo.
+If you find GraphKeep useful, please star the repo.
 
 ---
 
