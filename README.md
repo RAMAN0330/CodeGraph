@@ -62,7 +62,15 @@ The workspace is organized into modules, each addressing a distinct question abo
 Repository health, aggregate risk indicators, and prioritized next steps in a single summary.
 
 ### Explore
-An interactive code graph of files and their dependencies. Nodes are navigable, filterable, and grouped by folder and architectural layer, with drill-down into individual files.
+An interactive code graph of files and their dependencies, navigable, filterable, and grouped by folder and architectural layer, with drill-down into individual files. Three graph modes answer different questions about the same data:
+
+| Mode | Layout | Best for |
+|------|--------|----------|
+| **Tree** | Radial cluster of the nested folder hierarchy | Orienting inside an unfamiliar folder structure |
+| **Bundle** | Circular edge bundling around folder-grouped files | Reading cross-cutting dependencies at a glance |
+| **Code** | Force-directed file graph with real source opened as floating, syntax-highlighted cards anchored to each node | Reading the actual implementation without leaving the graph |
+
+A repository can be loaded from a GitHub URL, a local folder, or a `.zip` archive, with custom exclude patterns applied before analysis and a dedicated flow for assessing an open pull request's blast radius.
 
 ### Insights — History & Ownership
 | Tool | Purpose |
@@ -549,6 +557,7 @@ CodeGraph/
 │   │   ├── analysis/            # Repository parsing and tree construction
 │   │   ├── config/              # Environment loading and validation
 │   │   ├── db/                  # Pool, schema, stores, caches, snapshots
+│   │   ├── middleware/          # Request proxying and cross-cutting concerns
 │   │   ├── queue/               # BullMQ analysis queue
 │   │   ├── services/            # GitHub, credential cipher, DB telemetry
 │   │   └── types/               # Shared transport types
