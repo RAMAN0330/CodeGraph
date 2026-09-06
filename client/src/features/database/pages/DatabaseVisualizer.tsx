@@ -1,33 +1,18 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, ArrowLeft, Play, LayoutDashboard, AlertCircle, Loader, FolderOpen, GitBranch, ChevronRight, Check, FileCode, Wand2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Upload, Play, LayoutDashboard, Loader, FolderOpen, GitBranch, ChevronRight, Check, FileCode, Wand2, Settings2, X } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import ERDiagramGraph from '../components/ERDiagramGraph';
+import DatabaseDashboard from './DatabaseDashboard';
 import { GitHub } from '../../repository/services/github';
 import { dbSchemaToFlowSchema, parseDjangoModels } from '../services/dbParser';
 import { appConfig } from '../../../app/config';
+import { organizationStore } from '../../organization/services/organizationStore';
+import { TopbarAccount } from '../../organization/components/TopbarAccount';
+import { GG, ggInput, ggLabel, MiniSchemaPreview, GGErrorBanner } from '../components/dbConnectTheme';
+import '../../organization/pages/OrganizationPages.css';
 
 const API = appConfig.apiUrl;
-
-// ── Design tokens ────────────────────────────────────────────────────────────
-const GG = {
-  bg: '#f7faff',
-  bg1: '#ffffff',
-  bg2: '#f1f6fd',
-  panel: '#ffffff',
-  line: 'rgba(37,99,235,0.10)',
-  lineStrong: 'rgba(37,99,235,0.24)',
-  fg: '#172033',
-  fg2: '#34435c',
-  fg3: '#66758d',
-  fg4: '#94a3b8',
-  accent: '#2563eb',
-  info: '#3b82f6',
-  magenta: 'var(--chart-purple)',
-  cyan: '#0ea5e9',
-  mono: "'JetBrains Mono', monospace" as const,
-  sans: "'Inter', sans-serif" as const,
-};
 
 interface SchemaColumn { name: string; type: string; nullable: boolean; isPrimary: boolean; }
 interface SchemaFK { column: string; referencedTable: string; referencedColumn: string; }
@@ -96,6 +81,63 @@ export default function DatabaseVisualizer() {
     const t = setInterval(() => setCursorVisible(v => !v), 530);
     return () => clearInterval(t);
   }, []);
+
+  // ── Project mode: a saved database project (?projectId=) skips the picker
+  // and loads its persisted, encrypted connection instead. ──────────────────
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
+  const [projectName, setProjectName] = useState('');
+  const [projectWorkspaceId, setProjectWorkspaceId] = useState<number | null>(null);
+  const [projectWorkspaceName, setProjectWorkspaceName] = useState('');
+  const [editingConnection, setEditingConnection] = useState(false);
+  const [savingConnection, setSavingConnection] = useState(false);
+  const [connectionMessage, setConnectionMessage] = useState('');
+
+  useEffect(() => {
+    if (!projectId) return;
+    const id = Number(projectId);
+    setLoading(true);
+    setError(null);
+    Promise.all([organizationStore.fetchProjectSchema(id), organizationStore.load()])
+      .then(([schemaRes, state]) => {
+        if (!schemaRes.success) throw new Error(schemaRes.error || 'Could not load schema.');
+        setSchema(schemaRes.schema);
+        const project = state.projects.find(p => p.id === id);
+        if (project) {
+          setProjectName(project.name);
+          setProjectWorkspaceId(project.workspaceId);
+          setProjectWorkspaceName(state.workspaces.find(w => w.id === project.workspaceId)?.name ?? '');
+          if (project.dbConnectionSummary) {
+            setDbType(project.dbConnectionSummary.dbType);
+            setHost(project.dbConnectionSummary.host);
+            setPort(String(project.dbConnectionSummary.port));
+            setDatabase(project.dbConnectionSummary.database);
+            setUser(project.dbConnectionSummary.user);
+            setSslEnabled(!!project.dbConnectionSummary.ssl);
+          }
+        }
+      })
+      .catch(e => setError(e instanceof Error ? e.message : 'Could not load this database project.'))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  async function saveConnectionAndReconnect() {
+    if (!projectId) return;
+    setSavingConnection(true);
+    setConnectionMessage('');
+    try {
+      await organizationStore.updateProjectDbConnection(Number(projectId), { dbType, host, port, database, user, password, ssl: sslEnabled });
+      const res = await organizationStore.fetchProjectSchema(Number(projectId));
+      if (!res.success) throw new Error(res.error || 'Could not reconnect with the new credentials.');
+      setSchema(res.schema);
+      setEditingConnection(false);
+      setPassword('');
+    } catch (e) {
+      setConnectionMessage(e instanceof Error ? e.message : 'Could not save this connection.');
+    } finally {
+      setSavingConnection(false);
+    }
+  }
 
   const fkCount = schema?.tables?.reduce((s, t) => s + t.foreignKeys.length, 0) ?? 0;
   const appOptions = useMemo(() => {
@@ -357,52 +399,30 @@ export default function DatabaseVisualizer() {
     setFocusedTable(null);
   }
 
-  // ── GG shared input style ────────────────────────────────────────────────
-  const ggInput: React.CSSProperties = {
-    width: '100%',
-    height: 38,
-    padding: '0 12px',
-    background: GG.bg1,
-    border: `1px solid ${GG.lineStrong}`,
-    borderRadius: 8,
-    color: GG.fg,
-    fontFamily: GG.mono,
-    fontSize: 13,
-    outline: 'none',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.15s, box-shadow 0.15s',
-  };
-
-  const ggLabel: React.CSSProperties = {
-    display: 'block',
-    marginBottom: 6,
-    color: GG.fg3,
-    fontSize: 11,
-    fontFamily: GG.mono,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.08em',
-  };
-
   // ── Render ────────────────────────────────────────────────────────────────
+  // A saved project never uses the picker's topbar/page header, whether its
+  // schema is still loading or already loaded — DatabaseDashboard (or the
+  // standard loading screen below) owns the whole screen in that case.
+  const isSavedProject = !!projectId;
+
   return (
     <div style={{ minHeight: '100vh', background: GG.bg, color: GG.fg, fontFamily: GG.sans, display: 'flex', flexDirection: 'column' }}>
 
-      {/* ── Nav ── */}
-      <nav style={{
-        position: 'sticky', top: 0, zIndex: 100,
-        background: `${GG.panel}cc`,
-        backdropFilter: 'blur(12px)',
-        borderBottom: `1px solid ${GG.lineStrong}`,
-        padding: '0 24px',
-        height: 48,
-        display: 'flex', alignItems: 'center', gap: 16,
-      }}>
-        <span style={{ fontFamily: GG.mono, fontSize: 13, color: GG.accent, fontWeight: 700 }}>graphkeep/0.4.2</span>
-        <span style={{ color: GG.fg4, fontSize: 13, fontFamily: GG.mono }}>›</span>
-        <span style={{ fontFamily: GG.mono, fontSize: 13, color: GG.fg3 }}>workspace</span>
-        <span style={{ color: GG.fg4, fontSize: 13, fontFamily: GG.mono }}>›</span>
-        <span style={{ fontFamily: GG.mono, fontSize: 13, color: GG.info }}>db-visualizer</span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
+      {!isSavedProject && <>
+      {/* ── Topbar ── */}
+      <header className="organization-topbar" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+        <div className="organization-brand">
+          <span className="organization-brand-mark"><GitBranch size={20} /></span>
+          <button
+            className="picker-back"
+            onClick={() => navigate(projectId && projectWorkspaceId ? `/workspaces/${projectWorkspaceId}/projects` : '/workspace')}
+          >
+            {projectId ? 'Projects' : 'Workspace'}
+          </button>
+          <span className="organization-brand-divider">/</span>
+          <strong>{projectId ? (projectName || 'Database') : 'Database visualizer'}</strong>
+        </div>
+        <div className="topbar-actions">
           {schema && migrationApps.length > 0 && (
             <button
               onClick={() => { setMigrationApp(selectedApp !== 'all' ? selectedApp : migrationApps[0] || 'all'); setShowMigrationEditor(true); }}
@@ -411,7 +431,15 @@ export default function DatabaseVisualizer() {
               <FileCode size={14} /> Migration
             </button>
           )}
-          {schema && (
+          {schema && projectId && (
+            <button
+              onClick={() => { setConnectionMessage(''); setPassword(''); setEditingConnection(true); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg2, fontSize: 12, fontFamily: GG.mono, cursor: 'pointer' }}
+            >
+              <Settings2 size={14} /> Edit connection
+            </button>
+          )}
+          {schema && !projectId && (
             <button
               onClick={() => { setSchema(null); setError(null); setSqlFileName(''); resetRepo(); }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg2, fontSize: 12, fontFamily: GG.mono, cursor: 'pointer' }}
@@ -419,30 +447,19 @@ export default function DatabaseVisualizer() {
               <LayoutDashboard size={14} /> New Connection
             </button>
           )}
+          <TopbarAccount />
         </div>
-      </nav>
+      </header>
 
       {/* ── Page header ── */}
       <div style={{ padding: '32px 32px 0', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box' as const }}>
-        {/* breadcrumb */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-          <button
-            onClick={() => navigate('/workspace')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: GG.fg3, fontFamily: GG.mono, fontSize: 12, cursor: 'pointer', padding: 0 }}
-          >
-            <ArrowLeft size={14} /> workspace
-          </button>
-          <span style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 12 }}>›</span>
-          <span style={{ color: GG.fg2, fontFamily: GG.mono, fontSize: 12 }}>database_visualizer</span>
-        </div>
-
         {/* h1 */}
         <h1 style={{ fontFamily: GG.mono, fontSize: 22, fontWeight: 700, color: GG.fg, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
-          <span style={{ color: GG.fg3 }}>›</span> connect_database
+          <span style={{ color: GG.fg3 }}>›</span> {projectId ? (projectName || 'connect_database') : 'connect_database'}
           <span style={{ opacity: cursorVisible ? 1 : 0, color: GG.accent, marginLeft: 3 }}>█</span>
         </h1>
         <p style={{ fontFamily: GG.sans, fontSize: 14, color: GG.fg3, margin: '0 0 6px' }}>
-          Pick a data source, configure credentials, and explore your schema as an interactive ER diagram.
+          {projectId ? 'Saved database connection, encrypted at rest — schema loads automatically.' : 'Pick a data source, configure credentials, and explore your schema as an interactive ER diagram.'}
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: GG.accent, display: 'inline-block', boxShadow: `0 0 6px ${GG.accent}` }} />
@@ -451,9 +468,40 @@ export default function DatabaseVisualizer() {
           </span>
         </div>
       </div>
+      </>}
 
-      {/* ── 3-column card (pre-schema) ── */}
-      {!schema ? (
+      {/* ── Saved project: standard full-screen loading / error state ── */}
+      {projectId && !schema ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, padding: 32, textAlign: 'center' }}>
+          {loading ? (
+            <>
+              <span style={{ width: 52, height: 52, display: 'grid', placeItems: 'center', borderRadius: 14, border: `1px solid ${GG.lineStrong}`, background: `${GG.accent}0d` }}>
+                <Loader size={22} color={GG.accent} style={{ animation: 'spin 1s linear infinite' }} />
+              </span>
+              <div>
+                <h1 style={{ margin: '0 0 6px', fontFamily: GG.sans, fontSize: 17, fontWeight: 700, color: GG.fg }}>Loading {projectName || 'database'}</h1>
+                <p style={{ margin: 0, fontFamily: GG.sans, fontSize: 13, color: GG.fg3 }}>Connecting with your saved credentials…</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <span style={{ width: 52, height: 52, display: 'grid', placeItems: 'center', borderRadius: 14, border: '1px solid rgba(224,108,117,.35)', background: 'rgba(224,108,117,.08)' }}>
+                <Settings2 size={22} color="var(--color-danger)" />
+              </span>
+              <div>
+                <h1 style={{ margin: '0 0 6px', fontFamily: GG.sans, fontSize: 17, fontWeight: 700, color: GG.fg }}>Could not connect</h1>
+                <p style={{ margin: '0 0 18px', fontFamily: GG.sans, fontSize: 13, color: GG.fg3, maxWidth: 380 }}>{error || 'Could not load this database project.'}</p>
+              </div>
+              <button
+                onClick={() => { setConnectionMessage(''); setPassword(''); setEditingConnection(true); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 16px', background: GG.accent, border: 'none', borderRadius: 8, color: '#181a1f', fontFamily: GG.sans, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                <Settings2 size={14} /> Edit connection
+              </button>
+            </>
+          )}
+        </div>
+      ) : !schema ? (
         <div style={{ flex: 1, padding: '0 32px 32px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box' as const }}>
           <div style={{
             display: 'grid',
@@ -872,6 +920,20 @@ export default function DatabaseVisualizer() {
             ))}
           </div>
         </div>
+      ) : projectId ? (
+        /* ── Saved database project: full observability dashboard shell ── */
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <DatabaseDashboard
+            projectId={Number(projectId)}
+            projectName={projectName || 'Database'}
+            workspaceName={projectWorkspaceName || 'Workspace'}
+            schema={schema}
+            onOpenWorkspace={() => navigate('/workspaces')}
+            onBackToProjects={() => navigate(projectWorkspaceId ? `/workspaces/${projectWorkspaceId}/projects` : '/workspaces')}
+            onOpenSettings={() => { setConnectionMessage(''); setPassword(''); setEditingConnection(true); }}
+            onOpenMigration={() => { setMigrationApp(selectedApp !== 'all' ? selectedApp : migrationApps[0] || 'all'); setShowMigrationEditor(true); }}
+          />
+        </div>
       ) : (
         /* ── Schema loaded: full-screen ER diagram ── */
         <motion.div key="diagram" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ flex: 1, padding: '0 32px 32px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box' as const, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -961,6 +1023,93 @@ export default function DatabaseVisualizer() {
         </motion.div>
       )}
 
+      {/* ── Edit connection modal (saved database projects only) ── */}
+      {editingConnection && (
+        <div
+          onClick={() => !savingConnection && setEditingConnection(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ width: 'min(440px, 94vw)', background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 28px 90px rgba(0,0,0,0.6)' }}
+          >
+            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${GG.lineStrong}`, display: 'flex', gap: 10, alignItems: 'center' }}>
+              <Settings2 size={17} color={GG.accent} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: GG.fg, fontWeight: 700, fontSize: 14, fontFamily: GG.mono }}>Edit connection</div>
+                <div style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.sans }}>Saved encrypted — re-enter the password to change or verify it.</div>
+              </div>
+              <button onClick={() => setEditingConnection(false)} style={{ background: 'none', border: 'none', color: GG.fg3, cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['postgres', 'mysql'] as const).map(t => (
+                  <button key={t} onClick={() => { setDbType(t); }} style={{
+                    flex: 1, padding: '7px 0',
+                    background: dbType === t ? `${GG.info}18` : GG.bg1,
+                    border: `1px solid ${dbType === t ? GG.info + '55' : GG.lineStrong}`,
+                    borderRadius: 8, color: dbType === t ? GG.info : GG.fg3,
+                    fontFamily: GG.mono, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}>
+                    {t === 'postgres' ? '🐘 PostgreSQL' : '🐬 MySQL'}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 2 }}>
+                  <label style={ggLabel}>Host</label>
+                  <input style={ggInput} value={host} onChange={e => setHost(e.target.value)} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={ggLabel}>Port</label>
+                  <input style={ggInput} value={port} onChange={e => setPort(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label style={ggLabel}>Database</label>
+                <input style={ggInput} value={database} onChange={e => setDatabase(e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={ggLabel}>Username</label>
+                  <input style={ggInput} value={user} onChange={e => setUser(e.target.value)} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={ggLabel}>Password</label>
+                  <input type="password" style={ggInput} value={password} onChange={e => setPassword(e.target.value)} placeholder="Re-enter to change" />
+                </div>
+              </div>
+              <Toggle label="SSL" value={sslEnabled} onChange={setSslEnabled} />
+              {connectionMessage && <GGErrorBanner msg={connectionMessage} />}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => void saveConnectionAndReconnect()}
+                  disabled={savingConnection || !host.trim() || !database.trim() || !user.trim() || !password}
+                  style={{
+                    flex: 1, height: 38,
+                    background: savingConnection || !host.trim() || !database.trim() || !user.trim() || !password ? GG.fg4 + '33' : GG.accent,
+                    border: 'none', borderRadius: 8,
+                    color: savingConnection || !host.trim() || !database.trim() || !user.trim() || !password ? GG.fg4 : GG.bg,
+                    fontFamily: GG.mono, fontSize: 13, fontWeight: 700,
+                    cursor: savingConnection ? 'wait' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  }}
+                >
+                  {savingConnection ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> saving…</> : <><Check size={14} /> Save & reconnect</>}
+                </button>
+                <button
+                  onClick={() => setEditingConnection(false)}
+                  disabled={savingConnection}
+                  style={{ padding: '0 16px', height: 38, background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 8, color: GG.fg3, fontFamily: GG.mono, fontSize: 12, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Migration editor modal ── */}
       {showMigrationEditor && schema && (
         <div
@@ -1047,52 +1196,6 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
       </div>
       <span style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg3 }}>{label}</span>
     </button>
-  );
-}
-
-// ── MiniSchemaPreview SVG ────────────────────────────────────────────────────
-function MiniSchemaPreview() {
-  const tables = [
-    { x: 10,  y: 10,  w: 90, label: 'users',    color: GG.info,    cols: ['id', 'email', 'name'] },
-    { x: 120, y: 10,  w: 90, label: 'posts',     color: GG.accent,  cols: ['id', 'user_id', 'title'] },
-    { x: 10,  y: 110, w: 90, label: 'sessions',  color: GG.magenta, cols: ['id', 'user_id', 'token'] },
-    { x: 120, y: 110, w: 90, label: 'tags',      color: GG.cyan,    cols: ['id', 'post_id', 'name'] },
-  ];
-  const rowH = 16;
-  const headerH = 20;
-  return (
-    <svg viewBox="0 0 220 180" style={{ width: '100%', height: 'auto' }}>
-      {/* Connection lines */}
-      <line x1="100" y1="30" x2="120" y2="30" stroke={GG.lineStrong} strokeWidth="1.5" />
-      <line x1="55" y1="55" x2="55" y2="110" stroke={GG.lineStrong} strokeWidth="1.5" />
-      <line x1="165" y1="55" x2="165" y2="110" stroke={GG.lineStrong} strokeWidth="1.5" />
-      {tables.map(t => (
-        <g key={t.label}>
-          <rect x={t.x} y={t.y} width={t.w} height={headerH + t.cols.length * rowH} rx="5" fill={GG.bg1} stroke={GG.lineStrong} strokeWidth="1" />
-          <rect x={t.x} y={t.y} width={t.w} height={headerH} rx="5" fill={t.color + '33'} />
-          <rect x={t.x} y={t.y + headerH - 5} width={t.w} height={5} fill={t.color + '33'} />
-          <text x={t.x + t.w / 2} y={t.y + 14} textAnchor="middle" fill={t.color} fontSize="8" fontFamily="monospace" fontWeight="bold">{t.label}</text>
-          {t.cols.map((col, i) => (
-            <text key={col} x={t.x + 6} y={t.y + headerH + 11 + i * rowH} fill={GG.fg3} fontSize="7" fontFamily="monospace">{col}</text>
-          ))}
-        </g>
-      ))}
-    </svg>
-  );
-}
-
-// ── Error banner ─────────────────────────────────────────────────────────────
-function GGErrorBanner({ msg }: { msg: string }) {
-  return (
-    <div style={{
-      display: 'flex', gap: 8, alignItems: 'flex-start',
-      padding: '10px 12px',
-      background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.3)',
-      borderRadius: 8, color: 'var(--color-danger)', fontSize: 12, fontFamily: GG.mono,
-    }}>
-      <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-      {msg}
-    </div>
   );
 }
 

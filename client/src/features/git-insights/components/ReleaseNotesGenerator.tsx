@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 interface CommitItem {
   sha: string;
@@ -158,18 +158,8 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
     } catch {}
   }
 
-  const containerStyle: React.CSSProperties = {
-    background: 'var(--surface-card)',
-    border: '1px solid var(--border-subtle)',
-    borderRadius: 8,
-    padding: 24,
-    color: 'var(--text-primary)',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    maxWidth: 860,
-  };
-
-  if (loading) return <div style={containerStyle}><p style={{ color: 'var(--text-muted)' }}>Generating release notes...</p></div>;
-  if (error) return <div style={containerStyle}><p style={{ color: 'var(--color-danger)' }}>Error: {error}</p></div>;
+  if (loading) return <div className="gi-page"><p className="gi-note">Generating release notes…</p></div>;
+  if (error) return <div className="gi-page"><p className="gi-note" style={{ color: 'var(--red)' }}>Error: {error}</p></div>;
 
   const groupedCommits: Record<Category, CategorizedCommit[]> = {} as any;
   for (const cat of CATEGORY_ORDER) {
@@ -177,14 +167,14 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
   }
 
   return (
-    <div style={containerStyle}>
+    <div className="gi-page" style={{ maxWidth: 860 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>
+          <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600, color: 'var(--t0)' }}>
             Release Notes Generator
           </h2>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
             {tagFrom && tagTo
               ? `From ${tagFrom} → ${tagTo}`
               : 'Last 30 commits'}
@@ -196,10 +186,10 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
             onClick={() => copyText(buildMarkdown(), 'md')}
             style={{
               padding: '6px 14px',
-              background: copied === 'md' ? 'var(--color-success)' : 'var(--surface-subtle)',
-              border: '1px solid var(--border-subtle)',
+              background: copied === 'md' ? 'var(--green)' : 'var(--bg3)',
+              border: '1px solid var(--border)',
               borderRadius: 6,
-              color: 'var(--text-primary)',
+              color: 'var(--t0)',
               fontSize: 13,
               cursor: 'pointer',
               transition: 'background 0.2s',
@@ -211,10 +201,10 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
             onClick={() => copyText(buildJson(), 'json')}
             style={{
               padding: '6px 14px',
-              background: copied === 'json' ? 'var(--color-success)' : 'var(--surface-subtle)',
-              border: '1px solid var(--border-subtle)',
+              background: copied === 'json' ? 'var(--green)' : 'var(--bg3)',
+              border: '1px solid var(--border)',
               borderRadius: 6,
-              color: 'var(--text-primary)',
+              color: 'var(--t0)',
               fontSize: 13,
               cursor: 'pointer',
               transition: 'background 0.2s',
@@ -241,28 +231,28 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
                 width: '100%',
                 background: 'none',
                 border: 'none',
-                borderBottom: '1px solid var(--border-subtle)',
+                borderBottom: '1px solid var(--border)',
                 padding: '8px 0',
                 cursor: 'pointer',
-                color: 'var(--text-primary)',
+                color: 'var(--t0)',
                 fontSize: 14,
                 fontWeight: 600,
                 textAlign: 'left',
               }}
             >
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s' }}>▼</span>
+              <span style={{ fontSize: 11, color: 'var(--t3)', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s' }}>▼</span>
               {cat}
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--t3)', fontWeight: 400 }}>
                 {items.length} commit{items.length !== 1 ? 's' : ''}
               </span>
             </button>
             {!isCollapsed && (
               <ul style={{ margin: '8px 0 0', padding: '0 0 0 20px', listStyle: 'disc' }}>
                 {items.map((c) => (
-                  <li key={c.sha7} style={{ marginBottom: 6, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                  <li key={c.sha7} style={{ marginBottom: 6, fontSize: 13, color: 'var(--t0)', lineHeight: 1.5 }}>
                     {c.message}
-                    <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 12 }}>
-                      <code style={{ fontSize: 11, background: 'var(--surface-subtle)', padding: '1px 5px', borderRadius: 3, color: 'var(--color-info)' }}>{c.sha7}</code>
+                    <span style={{ marginLeft: 8, color: 'var(--t3)', fontSize: 12 }}>
+                      <code style={{ fontSize: 11, background: 'var(--bg3)', padding: '1px 5px', borderRadius: 3, color: 'var(--blue)' }}>{c.sha7}</code>
                       {' '}{c.author}
                     </span>
                   </li>
@@ -274,7 +264,7 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
       })}
 
       {commits.length === 0 && (
-        <p style={{ color: 'var(--text-muted)' }}>No commits found for this range.</p>
+        <p style={{ color: 'var(--t3)' }}>No commits found for this range.</p>
       )}
     </div>
   );

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "src/features/organization/pages/OrganizationPages.css"
+        ],
+        "createdAt": "2026-09-05T19:17:19.471Z",
+        "reason": "matches the app's established dot/line-grid canvas motif already used site-wide (e.g. .workspace-shell in client/src/index.css), not a one-off generated artifact; re-added with cwd-relative path since prior ignore didn't match from client/ cwd"
+      }
+    ]
+  }
+}

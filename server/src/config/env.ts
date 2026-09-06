@@ -13,6 +13,7 @@ export const env = Object.freeze({
   clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
   fastApiUrl: process.env.FASTAPI_URL ?? 'http://localhost:8000',
   sessionSecret: process.env.SESSION_SECRET ?? 'dev-secret-change-me',
+  dbCredentialsSecret: process.env.DB_CREDENTIALS_SECRET ?? 'dev-secret-change-me',
   databaseUrl: process.env.DATABASE_URL ?? '',
   githubClientId: process.env.GITHUB_CLIENT_ID ?? '',
   githubClientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
@@ -20,11 +21,15 @@ export const env = Object.freeze({
   redisUrl: process.env.REDIS_URL ?? '',
   openaiApiKey: process.env.OPENAI_API_KEY ?? '',
   openaiModel: process.env.OPENAI_MODEL ?? 'gpt-5-mini',
+  repoCacheTtlMs: integer(process.env.REPO_CACHE_TTL_MS, 6 * 60 * 60 * 1000),
 });
 
 export function validateEnvironment(): void {
   if (env.nodeEnv === 'production' && env.sessionSecret === 'dev-secret-change-me') {
     throw new Error('SESSION_SECRET must be configured in production');
+  }
+  if (env.nodeEnv === 'production' && env.dbCredentialsSecret === 'dev-secret-change-me') {
+    throw new Error('DB_CREDENTIALS_SECRET must be configured in production');
   }
   if (env.nodeEnv === 'production' && !env.redisUrl) throw new Error('REDIS_URL must be configured in production');
   if (env.nodeEnv === 'production' && !env.databaseUrl) throw new Error('DATABASE_URL must be configured in production');

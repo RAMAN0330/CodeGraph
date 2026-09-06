@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Star, Lock, Globe, Code, LogOut, List, LayoutGrid, GitBranch, Search, X, ExternalLink, Copy, ArrowRight, Check, Command } from 'lucide-react';
+import { Star, Lock, Globe, Code, List, LayoutGrid, GitBranch, Search, X, ExternalLink, Copy, ArrowRight, Check, Command } from 'lucide-react';
 import { appConfig } from '../../../app/config';
+import AccountMenu from '../../../shared/components/AccountMenu';
 
 const API = appConfig.apiUrl;
 
@@ -75,8 +76,6 @@ export default function RepoSelector() {
   const [visFilter, setVisFilter] = useState<'all' | 'public' | 'private'>('all');
   const [activeRepo, setActiveRepo] = useState<Repo | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
-  const [signingOut, setSigningOut] = useState(false);
-  const [signOutError, setSignOutError] = useState('');
   const [copied, setCopied] = useState(false);
   const [searchHintLength, setSearchHintLength] = useState(0);
   const [searchHintDeleting, setSearchHintDeleting] = useState(false);
@@ -131,24 +130,6 @@ export default function RepoSelector() {
     }, delay);
     return () => window.clearTimeout(timer);
   }, [searchHintDeleting, searchHintLength]);
-
-  async function handleSignOut() {
-    if (signingOut) return;
-    setSigningOut(true);
-    setSignOutError('');
-    try {
-      const response = await fetch(`${API}/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        cache: 'no-store',
-      });
-      if (!response.ok) throw new Error('Unable to sign out');
-      window.location.replace('/');
-    } catch {
-      setSignOutError('Sign out failed. Please try again.');
-      setSigningOut(false);
-    }
-  }
 
   function openRepo(repo: Repo) {
     navigate(`/workspace?repo=${repo.full_name}&run=1`);
@@ -260,23 +241,7 @@ export default function RepoSelector() {
               <kbd><Command size={11} strokeWidth={2.2} /><span>K</span></kbd>
             )}
           </div>
-          {user && (
-            <>
-              <div className="repo-user-chip">
-                <img src={user.avatar_url} alt={user.login} />
-                <div><span>{user.login}</span><small>GitHub connected</small></div>
-              </div>
-              <button
-                className="repo-signout"
-                disabled={signingOut}
-                onClick={handleSignOut}
-                title="Sign out of GraphKeep"
-              >
-                <LogOut size={14} /> {signingOut ? 'Signing out…' : 'Sign out'}
-              </button>
-              {signOutError && <span role="alert" style={{ color: '#e06c75', fontSize: '0.68rem' }}>{signOutError}</span>}
-            </>
-          )}
+          {user && <AccountMenu variant="inline" login={user.login} avatarUrl={user.avatar_url} />}
         </div>
       </header>
 
@@ -711,47 +676,10 @@ export default function RepoSelector() {
           cursor: pointer;
         }
         .repo-search-clear:hover { color: #f8fafd; background: #2c313a; }
-        .repo-user-chip {
-          height: 40px;
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          padding: 4px 10px 4px 5px;
-          background: #282c34;
-          border: 1px solid #3e4452;
-          border-radius: 10px;
-        }
-        .repo-user-chip img { width: 30px; height: 30px; border-radius: 7px; }
-        .repo-user-chip div { display: flex; flex-direction: column; gap: 2px; }
-        .repo-user-chip span { max-width: 120px; overflow: hidden; text-overflow: ellipsis; color: #d7dae0; font: 650 .72rem 'JetBrains Mono', monospace; }
-        .repo-user-chip small { color: #98c379; font: 500 .56rem 'JetBrains Mono', monospace; }
-        .repo-signout {
-          min-height: 38px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 7px;
-          padding: 0 13px;
-          color: #e06c75;
-          background: rgba(224,108,117,.08);
-          border: 1px solid rgba(224,108,117,.32);
-          border-radius: 9px;
-          font: 650 .72rem 'JetBrains Mono', monospace;
-          cursor: pointer;
-          transition: background .16s ease, border-color .16s ease, transform .16s ease;
-        }
-        .repo-signout:hover:not(:disabled) {
-          color: #f08a92;
-          background: rgba(224,108,117,.14);
-          border-color: rgba(224,108,117,.62);
-          transform: translateY(-1px);
-        }
-        .repo-signout:disabled { opacity: .58; cursor: wait; }
         @media (max-width: 980px) {
           .repo-header-search:hover,
           .repo-header-search:focus-within { width: 220px; }
-          .repo-user-chip div { display: none; }
-          .repo-user-chip { padding-right: 5px; }
+          .account-menu--inline .account-trigger-copy { display: none; }
         }
       `}</style>
     </div>

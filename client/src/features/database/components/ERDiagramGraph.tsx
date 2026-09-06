@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import ReactFlow, { Background, Controls, MiniMap, useNodesState, useEdgesState, addEdge, MarkerType, Handle, Position } from 'reactflow';
 import type { Connection, Edge, NodeTypes } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { forceSimulation, forceManyBody, forceLink, forceCenter, forceCollide, forceX, forceY } from 'd3';
 
 interface SchemaColumn { name: string; type: string; nullable: boolean; isPrimary: boolean; }
 interface SchemaFK { column: string; referencedTable: string; referencedColumn: string; }
@@ -15,7 +16,7 @@ function TableNode({ data }: { data: any }) {
         <div style={{ padding: '7px 9px', fontWeight: 700, fontSize: 11, color: data.focused ? 'var(--accent-green,#00ff9d)' : 'var(--accent-purple,#a78bfa)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={data.tableName}>
           {data.tableName}
         </div>
-        <div style={{ padding: '0 9px 7px', color: 'var(--text-secondary,#94a3b8)', fontSize: 10 }}>
+        <div style={{ padding: '0 9px 7px', color: 'var(--t1)', fontSize: 10 }}>
           {data.columnCount} cols · {data.relationCount} rels
         </div>
         <Handle type="source" position={Position.Right} style={{ background: '#4d9fff', border: '2px solid #0f172a', width: 8, height: 8 }} />
@@ -33,9 +34,9 @@ function TableNode({ data }: { data: any }) {
           <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>
             {col.isPrimary ? '🔑' : data.fkCols?.has(col.name) ? '🔗' : ''}
           </span>
-          <span style={{ color: col.isPrimary ? 'var(--accent-green,#00ff9d)' : 'var(--text-primary,#e2e8f0)', fontWeight: col.isPrimary ? 600 : 400, flexGrow: 1 }}>{col.name}</span>
-          <span style={{ color: 'var(--text-secondary,#94a3b8)', fontSize: 10, flexShrink: 0 }}>{col.type}</span>
-          {col.nullable && <span style={{ color: 'var(--text-secondary,#64748b)', fontSize: 9 }}>?</span>}
+          <span style={{ color: col.isPrimary ? 'var(--accent-green,#00ff9d)' : 'var(--t0)', fontWeight: col.isPrimary ? 600 : 400, flexGrow: 1 }}>{col.name}</span>
+          <span style={{ color: 'var(--t1)', fontSize: 10, flexShrink: 0 }}>{col.type}</span>
+          {col.nullable && <span style={{ color: 'var(--t3)', fontSize: 9 }}>?</span>}
         </div>
       ))}
       <Handle type="source" position={Position.Right} style={{ background: '#4d9fff', border: '2px solid #0f172a', width: 10, height: 10 }} />
@@ -143,6 +144,42 @@ function layoutTables(tables: SchemaTable[], compact: boolean) {
       if (!byDepth.has(d)) byDepth.set(d, []);
       byDepth.get(d)!.push(name);
     });
+    Array.from(byDepth.values()).forEach(names => names.sort((a, b) => a.localeCompare(b)));
+
+    // Reduce edge crossings with a barycenter sweep (à la Sugiyama layout):
+    // repeatedly reorder each column by the average row-position of its
+    // neighbors in the column just placed, alternating left→right and
+    // right→left passes. Without this, a hub table referenced by dozens of
+    // others ends up with its children scattered in alphabetical order,
+    // forcing every edge to crisscross the whole canvas.
+    const rowIndex = new Map<string, number>();
+    const syncRowIndex = () => { byDepth.forEach(names => names.forEach((name, i) => rowIndex.set(name, i))); };
+    syncRowIndex();
+
+    function sweep(order: number[]) {
+      for (const d of order) {
+        const names = byDepth.get(d);
+        if (!names) continue;
+        const neighborCols = [byDepth.get(d - 1), byDepth.get(d + 1)].filter(Boolean) as string[][];
+        if (neighborCols.length === 0) continue;
+        const barycenter = new Map<string, number>();
+        names.forEach(name => {
+          const neighborRows: number[] = [];
+          (undirected.get(name) || new Set()).forEach(neighbor => {
+            const r = rowIndex.get(neighbor);
+            if (r !== undefined) neighborRows.push(r);
+          });
+          barycenter.set(name, neighborRows.length ? neighborRows.reduce((s, r) => s + r, 0) / neighborRows.length : rowIndex.get(name)!);
+        });
+        names.sort((a, b) => (barycenter.get(a)! - barycenter.get(b)!) || a.localeCompare(b));
+        syncRowIndex();
+      }
+    }
+    const depths = Array.from(byDepth.keys()).sort((a, b) => a - b);
+    for (let iter = 0; iter < 4; iter++) {
+      sweep(depths);
+      sweep([...depths].reverse());
+    }
 
     let componentRows = 1;
     Array.from(byDepth.entries()).forEach(([_d, names]) => {
@@ -150,7 +187,6 @@ function layoutTables(tables: SchemaTable[], compact: boolean) {
     });
 
     Array.from(byDepth.entries()).forEach(([d, names]) => {
-      names.sort((a, b) => a.localeCompare(b));
       names.forEach((name, row) => {
         positions.set(name, { x: d * COL_W, y: yOffset + row * ROW_H });
       });
@@ -170,12 +206,55 @@ function layoutTables(tables: SchemaTable[], compact: boolean) {
   return positions;
 }
 
+// Above this many visible nodes, prefer a force-directed layout over the
+// layered (column-by-depth) one above. The layered layout reads well for a
+// small, mostly hierarchical subgraph (e.g. a 1-hop focus view), but breaks
+// down for a full schema containing hub tables referenced by dozens of
+// others: every hub's children get crammed into one column regardless of
+// how many there are, forcing long crossing edges no amount of in-column
+// reordering can fix. A force simulation has no notion of columns — a hub
+// naturally ends up centered with its neighbors arranged around it.
+const FORCE_LAYOUT_THRESHOLD = 16;
+
+function layoutForceDirected(tables: SchemaTable[], compact: boolean) {
+  const nodeRadius = (compact ? 190 : 220) / 2 + 44;
+  const tableNames = new Set(tables.map(t => t.name));
+
+  const nodes = tables.map((t, i) => {
+    // Seed on a circle (rather than a single point) so the simulation has a
+    // sane starting gradient to descend instead of everything overlapping.
+    const angle = (i / tables.length) * Math.PI * 2;
+    const seedRadius = 220 + Math.sqrt(tables.length) * 46;
+    return { id: t.name, x: Math.cos(angle) * seedRadius, y: Math.sin(angle) * seedRadius };
+  });
+  const links = tables.flatMap(t => t.foreignKeys
+    .filter(fk => tableNames.has(fk.referencedTable))
+    .map(fk => ({ source: t.name, target: fk.referencedTable })));
+
+  const simulation = forceSimulation(nodes as any)
+    .force('charge', forceManyBody().strength(-900))
+    .force('link', forceLink(links as any).id((d: any) => d.id).distance(230).strength(0.35))
+    .force('collide', forceCollide(nodeRadius))
+    .force('x', forceX(0).strength(0.02))
+    .force('y', forceY(0).strength(0.02))
+    .force('center', forceCenter(0, 0))
+    .stop();
+
+  for (let i = 0; i < 400; i++) simulation.tick();
+
+  const positions = new Map<string, { x: number; y: number }>();
+  (nodes as any[]).forEach(n => positions.set(n.id, { x: n.x, y: n.y }));
+  return positions;
+}
+
 function buildFlow(tables: SchemaTable[], selectedTable?: string | null) {
   const scopedTables = filterFocusedTables(tables, selectedTable);
   const relationTotal = tables.reduce((s, t) => s + t.foreignKeys.length, 0);
   const compact = tables.length > LARGE_SCHEMA_TABLES || relationTotal > LARGE_SCHEMA_EDGES;
   const visibleIds = new Set(scopedTables.map(t => t.name));
-  const positions = layoutTables(scopedTables, compact);
+  const positions = scopedTables.length > FORCE_LAYOUT_THRESHOLD
+    ? layoutForceDirected(scopedTables, compact)
+    : layoutTables(scopedTables, compact);
 
   const nodes = scopedTables.map((t) => {
     const fkCols = new Set(t.foreignKeys.map(fk => fk.column));
@@ -188,22 +267,32 @@ function buildFlow(tables: SchemaTable[], selectedTable?: string | null) {
     };
   });
 
+  // One calm neutral for the whole graph rather than cycling through 8
+  // accent colors by source-table index — with 20+ tables that just reads as
+  // rainbow noise. The only edges that get an accent color and animation are
+  // the ones actually touching the focused table, so the eye has something
+  // to follow instead of untangling a hairball.
+  const DEFAULT_EDGE_COLOR = 'rgba(148, 163, 184, 0.32)';
+  const FOCUS_EDGE_COLOR = '#61afef';
+
   const edgeSet = new Set<string>();
   const edges: any[] = [];
-  scopedTables.forEach((t, ti) => {
+  scopedTables.forEach((t) => {
     t.foreignKeys.forEach((fk) => {
       if (!visibleIds.has(fk.referencedTable)) return;
       const id = `${t.name}.${fk.column}->${fk.referencedTable}.${fk.referencedColumn}`;
       if (edgeSet.has(id)) return;
       edgeSet.add(id);
+      const isFocusEdge = !!selectedTable && (t.name === selectedTable || fk.referencedTable === selectedTable);
+      const color = isFocusEdge ? FOCUS_EDGE_COLOR : DEFAULT_EDGE_COLOR;
       edges.push({
         id,
         source: t.name,
         target: fk.referencedTable,
         label: compact ? undefined : `${fk.column} -> ${fk.referencedColumn}`,
-        animated: !compact,
-        markerEnd: { type: MarkerType.ArrowClosed, color: ACCENT_COLORS[ti % ACCENT_COLORS.length] },
-        style: { stroke: ACCENT_COLORS[ti % ACCENT_COLORS.length], strokeWidth: 1.5 },
+        animated: isFocusEdge,
+        markerEnd: { type: MarkerType.ArrowClosed, color },
+        style: { stroke: color, strokeWidth: isFocusEdge ? 2 : 1 },
         labelStyle: { fill: '#94a3b8', fontSize: 9, fontFamily: 'JetBrains Mono, monospace' },
         labelBgStyle: { fill: '#0f172a', fillOpacity: 0.85 },
       });
@@ -235,10 +324,10 @@ export default function ERDiagramGraph({ schema, selectedTable, isRealSchema }: 
   }, [flow.nodes, flow.edges, setNodes, setEdges]);
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: 500, background: 'var(--bg-main,#0d0d1a)', borderRadius: 12, border: '1px solid var(--border-glass)', overflow: 'hidden', position: 'absolute', inset: 0 }}>
+    <div style={{ width: '100%', height: '100%', minHeight: 500, background: 'var(--bg0)', borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', position: 'absolute', inset: 0 }}>
       <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} fitView onlyRenderVisibleElements>
         {!flow.compact && <MiniMap nodeColor={n => ACCENT_COLORS[nodes.findIndex(x => x.id === n.id) % ACCENT_COLORS.length]} style={{ background: 'var(--bg-secondary)' }} maskColor="rgba(0,0,0,0.5)" />}
-        <Controls style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)' }} />
+        <Controls style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }} />
         <Background color="rgba(255,255,255,0.04)" gap={20} />
       </ReactFlow>
     </div>

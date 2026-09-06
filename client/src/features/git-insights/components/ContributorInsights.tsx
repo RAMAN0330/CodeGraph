@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
-const AUTHOR_COLORS = ['var(--color-success)','var(--teal-600)','var(--color-warning)','var(--chart-purple)','var(--color-danger)','var(--teal-500)','var(--color-warning)','var(--chart-purple)'];
+const AUTHOR_COLORS = ['var(--green)', 'var(--acc)', 'var(--orange)', 'var(--purple)', 'var(--red)', 'var(--cyan)', 'var(--orange)', 'var(--purple)'];
 
 interface Contributor {
   login: string;
@@ -42,84 +42,44 @@ export default function ContributorInsights({ owner, repo, token, folders }: Con
     return () => { cancelled = true; };
   }, [owner, repo, token]);
 
-  const containerStyle: React.CSSProperties = {
-    background: 'var(--surface-card)',
-    border: '1px solid var(--border-subtle)',
-    borderRadius: 8,
-    padding: 24,
-    color: 'var(--text-primary)',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  };
-
   if (loading) return (
-    <div style={containerStyle}>
-      <p style={{ color: 'var(--text-muted)' }}>Loading contributors...</p>
-    </div>
+    <div className="gi-page"><p className="gi-note">Loading contributors…</p></div>
   );
 
   if (error) return (
-    <div style={containerStyle}>
-      <p style={{ color: 'var(--color-danger)' }}>Error: {error}</p>
-    </div>
+    <div className="gi-page"><p className="gi-note" style={{ color: 'var(--red)' }}>Error: {error}</p></div>
   );
 
   if (!contributors.length) return (
-    <div style={containerStyle}>
-      <p style={{ color: 'var(--text-muted)' }}>No contributors found.</p>
-    </div>
+    <div className="gi-page"><p className="gi-note">No contributors found.</p></div>
   );
 
   const maxContributions = contributors[0]?.contributions || 1;
 
   return (
-    <div style={containerStyle}>
-      <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>
-        Contributor Insights
-      </h2>
+    <div className="gi-page">
+      <h1>Contributor Insights</h1>
 
-      {/* Contributors list */}
       <div style={{ marginBottom: 32 }}>
         {contributors.map((c, i) => {
           const color = AUTHOR_COLORS[i % AUTHOR_COLORS.length];
           const barWidth = Math.round((c.contributions / maxContributions) * 100);
           return (
-            <div key={c.login} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              marginBottom: 12,
-            }}>
-              {/* Avatar circle */}
+            <div key={c.login} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <div style={{
-                width: 32,
-                height: 32,
-                borderRadius: '50%',
-                background: color,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                fontSize: 14,
-                color: 'var(--text-primary)',
-                flexShrink: 0,
+                width: 32, height: 32, borderRadius: '50%', background: color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, fontSize: 14, color: 'var(--bg0)', flexShrink: 0,
               }}>
                 {c.login[0].toUpperCase()}
               </div>
-
-              {/* Login + bar */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontWeight: 500, fontSize: 14, color: 'var(--text-primary)' }}>{c.login}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.contributions} commits</span>
+                  <span style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--t0)' }}>{c.login}</span>
+                  <span style={{ fontSize: 11, color: 'var(--t3)' }}>{c.contributions} commits</span>
                 </div>
-                <div style={{ background: 'var(--surface-subtle)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${barWidth}%`,
-                    height: '100%',
-                    background: color,
-                    borderRadius: 4,
-                    transition: 'width 0.3s ease',
-                  }} />
+                <div style={{ background: 'var(--bg3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                  <div style={{ width: `${barWidth}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.3s ease' }} />
                 </div>
               </div>
             </div>
@@ -127,17 +87,16 @@ export default function ContributorInsights({ owner, repo, token, folders }: Con
         })}
       </div>
 
-      {/* Folder → Top Author table */}
       {folders.length > 0 && (
         <div>
-          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 11, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Folder Ownership (estimated)
           </h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Folder</th>
-                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 500 }}>Top Author</th>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--t3)', fontWeight: 600 }}>Folder</th>
+                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--t3)', fontWeight: 600 }}>Top Author</th>
               </tr>
             </thead>
             <tbody>
@@ -145,28 +104,20 @@ export default function ContributorInsights({ owner, repo, token, folders }: Con
                 const contributor = contributors[idx % contributors.length];
                 const color = AUTHOR_COLORS[idx % AUTHOR_COLORS.length];
                 return (
-                  <tr key={folder} style={{ borderBottom: '1px solid var(--surface-subtle)' }}>
-                    <td style={{ padding: '8px 8px', color: 'var(--text-primary)', fontFamily: 'monospace' }}>
+                  <tr key={folder} style={{ borderBottom: '1px solid var(--border2)' }}>
+                    <td style={{ padding: '8px', color: 'var(--t1)', fontFamily: "'JetBrains Mono',monospace" }}>
                       {folder}
                     </td>
-                    <td style={{ padding: '8px 8px' }}>
+                    <td style={{ padding: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: '50%',
-                          background: color,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: 'var(--text-primary)',
-                          flexShrink: 0,
+                          width: 20, height: 20, borderRadius: '50%', background: color,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, fontWeight: 700, color: 'var(--bg0)', flexShrink: 0,
                         }}>
                           {contributor.login[0].toUpperCase()}
                         </div>
-                        <span style={{ color: 'var(--text-muted)' }}>{contributor.login}</span>
+                        <span style={{ color: 'var(--t2)' }}>{contributor.login}</span>
                       </div>
                     </td>
                   </tr>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
-const AUTHOR_COLORS = ['var(--color-success)','var(--teal-600)','var(--color-warning)','var(--chart-purple)','var(--color-danger)','var(--teal-500)','var(--color-warning)','var(--chart-purple)'];
-const AUTHOR_BG    = ['var(--surface-subtle)','var(--surface-subtle)','var(--surface-subtle)','var(--surface-subtle)','var(--surface-subtle)','var(--surface-subtle)','var(--surface-subtle)','var(--surface-subtle)'];
+const AUTHOR_COLORS = ['var(--green)','var(--acc2)','var(--orange)','var(--purple)','var(--red)','var(--acc)','var(--orange)','var(--purple)'];
+const AUTHOR_BG    = ['var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)'];
 
 function hashToColorIndex(login: string): number {
   return login.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AUTHOR_COLORS.length;
@@ -17,8 +17,8 @@ const OWNERSHIP_STYLE = `
   to   { opacity: 1; transform: translateY(0); }
 }
 .co-card:hover {
-  border-color: var(--teal-500) !important;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--teal-500) 13%, transparent), 0 6px 20px rgba(0,0,0,.27) !important;
+  border-color: var(--acc) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--acc) 13%, transparent), 0 6px 20px rgba(0,0,0,.27) !important;
   transform: translateY(-2px) scale(1.01) !important;
 }
 `;
@@ -48,7 +48,7 @@ interface CodeOwnershipMapProps {
 function ShimmerBlock({ style }: { style?: React.CSSProperties }) {
   return (
     <div style={{
-      background: 'linear-gradient(90deg, var(--surface-card) 25%, var(--surface-subtle) 50%, var(--surface-card) 75%)',
+      background: 'linear-gradient(90deg, var(--bg1) 25%, var(--bg3) 50%, var(--bg1) 75%)',
       backgroundSize: '600px 100%',
       animation: 'shimmer 1.4s infinite linear',
       borderRadius: 8,
@@ -128,18 +128,9 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
     return () => { cancelled = true; };
   }, [owner, repo, token, files]);
 
-  const containerStyle: React.CSSProperties = {
-    background: 'var(--bg-canvas)',
-    borderRadius: 12,
-    padding: '28px 28px 32px',
-    color: 'var(--text-primary)',
-    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    minHeight: 260,
-  };
-
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div style={containerStyle}>
+    <div className="gi-page">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
         <ShimmerBlock style={{ width: 200, height: 28 }} />
         <ShimmerBlock style={{ width: 70, height: 22, borderRadius: 20 }} />
@@ -154,18 +145,18 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
 
   // ── Error ────────────────────────────────────────────────────────────────────
   if (error) return (
-    <div style={{ ...containerStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+    <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
       <div style={{ fontSize: 36 }}>⚠️</div>
-      <div style={{ fontSize: 15, color: 'var(--color-danger)', fontWeight: 600 }}>Failed to build ownership map</div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 360, textAlign: 'center' }}>{error}</div>
+      <div style={{ fontSize: 15, color: 'var(--red)', fontWeight: 600 }}>Failed to build ownership map</div>
+      <div style={{ fontSize: 13, color: 'var(--t3)', maxWidth: 360, textAlign: 'center' }}>{error}</div>
     </div>
   );
 
   // ── Empty ────────────────────────────────────────────────────────────────────
   if (!ownership.length) return (
-    <div style={{ ...containerStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+    <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
       <div style={{ fontSize: 36 }}>📂</div>
-      <div style={{ fontSize: 15, color: 'var(--text-muted)' }}>No folder ownership data available.</div>
+      <div style={{ fontSize: 15, color: 'var(--t3)' }}>No folder ownership data available.</div>
     </div>
   );
 
@@ -182,23 +173,23 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={containerStyle}>
+    <div className="gi-page">
 
       {/* Page header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--t0)', letterSpacing: '-0.3px' }}>
           Code Ownership
         </h2>
         <span style={{
           fontSize: 12, fontWeight: 600,
-          background: 'var(--surface-subtle)', color: 'var(--text-muted)',
-          border: '1px solid var(--border-subtle)',
+          background: 'var(--bg3)', color: 'var(--t3)',
+          border: '1px solid var(--border)',
           borderRadius: 20, padding: '3px 10px',
         }}>
           {files.length} files
         </span>
       </div>
-      <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+      <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--t3)', lineHeight: 1.5 }}>
         Top author per folder based on most recent commit. Card width scales with file count.
       </p>
 
@@ -241,7 +232,7 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
                 fontFamily: '"JetBrains Mono", "Fira Code", monospace',
                 fontSize: 13,
                 fontWeight: 600,
-                color: 'var(--color-info)',
+                color: 'var(--blue)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -255,12 +246,12 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
                   width: 28, height: 28, borderRadius: '50%',
                   background: color,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0,
+                  fontSize: 10, fontWeight: 700, color: 'var(--t0)', flexShrink: 0,
                   boxShadow: `0 0 6px ${color}66`,
                 }}>
                   {initials}
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 12, color: 'var(--t1)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {ownerLogin}
                 </span>
                 <span style={{
@@ -278,7 +269,7 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
               <div>
                 <div style={{
                   height: 4, borderRadius: 4,
-                  background: 'var(--surface-subtle)',
+                  background: 'var(--bg3)',
                   overflow: 'hidden',
                 }}>
                   <div style={{
@@ -289,7 +280,7 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
                     transition: 'width 0.6s ease',
                   }} />
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 4 }}>
                   {pct}% of tracked files
                 </div>
               </div>
@@ -300,14 +291,14 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
 
       {/* Author legend */}
       <div style={{
-        borderTop: '1px solid var(--surface-subtle)',
+        borderTop: '1px solid var(--bg3)',
         paddingTop: 18,
         display: 'flex',
         flexWrap: 'wrap',
         gap: 8,
         alignItems: 'center',
       }}>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.7px', marginRight: 4 }}>
+        <span style={{ fontSize: 11, color: 'var(--t3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.7px', marginRight: 4 }}>
           Authors
         </span>
         {legendAuthors.map(([login, count]) => {
@@ -316,8 +307,8 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
           return (
             <div key={login} style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              background: 'var(--surface-card)',
-              border: '1px solid var(--border-subtle)',
+              background: 'var(--bg1)',
+              border: '1px solid var(--border)',
               borderRadius: 20,
               padding: '4px 10px 4px 6px',
             }}>
@@ -326,8 +317,8 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
                 background: color, flexShrink: 0,
                 boxShadow: `0 0 5px ${color}88`,
               }} />
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{login}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{count} files</span>
+              <span style={{ fontSize: 12, color: 'var(--t1)', fontWeight: 500 }}>{login}</span>
+              <span style={{ fontSize: 11, color: 'var(--t3)' }}>{count} files</span>
             </div>
           );
         })}

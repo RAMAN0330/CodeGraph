@@ -88,6 +88,55 @@ func TestAnalysisProxy(t *testing.T) {
 	}
 }
 
+func TestOrganizationRoutesProxy(t *testing.T) {
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"path": r.URL.Path, "method": r.Method})
+	}))
+	defer legacy.Close()
+	api := New(testConfig(legacy.URL))
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/projects"},
+		{http.MethodPost, "/api/projects"},
+		{http.MethodDelete, "/api/projects/proj-1"},
+		{http.MethodPost, "/api/projects/proj-1/members"},
+		{http.MethodDelete, "/api/projects/proj-1/members/mem-1"},
+		{http.MethodPost, "/api/workspaces"},
+		{http.MethodDelete, "/api/workspaces/ws-1"},
+	} {
+		request := httptest.NewRequest(tc.method, tc.path, nil)
+		response := httptest.NewRecorder()
+		api.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s %s: expected proxied 200, got %d", tc.method, tc.path, response.Code)
+		}
+	}
+}
+
+func TestAnalysisPollingProxy(t *testing.T) {
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"path": r.URL.Path, "method": r.Method})
+	}))
+	defer legacy.Close()
+	api := New(testConfig(legacy.URL))
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/analysis/octocat/hello-world"},
+		{http.MethodPost, "/api/analysis/octocat/hello-world/refresh"},
+	} {
+		request := httptest.NewRequest(tc.method, tc.path, nil)
+		response := httptest.NewRecorder()
+		api.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s %s: expected proxied 200, got %d", tc.method, tc.path, response.Code)
+		}
+	}
+}
+
 func TestArchitectureEnrichmentProxy(t *testing.T) {
 	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/architecture/enrich" || r.Method != http.MethodPost {

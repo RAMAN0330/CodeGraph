@@ -1,0 +1,32 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "montserrat",
+        "createdAt": "2026-09-05T17:55:48.825Z",
+        "reason": "user confirmed: explicitly requested Montserrat as the platform-wide font in this conversation"
+      },
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "client/src/features/organization/pages/OrganizationPages.css"
+        ],
+        "createdAt": "2026-09-05T17:55:55.513Z",
+        "reason": "matches the app's established dot/line-grid canvas motif already used site-wide (e.g. .workspace-shell in client/src/index.css), not a one-off generated artifact"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "client/src/features/organization/pages/OrganizationPages.css"
+        ],
+        "createdAt": "2026-09-05T19:39:39.905Z",
+        "reason": "pre-existing icon-to-pill hover-expand buttons (workspace-create-button, project-create-pill); small contained width transition on a tiny element, not page layout thrash, and not code touched by this session's theme-color change"
+      }
+    ]
+  }
+}

@@ -1,88 +1,77 @@
-export const organizationStorageKey = 'codegraph.organization.v1';
+import { appConfig } from '../../../app/config';
 
-export type Workspace = { id: string; name: string; createdAt: string };
-export type Member = { id: string; email: string; invitedAt: string };
+export type Workspace = { id: number; name: string; createdAt: string };
+export type Member = { id: number; email: string; invitedAt: string };
+export type ProjectType = 'codebase' | 'database';
+export type DbConnectionInput = { dbType: 'postgres' | 'mysql'; host: string; port: string | number; database: string; user: string; password: string; ssl?: boolean };
+export type DbConnectionSummary = Omit<DbConnectionInput, 'password'>;
 export type Project = {
-  id: string;
-  workspaceId: string;
+  id: number;
+  workspaceId: number;
   name: string;
   instructions: string;
-  repositoryFullName: string;
+  projectType: ProjectType;
+  repositoryFullName: string | null;
+  dbConnectionSummary: DbConnectionSummary | null;
   createdAt: string;
   members: Member[];
 };
+export type CreateProjectInput = {
+  workspaceId: number;
+  name: string;
+  instructions: string;
+  projectType: ProjectType;
+  repositoryFullName?: string;
+  dbConnection?: DbConnectionInput;
+};
 export type OrganizationState = { workspaces: Workspace[]; projects: Project[] };
 
-type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 const emptyState = (): OrganizationState => ({ workspaces: [], projects: [] });
-const repositoryPattern = /^[^/\s]+\/[^/\s]+$/;
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const id = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-function browserStorage(): StorageLike | undefined {
-  try { return typeof window === 'undefined' ? undefined : window.localStorage; } catch { return undefined; }
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${appConfig.apiUrl}${path}`, {
+    credentials: 'include',
+    headers: options?.body ? { 'Content-Type': 'application/json' } : undefined,
+    ...options,
+  });
+  if (response.status === 204) return undefined as T;
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error((data && data.error) || 'Request failed.');
+  return data as T;
 }
 
-export function createOrganizationStore(storage = browserStorage()) {
-  const load = (): OrganizationState => {
-    if (!storage) return emptyState();
-    try {
-      const value = JSON.parse(storage.getItem(organizationStorageKey) ?? '');
-      if (Array.isArray(value?.workspaces) && Array.isArray(value?.projects)) {
-        return { ...value, projects: value.projects.map((project: Project) => ({ ...project, members: Array.isArray(project.members) ? project.members : [] })) };
-      }
-    } catch { /* browser storage is optional */ }
-    return emptyState();
-  };
-  const save = (state: OrganizationState) => {
-    try { storage?.setItem(organizationStorageKey, JSON.stringify(state)); } catch { /* keep the current in-memory interaction usable */ }
-    return state;
-  };
+export function createOrganizationStore() {
   return {
-    load,
-    createWorkspace(name: string) {
-      const trimmed = name.trim();
-      if (!trimmed) throw new Error('Workspace name is required.');
-      const workspace: Workspace = { id: id(), name: trimmed, createdAt: new Date().toISOString() };
-      save({ ...load(), workspaces: [workspace, ...load().workspaces] });
-      return workspace;
+    async load(): Promise<OrganizationState> {
+      try {
+        return await request<OrganizationState>('/api/projects');
+      } catch {
+        return emptyState();
+      }
     },
-    createProject(input: Omit<Project, 'id' | 'createdAt' | 'members'>) {
-      const name = input.name.trim();
-      const repositoryFullName = input.repositoryFullName.trim();
-      if (!name) throw new Error('Project name is required.');
-      if (!repositoryPattern.test(repositoryFullName)) throw new Error('Repository must use owner/repository.');
-      const state = load();
-      if (!state.workspaces.some(workspace => workspace.id === input.workspaceId)) throw new Error('Workspace was not found.');
-      const project: Project = { ...input, name, repositoryFullName, instructions: input.instructions.trim(), id: id(), createdAt: new Date().toISOString(), members: [] };
-      save({ ...state, projects: [project, ...state.projects] });
-      return project;
+    createWorkspace(name: string): Promise<Workspace> {
+      return request<Workspace>('/api/workspaces', { method: 'POST', body: JSON.stringify({ name }) });
     },
-    removeProject(projectId: string) {
-      const state = load();
-      save({ ...state, projects: state.projects.filter(project => project.id !== projectId) });
+    createProject(input: CreateProjectInput): Promise<Project> {
+      return request<Project>('/api/projects', { method: 'POST', body: JSON.stringify(input) });
     },
-    inviteMember(projectId: string, email: string) {
-      const trimmed = email.trim();
-      if (!emailPattern.test(trimmed)) throw new Error('Enter a valid email address.');
-      const state = load();
-      const project = state.projects.find(item => item.id === projectId);
-      if (!project) throw new Error('Project was not found.');
-      if (project.members.some(member => member.email.toLowerCase() === trimmed.toLowerCase())) throw new Error('That person is already a member.');
-      const member: Member = { id: id(), email: trimmed, invitedAt: new Date().toISOString() };
-      save({ ...state, projects: state.projects.map(item => item.id === projectId ? { ...item, members: [...item.members, member] } : item) });
-      return member;
+    removeProject(projectId: number): Promise<void> {
+      return request<void>(`/api/projects/${projectId}`, { method: 'DELETE' });
     },
-    removeMember(projectId: string, memberId: string) {
-      const state = load();
-      save({ ...state, projects: state.projects.map(item => item.id === projectId ? { ...item, members: item.members.filter(member => member.id !== memberId) } : item) });
+    fetchProjectSchema(projectId: number): Promise<{ success: boolean; schema?: any; error?: string }> {
+      return request(`/api/projects/${projectId}/schema`, { method: 'POST' });
     },
-    removeWorkspace(workspaceId: string) {
-      const state = load();
-      save({
-        workspaces: state.workspaces.filter(workspace => workspace.id !== workspaceId),
-        projects: state.projects.filter(project => project.workspaceId !== workspaceId),
-      });
+    updateProjectDbConnection(projectId: number, dbConnection: DbConnectionInput): Promise<DbConnectionSummary> {
+      return request<DbConnectionSummary>(`/api/projects/${projectId}/db-connection`, { method: 'PUT', body: JSON.stringify({ dbConnection }) });
+    },
+    inviteMember(projectId: number, email: string): Promise<Member> {
+      return request<Member>(`/api/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ email }) });
+    },
+    removeMember(projectId: number, memberId: number): Promise<void> {
+      return request<void>(`/api/projects/${projectId}/members/${memberId}`, { method: 'DELETE' });
+    },
+    removeWorkspace(workspaceId: number): Promise<void> {
+      return request<void>(`/api/workspaces/${workspaceId}`, { method: 'DELETE' });
     },
   };
 }

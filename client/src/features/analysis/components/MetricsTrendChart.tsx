@@ -12,11 +12,11 @@ interface Props {
 type MetricKey = 'healthScore' | 'securityCount' | 'fileCount' | 'functionCount' | 'testRatio';
 
 const METRICS: { key: MetricKey; label: string; color: string }[] = [
-  { key: 'healthScore',    label: 'Health Score',    color: 'var(--color-success)' },
-  { key: 'securityCount',  label: 'Security Issues', color: 'var(--color-danger)' },
-  { key: 'fileCount',      label: 'File Count',      color: 'var(--teal-500)' },
-  { key: 'functionCount',  label: 'Functions',       color: 'var(--color-warning)' },
-  { key: 'testRatio',      label: 'Test Ratio %',    color: 'var(--chart-purple)' },
+  { key: 'healthScore',    label: 'Health Score',    color: 'var(--green)' },
+  { key: 'securityCount',  label: 'Security Issues', color: 'var(--red)' },
+  { key: 'fileCount',      label: 'File Count',      color: 'var(--acc)' },
+  { key: 'functionCount',  label: 'Functions',       color: 'var(--orange)' },
+  { key: 'testRatio',      label: 'Test Ratio %',    color: 'var(--purple)' },
 ];
 
 function ActivitySparklines({ points }: { points: ActivityPoint[] }) {
@@ -52,24 +52,24 @@ function ActivitySparklines({ points }: { points: ActivityPoint[] }) {
 
   return (
     <div style={{ marginBottom: '28px' }}>
-      <h3 style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px' }}>
+      <h3 style={{ color: 'var(--t0)', fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px' }}>
         Activity — Last {points.length} Weeks
       </h3>
       <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '4px' }}>Commits / week</div>
-          <Bars values={points.map(p => p.commitCount)} max={maxC} color="var(--teal-500)" />
+          <div style={{ color: 'var(--t3)', fontSize: '0.75rem', marginBottom: '4px' }}>Commits / week</div>
+          <Bars values={points.map(p => p.commitCount)} max={maxC} color="var(--acc)" />
           <div style={{ display: 'flex', gap: gap, marginTop: '4px' }}>
             {points.map((p, i) => (
-              <div key={i} style={{ width: barW, fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center', overflow: 'hidden' }}>
+              <div key={i} style={{ width: barW, fontSize: '0.6rem', color: 'var(--t3)', textAlign: 'center', overflow: 'hidden' }}>
                 {p.weekLabel.split(' ')[1]}
               </div>
             ))}
           </div>
         </div>
         <div>
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '4px' }}>Authors / week</div>
-          <Bars values={points.map(p => p.authorCount)} max={maxA} color="var(--chart-purple)" />
+          <div style={{ color: 'var(--t3)', fontSize: '0.75rem', marginBottom: '4px' }}>Authors / week</div>
+          <Bars values={points.map(p => p.authorCount)} max={maxA} color="var(--purple)" />
         </div>
       </div>
     </div>
@@ -115,7 +115,7 @@ function QualityChart({
       .attr('x2', (d: number) => x(d))
       .attr('y1', 0)
       .attr('y2', h)
-      .attr('stroke', 'var(--surface-subtle)')
+      .attr('stroke', 'var(--bg3)')
       .attr('stroke-dasharray', '3,3');
 
     svg.append('g')
@@ -126,7 +126,7 @@ function QualityChart({
       .attr('x', (_: any, i: number) => x(i))
       .attr('y', 16)
       .attr('text-anchor', 'middle')
-      .attr('fill', 'var(--text-muted)')
+      .attr('fill', 'var(--t3)')
       .attr('font-size', '0.68rem')
       .text((d: TrendSnapshot) => d.shortSha);
 
@@ -139,7 +139,7 @@ function QualityChart({
       .attr('x', (_: any, i: number) => x(i))
       .attr('y', 28)
       .attr('text-anchor', 'middle')
-      .attr('fill', 'var(--text-muted)')
+      .attr('fill', 'var(--t3)')
       .attr('font-size', '0.62rem')
       .text((d: TrendSnapshot) => d.date ? new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
 
@@ -173,7 +173,7 @@ function QualityChart({
         .attr('cy', (d: TrendSnapshot) => y(d[metric.key] as number))
         .attr('r', 5)
         .attr('fill', metric.color)
-        .attr('stroke', 'var(--bg-canvas)')
+        .attr('stroke', 'var(--bg1)')
         .attr('stroke-width', 2)
         .style('cursor', 'pointer')
         .on('mouseenter', function(event: MouseEvent, d: TrendSnapshot) {
@@ -190,7 +190,7 @@ function QualityChart({
   }, [snapshots, activeMetrics, onCommitClick]);
 
   if (snapshots.length < 2) {
-    return <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Not enough commit history to show quality trends (need ≥ 2 commits).</p>;
+    return <p style={{ color: 'var(--t3)', fontSize: '0.85rem' }}>Not enough commit history to show quality trends (need ≥ 2 commits).</p>;
   }
 
   return (
@@ -201,22 +201,22 @@ function QualityChart({
           position: 'absolute',
           left: tooltip.x + 12,
           top: tooltip.y,
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-subtle)',
+          background: 'var(--bg1)',
+          border: '1px solid var(--border)',
           borderRadius: '8px',
           padding: '10px 14px',
           fontSize: '0.78rem',
-          color: 'var(--text-primary)',
+          color: 'var(--t0)',
           pointerEvents: 'none',
           zIndex: 100,
           minWidth: '200px',
           boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
         }}>
-          <div style={{ fontFamily: 'monospace', color: 'var(--teal-500)', marginBottom: '4px' }}>{tooltip.snap.shortSha}</div>
-          <div style={{ color: 'var(--text-muted)', marginBottom: '2px', fontSize: '0.72rem' }}>
+          <div style={{ fontFamily: 'monospace', color: 'var(--acc)', marginBottom: '4px' }}>{tooltip.snap.shortSha}</div>
+          <div style={{ color: 'var(--t3)', marginBottom: '2px', fontSize: '0.72rem' }}>
             {tooltip.snap.date ? new Date(tooltip.snap.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''} · {tooltip.snap.author}
           </div>
-          <div style={{ color: 'var(--text-secondary)', marginBottom: '8px', fontStyle: 'italic', fontSize: '0.72rem' }}>"{tooltip.snap.message}"</div>
+          <div style={{ color: 'var(--t1)', marginBottom: '8px', fontStyle: 'italic', fontSize: '0.72rem' }}>"{tooltip.snap.message}"</div>
           {METRICS.map(m => (
             <div key={m.key} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', marginBottom: '2px' }}>
               <span style={{ color: m.color }}>{m.label}</span>
@@ -233,9 +233,9 @@ function SkeletonChart() {
   return (
     <div style={{ padding: '16px 0' }}>
       {[1, 2, 3].map(i => (
-        <div key={i} style={{ height: 12, background: 'var(--surface-subtle)', borderRadius: 4, marginBottom: 10, width: `${60 + i * 10}%` }} />
+        <div key={i} style={{ height: 12, background: 'var(--bg3)', borderRadius: 4, marginBottom: 10, width: `${60 + i * 10}%` }} />
       ))}
-      <div style={{ height: 180, background: 'var(--surface-card)', borderRadius: 8, marginTop: 12 }} />
+      <div style={{ height: 180, background: 'var(--bg1)', borderRadius: 8, marginTop: 12 }} />
     </div>
   );
 }
@@ -258,15 +258,15 @@ export default function MetricsTrendChart({ snapshots, activityPoints, loading, 
   }
 
   return (
-    <div style={{ padding: '24px', marginTop: '8px' }}>
-      <h2 style={{ color: 'var(--text-primary)', marginBottom: '20px' }}>Trends</h2>
+    <div className="gi-page">
+      <h1 style={{ marginBottom: '20px' }}>Trends</h1>
 
       <ActivitySparklines points={activityPoints} />
 
-      <div style={{ borderTop: '1px solid var(--surface-subtle)', paddingTop: '20px' }}>
-        <h3 style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ borderTop: '1px solid var(--bg3)', paddingTop: '20px' }}>
+        <h3 style={{ color: 'var(--t0)', fontSize: '0.9rem', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           Quality — Last {loading ? '…' : snapshots.length} Commits
-          {loading && <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 400 }}>analysing…</span>}
+          {loading && <span style={{ color: 'var(--t3)', fontSize: '0.78rem', fontWeight: 400 }}>analysing…</span>}
         </h3>
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
@@ -278,8 +278,8 @@ export default function MetricsTrendChart({ snapshots, activityPoints, loading, 
                 onClick={() => toggleMetric(m.key)}
                 style={{
                   background: on ? `${m.color}22` : 'transparent',
-                  border: `1px solid ${on ? m.color : 'var(--border-subtle)'}`,
-                  color: on ? m.color : 'var(--text-muted)',
+                  border: `1px solid ${on ? m.color : 'var(--border)'}`,
+                  color: on ? m.color : 'var(--t3)',
                   borderRadius: '20px',
                   padding: '3px 12px',
                   fontSize: '0.78rem',

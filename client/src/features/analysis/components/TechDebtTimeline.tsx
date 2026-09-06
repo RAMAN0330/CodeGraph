@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 
 interface DataPoint {
@@ -135,7 +135,7 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
 
     // Grid lines
     g.append('g')
-      .attr('stroke', 'var(--surface-subtle)')
+      .attr('stroke', 'var(--bg3)')
       .attr('stroke-dasharray', '4,4')
       .call(d3.axisLeft(yScale).ticks(4).tickSize(-innerW).tickFormat(() => ''))
       .call((a) => a.select('.domain').remove());
@@ -148,17 +148,17 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
         return pt ? pt.sha7 : '';
       }))
       .call((a) => {
-        a.select('.domain').attr('stroke', 'var(--border-subtle)');
-        a.selectAll('text').attr('fill', 'var(--text-muted)').attr('font-size', 10).attr('transform', 'rotate(-35)').attr('text-anchor', 'end');
-        a.selectAll('.tick line').attr('stroke', 'var(--border-subtle)');
+        a.select('.domain').attr('stroke', 'var(--border)');
+        a.selectAll('text').attr('fill', 'var(--t3)').attr('font-size', 10).attr('transform', 'rotate(-35)').attr('text-anchor', 'end');
+        a.selectAll('.tick line').attr('stroke', 'var(--border)');
       });
 
     g.append('g')
       .call(d3.axisLeft(yScale).ticks(4))
       .call((a) => {
-        a.select('.domain').attr('stroke', 'var(--border-subtle)');
-        a.selectAll('text').attr('fill', 'var(--text-muted)').attr('font-size', 10);
-        a.selectAll('.tick line').attr('stroke', 'var(--border-subtle)');
+        a.select('.domain').attr('stroke', 'var(--border)');
+        a.selectAll('text').attr('fill', 'var(--t3)').attr('font-size', 10);
+        a.selectAll('.tick line').attr('stroke', 'var(--border)');
       });
 
     // Line factory
@@ -169,9 +169,9 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
         .curve(d3.curveMonotoneX);
 
     const lines: { key: keyof DataPoint; color: string; label: string }[] = [
-      { key: 'totalFiles', color: 'var(--teal-500)', label: 'Total Files' },
-      { key: 'testFiles',  color: 'var(--color-success)', label: 'Test Files' },
-      { key: 'debtFiles',  color: 'var(--color-warning)', label: 'Debt Files' },
+      { key: 'totalFiles', color: 'var(--acc)', label: 'Total Files' },
+      { key: 'testFiles',  color: 'var(--green)', label: 'Test Files' },
+      { key: 'debtFiles',  color: 'var(--orange)', label: 'Debt Files' },
     ];
 
     for (const { key, color } of lines) {
@@ -190,50 +190,39 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
         .attr('cx', (d) => xScale(d.index))
         .attr('cy', (d) => yScale(d[key] as number))
         .attr('r', (d) => d.isCurrent ? 6 : 3)
-        .attr('fill', (d) => d.isCurrent ? 'var(--text-primary)' : color)
+        .attr('fill', (d) => d.isCurrent ? 'var(--t0)' : color)
         .attr('stroke', color)
         .attr('stroke-width', (d) => d.isCurrent ? 2.5 : 1);
     }
   }, [points]);
 
-  const containerStyle: React.CSSProperties = {
-    background: 'var(--surface-card)',
-    border: '1px solid var(--border-subtle)',
-    borderRadius: 8,
-    padding: 24,
-    color: 'var(--text-primary)',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  };
-
-  if (loading) return <div style={containerStyle}><p style={{ color: 'var(--text-muted)' }}>Building tech debt timeline...</p></div>;
-  if (error) return <div style={containerStyle}><p style={{ color: 'var(--color-danger)' }}>Error: {error}</p></div>;
-  if (!points.length) return <div style={containerStyle}><p style={{ color: 'var(--text-muted)' }}>No data available.</p></div>;
+  if (loading) return <div className="gi-page"><p className="gi-note">Building tech debt timeline…</p></div>;
+  if (error) return <div className="gi-page"><p className="gi-note" style={{ color: 'var(--red)' }}>Error: {error}</p></div>;
+  if (!points.length) return <div className="gi-page"><p className="gi-note">No data available.</p></div>;
 
   const stats = currentData?.stats || {};
   const summaryRows = [
-    { label: 'Dead Functions',  value: stats.dead       ?? 0, color: 'var(--color-danger)' },
-    { label: 'Issues',          value: (currentData?.issues?.length) ?? 0, color: 'var(--color-warning)' },
-    { label: 'Duplicates',      value: stats.duplicates ?? 0, color: 'var(--color-warning)' },
-    { label: 'Security (High)', value: stats.security   ?? 0, color: 'var(--color-danger)' },
+    { label: 'Dead Functions',  value: stats.dead       ?? 0, color: 'var(--red)' },
+    { label: 'Issues',          value: (currentData?.issues?.length) ?? 0, color: 'var(--orange)' },
+    { label: 'Duplicates',      value: stats.duplicates ?? 0, color: 'var(--orange)' },
+    { label: 'Security (High)', value: stats.security   ?? 0, color: 'var(--red)' },
   ];
 
   return (
-    <div style={containerStyle}>
-      <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>
-        Tech Debt Timeline
-      </h2>
-      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+    <div className="gi-page">
+      <h1>Tech Debt Timeline</h1>
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--t3)' }}>
         File counts over last {points.length} commits. Current commit marked with white dot.
       </p>
 
       {/* Legend */}
       <div style={{ display: 'flex', gap: 20, marginBottom: 12 }}>
         {[
-          { color: 'var(--teal-500)', label: 'Total Files' },
-          { color: 'var(--color-success)', label: 'Test Files' },
-          { color: 'var(--color-warning)', label: 'Debt Files' },
+          { color: 'var(--acc)', label: 'Total Files' },
+          { color: 'var(--green)', label: 'Test Files' },
+          { color: 'var(--orange)', label: 'Debt Files' },
         ].map(({ color, label }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--t3)' }}>
             <div style={{ width: 24, height: 3, background: color, borderRadius: 2 }} />
             {label}
           </div>
@@ -246,21 +235,21 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
       </div>
 
       {/* Current snapshot summary table */}
-      <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Current Snapshot
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
         {summaryRows.map(({ label, value, color }) => (
           <div key={label} style={{
             padding: '12px 16px',
-            background: 'var(--surface-subtle)',
+            background: 'var(--bg3)',
             border: `1px solid color-mix(in srgb, ${color} 27%, transparent)`,
             borderRadius: 6,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{label}</span>
+            <span style={{ fontSize: 13, color: 'var(--t3)' }}>{label}</span>
             <span style={{ fontSize: 20, fontWeight: 700, color }}>{value}</span>
           </div>
         ))}

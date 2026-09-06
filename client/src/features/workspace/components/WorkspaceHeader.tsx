@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, GitBranch, ChevronDown, Download, Check } from 'lucide-react';
 import { organizationStore } from '../../organization/services/organizationStore';
 import { moduleForSection } from '../config/workspaceModules';
 
@@ -27,28 +27,6 @@ function GitGraphMark() {
   );
 }
 
-export function accountMenuDismissHandlers(
-  accountRef: RefObject<HTMLDivElement | null>,
-  setAccountOpen: (open: boolean) => void,
-) {
-  return {
-    onMouseDown(event: MouseEvent) {
-      if (accountRef.current && !accountRef.current.contains(event.target as Node)) setAccountOpen(false);
-    },
-    onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setAccountOpen(false);
-    },
-  };
-}
-
-export function selectAccountSettings(
-  onSectionChange: (section: string) => void,
-  setAccountOpen: (open: boolean) => void,
-) {
-  onSectionChange('settings');
-  setAccountOpen(false);
-}
-
 function BranchPicker({ current, branches, loading, onSwitch }: {
   current: string;
   branches: { name: string }[];
@@ -72,9 +50,9 @@ function BranchPicker({ current, branches, loading, onSwitch }: {
   return (
     <div className="workspace-branch-picker" ref={ref}>
       <button className={open ? 'open' : ''} onClick={() => setOpen(value => !value)}>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M6 3v10a3 3 0 0 0 3 3h2M14 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM14 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z" /></svg>
+        <span className="icon icon-m"><GitBranch size={14} strokeWidth={1.7} /></span>
         <span>{loading ? 'Switching…' : current}</span>
-        <svg className="chevron" viewBox="0 0 10 6" fill="none" stroke="currentColor"><path d="m1 1 4 4 4-4" /></svg>
+        <span className="icon icon-s chevron"><ChevronDown size={12} strokeWidth={1.9} /></span>
       </button>
       {open && (
         <div className="workspace-branch-menu">
@@ -86,7 +64,7 @@ function BranchPicker({ current, branches, loading, onSwitch }: {
                 className={branch.name === current ? 'active' : ''}
                 onClick={() => { onSwitch(branch.name); setOpen(false); setFilter(''); }}
               >
-                <span>{branch.name === current ? '✓' : ''}</span>{branch.name}
+                <span className="icon icon-s">{branch.name === current ? <Check size={12} strokeWidth={2} /> : null}</span>{branch.name}
               </button>
             )) : <p>No branches found</p>}
           </div>
@@ -103,11 +81,17 @@ export default function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const navigate = useNavigate();
   const activeModule = moduleForSection(activeSection);
-  const projectLink = useMemo(() => {
-    if (!repoInfo) return '/workspaces';
+  const [projectLink, setProjectLink] = useState('/workspaces');
+  useEffect(() => {
+    if (!repoInfo) { setProjectLink('/workspaces'); return; }
     const fullName = `${repoInfo.owner}/${repoInfo.repo}`.toLowerCase();
-    const project = organizationStore.load().projects.find(item => item.repositoryFullName.toLowerCase() === fullName);
-    return project ? `/workspaces/${project.workspaceId}/projects` : '/workspaces';
+    let cancelled = false;
+    organizationStore.load().then(state => {
+      if (cancelled) return;
+      const project = state.projects.find(item => item.repositoryFullName?.toLowerCase() === fullName);
+      setProjectLink(project ? `/workspaces/${project.workspaceId}/projects` : '/workspaces');
+    });
+    return () => { cancelled = true; };
   }, [repoInfo]);
 
   return (
@@ -134,12 +118,12 @@ export default function WorkspaceHeader({
         )}
         {onExport && (
           <button className="workspace-header-action" onClick={onExport}>
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M10 3v9m-3-3 3 3 3-3M4 13v4h12v-4" /></svg>
+            <span className="icon icon-m"><Download size={14} strokeWidth={1.7} /></span>
             Export
           </button>
         )}
         <button className="workspace-search-bar" onClick={onPaletteOpen} disabled={!hasData} aria-label="Search">
-          <Search size={15} />
+          <span className="icon icon-m"><Search size={14} strokeWidth={1.8} /></span>
           <span className="workspace-search-placeholder">Search…</span>
           <kbd>⌘ K</kbd>
         </button>

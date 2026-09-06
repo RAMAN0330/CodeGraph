@@ -151,7 +151,7 @@ button.auth-primary-button:disabled { width: 100%; min-height: 50px; color: var(
 .auth-flow-note { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 11px; margin: 22px 0; }
 .auth-flow-note span { height: 1px; background: var(--auth-border); }
 .auth-flow-note p { margin: 0; color: var(--auth-dim); font-size: 10px; white-space: nowrap; }
-.auth-new-user { padding: 15px 16px; background: #21252b; border: 1px solid #343a45; border-radius: 10px; }
+.auth-new-user { margin-top: 20px; padding: 15px 16px; background: #21252b; border: 1px solid #343a45; border-radius: 10px; }
 .auth-new-user strong { color: #d7dae0; font-size: 12px; }
 .auth-new-user p { margin: 5px 0 0; color: var(--auth-dim); font-size: 11px; line-height: 1.55; }
 .auth-security { display: flex; gap: 9px; margin-top: 20px; color: var(--auth-dim); font-size: 10px; line-height: 1.55; }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Boxes, CheckCircle2, Clipboard, Download, FileCode2, Sparkles } from 'lucide-react';
+import { Boxes, CheckCircle2, Clipboard, Download, FileCode2, Info, Maximize2, Sparkles, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { appConfig } from '../../../app/config';
 import {
   applyArchitectureEnrichment,
@@ -44,7 +44,21 @@ export default function ArchitectureDiagram({ nodes, connections, repoName = 'Re
   const [rendering, setRendering] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [message, setMessage] = useState('');
+  const [zoom, setZoom] = useState(1);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const diagramRef = useRef<HTMLDivElement>(null);
+
+  const ZOOM_MIN = 0.4;
+  const ZOOM_MAX = 2.5;
+  const zoomBy = (delta: number) => setZoom(z => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(z + delta).toFixed(2))));
+  const resetZoom = () => setZoom(1);
+
+  function onCanvasWheel(event: React.WheelEvent) {
+    // Plain mouse-wheel/trackpad zooms the diagram directly (no modifier
+    // key needed), matching the button controls.
+    event.preventDefault();
+    zoomBy(event.deltaY > 0 ? -0.08 : 0.08);
+  }
 
   useEffect(() => {
     setGraph(baseGraph);
@@ -59,13 +73,17 @@ export default function ArchitectureDiagram({ nodes, connections, repoName = 'Re
     let cancelled = false;
     setRendering(true);
     setMessage('');
-    Promise.all([import('mermaid'), import('@mermaid-js/layout-elk'), import('dompurify')])
-      .then(async ([mermaidModule, elkModule, purifierModule]) => {
+    Promise.all([import('mermaid'), import('dompurify')])
+      .then(async ([mermaidModule, purifierModule]) => {
         if (cancelled) return;
         const mermaid = mermaidModule.default;
         if (!mermaidConfigured) {
-          mermaid.registerLayoutLoaders(elkModule.default);
-          mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'dark', layout: 'elk', flowchart: { curve: 'basis', htmlLabels: false } });
+          // Mermaid's default (dagre) layout, not the newer @mermaid-js/layout-elk
+          // engine: elk's port-based edge routing can silently drop or
+          // mis-position node labels on hub components with many in/out
+          // edges, rendering an empty box even though the label text and
+          // color are configured correctly. Dagre doesn't have this bug.
+          mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'dark', flowchart: { curve: 'basis', htmlLabels: false } });
           mermaidConfigured = true;
         }
         const result = await mermaid.render(`architecture_${Date.now()}`, mermaidSource);
@@ -83,11 +101,18 @@ export default function ArchitectureDiagram({ nodes, connections, repoName = 'Re
       const element = (event.target as Element).closest('.node');
       if (!element) return;
       const node = graph.nodes.find(item => element.id.includes(item.id));
-      if (node) setSelectedId(node.id);
+      if (node) { setSelectedId(node.id); setDetailsOpen(true); }
     };
     container.addEventListener('click', handler);
     return () => container.removeEventListener('click', handler);
   }, [graph.nodes, svg]);
+
+  useEffect(() => {
+    if (!detailsOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setDetailsOpen(false); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [detailsOpen]);
 
   async function copyMermaid() {
     await navigator.clipboard.writeText(mermaidSource);
@@ -152,8 +177,6 @@ export default function ArchitectureDiagram({ nodes, connections, repoName = 'Re
       <header className="architecture-header">
         <div>
           <span className="architecture-eyebrow"><Boxes size={14} /> System Architecture</span>
-          <h1>{repoName}</h1>
-          <p>{graph.summary}</p>
         </div>
         <div className="architecture-actions">
           <button type="button" onClick={generateExplanation} disabled={enriching}><Sparkles size={15} />{enriching ? 'Generating…' : 'Generate explanation'}</button>
@@ -168,16 +191,43 @@ export default function ArchitectureDiagram({ nodes, connections, repoName = 'Re
         {message && <span className="architecture-message">{message}</span>}
       </div>
 
-      <div className="architecture-layout">
-        <div className="architecture-canvas" ref={diagramRef}>
+      <div className="architecture-layout architecture-layout-full">
+        <div className="architecture-canvas" ref={diagramRef} onWheel={onCanvasWheel}>
           {rendering && <div className="architecture-loading"><i /><span>Arranging system components…</span></div>}
-          {!rendering && svg && <div className="architecture-svg" dangerouslySetInnerHTML={{ __html: svg }} />}
+          {!rendering && svg && (
+            <div
+              className="architecture-svg"
+              style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top center', transition: 'transform .12s ease' }}
+              dangerouslySetInnerHTML={{ __html: svg }}
+            />
+          )}
+          {!rendering && svg && (
+            <div className="architecture-zoom-controls">
+              <button type="button" onClick={() => zoomBy(0.15)} disabled={zoom >= ZOOM_MAX} title="Zoom in"><ZoomIn size={15} /></button>
+              <button type="button" onClick={() => zoomBy(-0.15)} disabled={zoom <= ZOOM_MIN} title="Zoom out"><ZoomOut size={15} /></button>
+              <button type="button" onClick={resetZoom} title="Reset zoom"><Maximize2 size={13} /></button>
+              <span>{Math.round(zoom * 100)}%</span>
+            </div>
+          )}
+          <button type="button" className="architecture-details-fab" onClick={() => setDetailsOpen(true)}>
+            <Info size={14} /> Component details
+          </button>
         </div>
-        <aside className="architecture-details">
-          <span className="architecture-details-label">Component details</span>
-          {selected ? <ComponentDetails node={selected} onOpenFile={onOpenFile} /> : <p>Select a component in the diagram.</p>}
-        </aside>
       </div>
+
+      {detailsOpen && (
+        <div className="architecture-details-overlay" onClick={() => setDetailsOpen(false)}>
+          <div className="architecture-details-modal" onClick={event => event.stopPropagation()}>
+            <div className="architecture-details-modal-header">
+              <span className="architecture-details-label">Component details</span>
+              <button type="button" onClick={() => setDetailsOpen(false)} aria-label="Close"><X size={16} /></button>
+            </div>
+            <div className="architecture-details-modal-body architecture-details">
+              {selected ? <ComponentDetails node={selected} onOpenFile={onOpenFile} /> : <p>Select a component in the diagram.</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

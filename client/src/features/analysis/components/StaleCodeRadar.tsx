@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 interface StaleFile {
   path: string;
@@ -25,9 +25,9 @@ function timeAgoFromDays(days: number): string {
 }
 
 function riskColor(days: number): string {
-  if (days < 30) return 'var(--color-success)';
-  if (days < 90) return 'var(--color-warning)';
-  return 'var(--color-danger)';
+  if (days < 30) return 'var(--green)';
+  if (days < 90) return 'var(--orange)';
+  return 'var(--red)';
 }
 
 export default function StaleCodeRadar({ owner, repo, token, files, connections }: StaleCodeRadarProps) {
@@ -117,53 +117,44 @@ export default function StaleCodeRadar({ owner, repo, token, files, connections 
     return () => { cancelled = true; };
   }, [owner, repo, token, files, connections]);
 
-  const containerStyle: React.CSSProperties = {
-    background: 'var(--surface-card)',
-    border: '1px solid var(--border-subtle)',
-    borderRadius: 8,
-    padding: 24,
-    color: 'var(--text-primary)',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  };
-
   if (loading) return (
-    <div style={containerStyle}>
-      <p style={{ color: 'var(--text-muted)' }}>Analyzing stale code... (fetching commit dates)</p>
+    <div className="gi-page">
+      <p style={{ color: 'var(--t3)' }}>Analyzing stale code... (fetching commit dates)</p>
     </div>
   );
 
   if (error) return (
-    <div style={containerStyle}>
-      <p style={{ color: 'var(--color-danger)' }}>Error: {error}</p>
+    <div className="gi-page">
+      <p style={{ color: 'var(--red)' }}>Error: {error}</p>
     </div>
   );
 
   if (!rows.length) return (
-    <div style={containerStyle}>
-      <p style={{ color: 'var(--text-muted)' }}>No file data available for stale analysis.</p>
+    <div className="gi-page">
+      <p style={{ color: 'var(--t3)' }}>No file data available for stale analysis.</p>
     </div>
   );
 
   const maxRisk = rows[0]?.riskScore || 1;
 
   return (
-    <div style={containerStyle}>
-      <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>
+    <div className="gi-page">
+      <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 600, color: 'var(--t0)' }}>
         Stale Code Radar
       </h2>
-      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)' }}>
+      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--t3)' }}>
         Risk = Days Stale × log(1 + Dependents). Higher = more critical to update.
       </p>
 
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500 }}>File</th>
-              <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500 }}>Deps (in)</th>
-              <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500 }}>Last Modified</th>
-              <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500 }}>Days Stale</th>
-              <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500, minWidth: 160 }}>Risk Score</th>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--t3)', fontWeight: 500 }}>File</th>
+              <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--t3)', fontWeight: 500 }}>Deps (in)</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--t3)', fontWeight: 500 }}>Last Modified</th>
+              <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--t3)', fontWeight: 500 }}>Days Stale</th>
+              <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--t3)', fontWeight: 500, minWidth: 160 }}>Risk Score</th>
             </tr>
           </thead>
           <tbody>
@@ -172,15 +163,15 @@ export default function StaleCodeRadar({ owner, repo, token, files, connections 
               const color = riskColor(row.daysSince);
               const dayRounded = Math.round(row.daysSince);
               return (
-                <tr key={row.path} style={{ borderBottom: '1px solid var(--surface-subtle)' }}>
-                  <td style={{ padding: '10px 10px', fontFamily: 'monospace', color: 'var(--color-info)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                <tr key={row.path} style={{ borderBottom: '1px solid var(--bg3)' }}>
+                  <td style={{ padding: '10px 10px', fontFamily: 'monospace', color: 'var(--blue)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                     title={row.path}>
                     {row.basename}
                   </td>
-                  <td style={{ padding: '10px 10px', textAlign: 'right', color: row.inDegree > 5 ? 'var(--color-danger)' : 'var(--text-primary)' }}>
+                  <td style={{ padding: '10px 10px', textAlign: 'right', color: row.inDegree > 5 ? 'var(--red)' : 'var(--t0)' }}>
                     {row.inDegree}
                   </td>
-                  <td style={{ padding: '10px 10px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '10px 10px', color: 'var(--t3)', whiteSpace: 'nowrap' }}>
                     {row.lastModified === 'unknown' ? '—' : timeAgoFromDays(row.daysSince)}
                   </td>
                   <td style={{ padding: '10px 10px', textAlign: 'right', color: color }}>
@@ -188,7 +179,7 @@ export default function StaleCodeRadar({ owner, repo, token, files, connections 
                   </td>
                   <td style={{ padding: '10px 10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ flex: 1, background: 'var(--surface-subtle)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+                      <div style={{ flex: 1, background: 'var(--bg3)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
                         <div style={{
                           width: `${barPct}%`,
                           height: '100%',
@@ -197,7 +188,7 @@ export default function StaleCodeRadar({ owner, repo, token, files, connections 
                           transition: 'width 0.3s ease',
                         }} />
                       </div>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 32, textAlign: 'right' }}>
+                      <span style={{ fontSize: 12, color: 'var(--t3)', minWidth: 32, textAlign: 'right' }}>
                         {row.riskScore.toFixed(1)}
                       </span>
                     </div>

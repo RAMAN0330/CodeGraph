@@ -1,4 +1,5 @@
 import { KJUR } from 'jsrsasign';
+import { appConfig } from '../../../app/config';
 import { repoCache } from './cache';
 import { Parser, shouldExcludeFile, shouldIgnoreDirectory } from '../../analysis/services/parser';
 import { COLORS } from '../../analysis/services/parser';
@@ -166,29 +167,45 @@ var GitHub: any = {
         }).catch(function () { return self.rateLimit; });
     },
 
-    // Get file content with raw.githubusercontent.com fallback
-    getFile(o: string, r: string, p: string, branch?: string) {
+    // Get file content, routed through the server's Postgres-backed cache so
+    // re-analyzing the same repo/branch doesn't re-hit GitHub's rate limit.
+    // When `sha` (the blob sha from a tree scan) is supplied, the server caches
+    // by content hash instead of path+TTL — valid forever, since a given sha's
+    // content can never change. Falls back to hitting GitHub directly (contents
+    // API, then raw.githubusercontent.com) if the cache proxy is unreachable.
+    getFile(o: string, r: string, p: string, branch?: string, sha?: string) {
         var self = this;
-        var url = branch
-            ? buildRepoApiUrl(o, r, ['contents'].concat(splitRepoPath(p)), { ref: branch })
-            : buildRepoApiUrl(o, r, ['contents'].concat(splitRepoPath(p)));
-        return this.fetch(url).then(function (d: any) {
-            return d.content ? decodeBase64Utf8(d.content) : null;
+        return fetch(appConfig.apiUrl + '/api/github/file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ owner: o, repo: r, path: p, branch: branch, token: this.token || undefined, sha: sha || undefined })
+        }).then(function (res) {
+            return res.json().then(function (data: any) {
+                if (!res.ok || !data.success) throw new Error((data && data.error) || 'Failed to load file');
+                return data.content;
+            });
         }).catch(function () {
-            // Fallback: raw.githubusercontent.com. Send the same token (raw content for
-            // private repos 404s — not 401/403 — when unauthenticated) and only guess
-            // main/master when no branch was actually supplied.
-            var rawHeaders = self.token ? { Authorization: 'Bearer ' + self.token } : undefined;
-            var br = branch || 'main';
-            var rawUrl = 'https://raw.githubusercontent.com/' + o + '/' + r + '/' + br + '/' + p;
-            return fetch(rawUrl, { headers: rawHeaders }).then(function (res) {
-                if (res.ok) return res.text();
-                if (!branch && br === 'main') {
-                    return fetch('https://raw.githubusercontent.com/' + o + '/' + r + '/master/' + p, { headers: rawHeaders })
-                        .then(function (r2) { return r2.ok ? r2.text() : null; }).catch(function () { return null; });
-                }
-                return null;
-            }).catch(function () { return null; });
+            var url = branch
+                ? buildRepoApiUrl(o, r, ['contents'].concat(splitRepoPath(p)), { ref: branch })
+                : buildRepoApiUrl(o, r, ['contents'].concat(splitRepoPath(p)));
+            return self.fetch(url).then(function (d: any) {
+                return d.content ? decodeBase64Utf8(d.content) : null;
+            }).catch(function () {
+                // Fallback: raw.githubusercontent.com. Send the same token (raw content for
+                // private repos 404s — not 401/403 — when unauthenticated) and only guess
+                // main/master when no branch was actually supplied.
+                var rawHeaders = self.token ? { Authorization: 'Bearer ' + self.token } : undefined;
+                var br = branch || 'main';
+                var rawUrl = 'https://raw.githubusercontent.com/' + o + '/' + r + '/' + br + '/' + p;
+                return fetch(rawUrl, { headers: rawHeaders }).then(function (res2) {
+                    if (res2.ok) return res2.text();
+                    if (!branch && br === 'main') {
+                        return fetch('https://raw.githubusercontent.com/' + o + '/' + r + '/master/' + p, { headers: rawHeaders })
+                            .then(function (r2) { return r2.ok ? r2.text() : null; }).catch(function () { return null; });
+                    }
+                    return null;
+                }).catch(function () { return null; });
+            });
         });
     },
 
@@ -234,6 +251,23 @@ var GitHub: any = {
         }).catch(function () { return 'main'; });
     },
 
+    // Fetch the repo tree through the server's Postgres-backed cache (see
+    // /api/github/repo) so re-analyzing the same repo/branch doesn't re-hit
+    // GitHub's rate limit. Falls back to the Git Trees API directly if the
+    // cache proxy itself is unreachable.
+    fetchTreeCached(o: string, r: string, branch: string) {
+        return fetch(appConfig.apiUrl + '/api/github/repo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ owner: o, repo: r, branch: branch, token: this.token || undefined })
+        }).then(function (res) {
+            return res.json().then(function (data: any) {
+                if (!res.ok || !data.success) throw new Error((data && data.error) || 'Failed to load repository tree');
+                return { tree: data.tree };
+            });
+        });
+    },
+
     // Fast scan using Git Trees API (single request for all files!)
     scanTree(o: string, r: string, cb: any, compiledPatterns: any, branch?: string) {
         var self = this;
@@ -244,7 +278,9 @@ var GitHub: any = {
 
         return branchPromise.then(function (br) {
             if (cb) cb('Loading file tree (' + br + ')...');
-            return self.fetch(buildRepoApiUrl(o, r, ['git', 'trees', br], { recursive: 1 })).then(function (tree: any) {
+            return self.fetchTreeCached(o, r, br).catch(function () {
+                return self.fetch(buildRepoApiUrl(o, r, ['git', 'trees', br], { recursive: 1 }));
+            }).then(function (tree: any) {
                 if (!tree.tree) throw new Error('Invalid tree response');
                 var f: any[] = [];
                 tree.tree.forEach(function (i: any) {
@@ -258,7 +294,7 @@ var GitHub: any = {
                     });
                     if (ignored) return;
                     var folder = i.path.includes('/') ? i.path.substring(0, i.path.lastIndexOf('/')) : 'root';
-                    f.push({ path: i.path, name: name, folder: folder, size: i.size || 0, isCode: Parser.isCode(name), branch: br });
+                    f.push({ path: i.path, name: name, folder: folder, size: i.size || 0, isCode: Parser.isCode(name), branch: br, sha: i.sha });
                 });
                 if (cb) cb('Found ' + f.length + ' files on ' + br);
                 return { files: f, branch: br };
