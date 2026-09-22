@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
-const AUTHOR_COLORS = ['var(--green)', 'var(--acc)', 'var(--orange)', 'var(--purple)', 'var(--red)', 'var(--cyan)', 'var(--orange)', 'var(--purple)'];
+const AUTHOR_COLORS = ['var(--color-success)', 'var(--teal-500)', 'var(--accent-orange)', 'var(--chart-purple)', 'var(--color-danger)', 'var(--chart-cyan)', 'var(--accent-orange)', 'var(--chart-purple)'];
 
 interface Contributor {
   login: string;
@@ -47,7 +48,7 @@ export default function ContributorInsights({ owner, repo, token, folders }: Con
   );
 
   if (error) return (
-    <div className="gi-page"><p className="gi-note" style={{ color: 'var(--red)' }}>Error: {error}</p></div>
+    <div className="gi-page"><p className="gi-note" style={{ color: 'var(--color-danger)' }}>Error: {error}</p></div>
   );
 
   if (!contributors.length) return (
@@ -76,7 +77,7 @@ export default function ContributorInsights({ owner, repo, token, folders }: Con
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--t0)' }}>{c.login}</span>
-                  <span style={{ fontSize: 11, color: 'var(--t3)' }}>{c.contributions} commits</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.contributions} commits</span>
                 </div>
                 <div style={{ background: 'var(--bg3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
                   <div style={{ width: `${barWidth}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.3s ease' }} />
@@ -89,26 +90,26 @@ export default function ContributorInsights({ owner, repo, token, folders }: Con
 
       {folders.length > 0 && (
         <div>
-          <h3 style={{ margin: '0 0 12px', fontSize: 11, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Folder Ownership (estimated)
           </h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--t3)', fontWeight: 600 }}>Folder</th>
-                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--t3)', fontWeight: 600 }}>Top Author</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <TableHeader>
+              <TableRow style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <TableHead style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>Folder</TableHead>
+                <TableHead style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>Top Author</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {folders.slice(0, 12).map((folder, idx) => {
                 const contributor = contributors[idx % contributors.length];
                 const color = AUTHOR_COLORS[idx % AUTHOR_COLORS.length];
                 return (
-                  <tr key={folder} style={{ borderBottom: '1px solid var(--border2)' }}>
-                    <td style={{ padding: '8px', color: 'var(--t1)', fontFamily: "'JetBrains Mono',monospace" }}>
+                  <TableRow key={folder} style={{ borderBottom: '1px solid var(--border2)' }}>
+                    <TableCell style={{ padding: '8px', color: 'var(--text-primary)', fontFamily: "'JetBrains Mono',monospace" }}>
                       {folder}
-                    </td>
-                    <td style={{ padding: '8px' }}>
+                    </TableCell>
+                    <TableCell style={{ padding: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{
                           width: 20, height: 20, borderRadius: '50%', background: color,
@@ -119,12 +120,12 @@ export default function ContributorInsights({ owner, repo, token, folders }: Con
                         </div>
                         <span style={{ color: 'var(--t2)' }}>{contributor.login}</span>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

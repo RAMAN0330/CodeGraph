@@ -14,30 +14,45 @@ before(async () => {
 });
 after(async () => vite?.close());
 
-function memoryStorage() {
-  const values = new Map();
-  return {
-    getItem: key => values.get(key) ?? null,
-    setItem: (key, value) => values.set(key, value),
-    removeItem: key => values.delete(key),
-  };
-}
-
-test('organization store persists a repository-owned project', async () => {
+// organizationStore was rewritten from a client-side (localStorage-backed)
+// store into a thin wrapper over the real backend REST API — createWorkspace/
+// createProject now POST and return the server's response asynchronously;
+// there is no local persistence, storage-adapter argument, or client-side
+// owner/repository validation left to test. This exercises the current
+// contract (right method, right endpoint, right body, response passed
+// through) by stubbing global fetch rather than testing removed behavior.
+test('organization store posts new projects to the backend and returns the created record', async () => {
   const { createOrganizationStore } = await vite.ssrLoadModule('/src/features/organization/services/organizationStore.ts');
-  const store = createOrganizationStore(memoryStorage());
+  const store = createOrganizationStore();
 
-  const workspace = store.createWorkspace('Platform');
-  const project = store.createProject({
-    workspaceId: workspace.id,
-    name: 'API',
-    instructions: 'Keep APIs healthy',
-    repositoryFullName: 'acme/api',
-  });
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (String(url).endsWith('/api/projects')) {
+      const body = JSON.parse(options.body);
+      return new Response(JSON.stringify({ id: 1, ...body }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
 
-  assert.equal(project.repositoryFullName, 'acme/api');
-  assert.deepEqual(store.load().projects, [project]);
-  assert.throws(() => store.createProject({ ...project, repositoryFullName: 'not-a-repository' }), /owner\/repository/);
+  try {
+    const project = await store.createProject({
+      workspaceId: 7,
+      name: 'API',
+      instructions: 'Keep APIs healthy',
+      projectType: 'codebase',
+      repositoryFullName: 'acme/api',
+    });
+
+    assert.equal(project.repositoryFullName, 'acme/api');
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].url, /\/api\/projects$/);
+    assert.equal(calls[0].options.method, 'POST');
+    assert.equal(JSON.parse(calls[0].options.body).repositoryFullName, 'acme/api');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('primary routes use workspaces and projects, not global repository selection', async () => {
@@ -60,7 +75,7 @@ test('github auth redirects to workspaces', async () => {
 test('landing uses the imported workspace-preview entry experience', async () => {
   const landing = await readFile(resolve('client/src/features/landing/pages/LandingPage.tsx'), 'utf8');
   assert.match(landing, /landing-workspace-preview/);
-  assert.match(landing, /GraphKeep turns repositories into a <em>navigable map/);
+  assert.match(landing, /Structrace turns repositories into a <em>navigable map/);
 });
 
 test('organization pages use the Light platform layout contract', async () => {
@@ -96,9 +111,15 @@ test('organization top bars omit redundant home and new-project actions', async 
 test('organization top bars provide an account menu with sign out', async () => {
   const workspaces = await readFile(resolve('client/src/features/organization/pages/WorkspacesPage.tsx'), 'utf8');
   const projects = await readFile(resolve('client/src/features/organization/pages/ProjectsPage.tsx'), 'utf8');
-  const accountMenu = await readFile(resolve('client/src/features/organization/components/TopbarAccount.tsx'), 'utf8');
+  const topbarAccount = await readFile(resolve('client/src/features/organization/components/TopbarAccount.tsx'), 'utf8');
+  // TopbarAccount is a thin wrapper (<AccountMenu variant="topbar" />) —
+  // sign-out itself was extracted into the shared AccountMenu component so
+  // every menu variant (topbar, workspace header, ...) shares one
+  // implementation instead of duplicating the auth/logout call and copy.
+  const accountMenu = await readFile(resolve('client/src/shared/components/AccountMenu.tsx'), 'utf8');
   assert.match(workspaces, /TopbarAccount/);
   assert.match(projects, /TopbarAccount/);
+  assert.match(topbarAccount, /AccountMenu/);
   assert.match(accountMenu, /auth\/logout/);
   assert.match(accountMenu, /Sign out/);
 });
@@ -121,8 +142,10 @@ test('insight surfaces inherit the One Dark Pro theme tokens', async () => {
   assert.match(css, /--teal-500:\s*#61afef/);
   assert.match(css, /--color-danger:\s*#e06c75/);
   assert.match(css, /--accent-orange:\s*#d19a66/);
-  assert.match(css, /font-family:\s*'Manrope'/);
-  assert.doesNotMatch(css, /font-family:\s*'Montserrat'/);
+  // Montserrat is the platform-wide font — the single font loaded and used
+  // everywhere, confirmed intentional (see .impeccable/config.json's
+  // overused-font ignore entry). No other font should appear anywhere.
+  assert.match(css, /font-family:\s*'Montserrat'/);
 
   const featureFiles = [
     'client/src/features/git-insights/components/BlameHeatmap.tsx',

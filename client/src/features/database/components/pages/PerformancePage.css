@@ -1,0 +1,215 @@
+/* ── Performance instruments ──────────────────────────────────────────────
+   The Performance page carries no panels: sections sit directly on the shell
+   canvas, a labelled hairline opens each one, and the readings inside a
+   section are separated only by 1px verticals. Rows are grid + 1px gap over a
+   divider-coloured backdrop so the verticals also become horizontals when a
+   row wraps, instead of leaving a stray leading line. ──────────────────── */
+
+.perf-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.perf-section { display: flex; flex-direction: column; min-width: 0; }
+.perf-section + .perf-section { margin-top: 34px; }
+.perf-section--grow { flex: 1 1 auto; min-height: 220px; }
+
+/* ── Section head: LABEL ──────────────── meta ── */
+.perf-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 13px;
+}
+.perf-head__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.perf-head__rule {
+  flex: 1;
+  height: 1px;
+  min-width: 12px;
+  background: linear-gradient(90deg, rgba(97, 175, 239, .34), rgba(97, 175, 239, .06));
+}
+.perf-head__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.perf-head__meta b { color: var(--text-primary); font-weight: 600; }
+.perf-head__meta em { font-style: normal; color: var(--teal-500); font-weight: 600; }
+.perf-head__sep { color: rgba(97, 175, 239, .32); }
+
+/* ── Divided row ──────────────────────────────────────────────────────────
+   Readings are separated only by a 1px vertical. The divider lives on the
+   cell rather than in the grid gap, so the shell's canvas grid still shows
+   through and a short final row never paints empty tracks. Column count is
+   declared on the row so the leading cell of every wrapped row can drop its
+   rule without a stray line at the left edge. ─────────────────────────── */
+.perf-row {
+  display: grid;
+  row-gap: 24px;
+}
+.perf-row[data-cols="1"] { grid-template-columns: minmax(0, 1fr); }
+.perf-row[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.perf-row[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.perf-row[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.perf-row[data-cols="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+.perf-cell {
+  padding: 2px 20px 4px 20px;
+  min-width: 0;
+  border-left: 1px solid rgba(97, 175, 239, .14);
+}
+.perf-row[data-cols="1"] > .perf-cell,
+.perf-row[data-cols="2"] > .perf-cell:nth-child(2n + 1),
+.perf-row[data-cols="3"] > .perf-cell:nth-child(3n + 1),
+.perf-row[data-cols="4"] > .perf-cell:nth-child(4n + 1),
+.perf-row[data-cols="5"] > .perf-cell:nth-child(5n + 1) {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.perf-cell__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.perf-cell__value {
+  margin-top: 7px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.perf-cell__value--sm { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+
+/* ── Bars ── */
+.perf-bar {
+  margin-top: 11px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(97, 175, 239, .1);
+  overflow: hidden;
+}
+.perf-bar__fill { display: block; height: 100%; border-radius: 2px; }
+
+/* ── Pool track ── */
+.perf-track {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: rgba(97, 175, 239, .1);
+}
+.perf-track__seg { min-width: 3px; border-radius: 2px; }
+.perf-track--empty {
+  border: 1px dashed rgba(97, 175, 239, .22);
+  background: none;
+  box-sizing: border-box;
+}
+
+/* ── Status dot ── */
+.perf-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--teal-500);
+}
+.perf-dot--alert { animation: perf-throb 2s ease-in-out infinite; }
+
+@keyframes perf-throb {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .45; transform: scale(.72); }
+}
+
+/* ── Chart ── */
+.perf-chart { flex: 1 1 auto; min-height: 0; position: relative; }
+.perf-chart svg { display: block; }
+.perf-chart__pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: perf-pulse 2.6s cubic-bezier(.16, 1, .3, 1) infinite;
+}
+
+@keyframes perf-pulse {
+  0%        { transform: scale(.5); opacity: .55; }
+  70%, 100% { transform: scale(3.4); opacity: 0; }
+}
+
+.perf-chart__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+/* ── Notice line (used where a reading is unavailable) ── */
+.perf-note {
+  margin: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── Skeleton ── */
+.perf-skeleton {
+  border-radius: 3px;
+  min-height: 0;
+  background: linear-gradient(90deg, rgba(97, 175, 239, .07) 0%, rgba(97, 175, 239, .16) 50%, rgba(97, 175, 239, .07) 100%);
+  background-size: 220% 100%;
+  animation: perf-sweep 1.5s ease-in-out infinite;
+}
+
+@keyframes perf-sweep {
+  from { background-position: 120% 0; }
+  to   { background-position: -120% 0; }
+}
+
+@media (max-width: 900px) {
+  .perf-cell__value { font-size: 19px; }
+}
+
+/* Below this width five counters stop being readable; fold every row to two
+   columns and re-anchor which cell leads a row. */
+@media (max-width: 760px) {
+  .perf-row[data-cols] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .perf-row[data-cols] > .perf-cell { border-left: 1px solid rgba(97, 175, 239, .14); padding-left: 20px; }
+  .perf-row[data-cols] > .perf-cell:nth-child(2n + 1) { border-left: 0; padding-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perf-dot--alert,
+  .perf-chart__pulse,
+  .perf-skeleton { animation: none; }
+  .perf-chart__pulse { opacity: 0; }
+}

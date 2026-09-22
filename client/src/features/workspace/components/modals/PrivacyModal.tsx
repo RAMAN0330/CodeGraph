@@ -1,4 +1,6 @@
 import { Icon } from '../../../../shared/components/Icon';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   onClose: () => void;
@@ -6,18 +8,21 @@ interface Props {
 
 export default function PrivacyModal({ onClose }: Props) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal privacy-modal" onClick={e => e.stopPropagation()}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="modal privacy-modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none sm:max-w-none"
+        showCloseButton={false}
+      >
         <div className="modal-header">
           <div className="modal-title"><Icon name="lock" size="m" /> Privacy &amp; Security</div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <Button variant="ghost" className="modal-close h-auto p-0" onClick={onClose}>×</Button>
         </div>
         <div className="modal-body">
           <div className="privacy-item">
             <div className="privacy-icon"><Icon name="globe" size="l" /></div>
             <div>
               <div className="privacy-title">100% Browser-Based</div>
-              <div className="privacy-text">GraphKeep runs entirely in your browser. No backend servers, no data collection.</div>
+              <div className="privacy-text">Structrace runs entirely in your browser. No backend servers, no data collection.</div>
             </div>
           </div>
           <div className="privacy-item">
@@ -48,9 +53,9 @@ export default function PrivacyModal({ onClose }: Props) {
           </div>
         </div>
         <div className="modal-footer">
-          <button className="top-btn primary" onClick={onClose}>Got it!</button>
+          <Button className="top-btn primary h-auto" onClick={onClose}>Got it!</Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

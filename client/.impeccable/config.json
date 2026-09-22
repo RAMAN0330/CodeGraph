@@ -11,6 +11,324 @@
         ],
         "createdAt": "2026-09-05T19:17:19.471Z",
         "reason": "matches the app's established dot/line-grid canvas motif already used site-wide (e.g. .workspace-shell in client/src/index.css), not a one-off generated artifact; re-added with cwd-relative path since prior ignore didn't match from client/ cwd"
+      },
+      {
+        "rule": "overused-font",
+        "value": "montserrat",
+        "createdAt": "2026-09-07T17:11:48.804Z",
+        "reason": "user confirmed in a prior session (recorded in .impeccable/config.json): Montserrat is the explicitly requested platform-wide font; the loader must match WorkspaceHeader/DbHeader"
+      },
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "client/src/shared/components/AnalysisLoader.css"
+        ],
+        "createdAt": "2026-09-07T17:11:55.556Z",
+        "reason": "model decision: background values copied 1:1 from .workspace-shell so the loader is the same canvas surface it hands off to"
+      },
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-09T00:26:00.000Z",
+        "reason": "pre-existing .landing-grid hairline overlay, unchanged by the Unfolding Map redesign; matches the same site-wide dot/line-grid canvas motif already ignored for OrganizationPages.css and AnalysisLoader.css, and the landing hero's SVG dependency graph makes this an actual canvas/blueprint surface, not decoration"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#000",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:02.778Z",
+        "reason": "mask-image gradient stop in .landing-grid (pre-existing, unchanged); mask luminance value, not a rendered UI color"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0,0,0,.55)",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:02.838Z",
+        "reason": "mask-image gradient stop in .landing-grid (pre-existing, unchanged); mask luminance value, not a rendered UI color"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "9px",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:02.929Z",
+        "reason": "pre-existing .landing-brand-mark/.unfold-stage-icon chip radius, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "7px",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:03.025Z",
+        "reason": "pre-existing .landing-sign-in radius, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".84rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:03.094Z",
+        "reason": "pre-existing nav-link/secondary-link size, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".88rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:03.150Z",
+        "reason": "pre-existing .landing-primary button size, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "1.08rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:03.202Z",
+        "reason": "pre-existing .landing-lede size, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "2.25rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:03.246Z",
+        "reason": "pre-existing .landing-close h2 clamp endpoint, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "9.5px",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:03.308Z",
+        "reason": "model decision: new SVG graph-node monospace micro-label, intentionally below the documented type ramp"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "10px",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:03.358Z",
+        "reason": "model decision: new SVG root-node monospace label, intentionally below the documented type ramp"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".78rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:13:03.411Z",
+        "reason": "model decision: new risk-signal chip copy, matches the app's existing informal micro-copy sizing convention"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".92rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:24:46.173Z",
+        "reason": "model decision: new ownership-legend row copy for the Evidence Wall rebuild, intentionally between the documented body (1rem) and label (.67rem) steps"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "3px",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:24:46.213Z",
+        "reason": "model decision: tiny color-swatch radius on a 12px chip in the new ownership legend, proportional to the swatch size rather than the container-scale rounded ramp"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".85rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:24:46.299Z",
+        "reason": "model decision: ownership-legend percentage value, new to the Evidence Wall rebuild"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "4px",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:24:46.354Z",
+        "reason": "model decision: signal-bar radius on an 8px-tall bar in the new security panel, proportional to the bar's own scale"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "1.55rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:24:46.402Z",
+        "reason": "model decision: new proof-strip stat number, a display-weight figure smaller than the headline step, intentional for a compact stat row"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".72rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:24:46.456Z",
+        "reason": "model decision: new proof-strip stat caption, new to the Evidence Wall rebuild"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#b992e0",
+        "files": [
+          "src/features/landing/pages/LandingPage.tsx"
+        ],
+        "createdAt": "2026-09-08T19:24:56.080Z",
+        "reason": "model decision: lighter tonal step of accent-purple (#c678dd), needed as a distinct ownership-segment color in the new 4-segment donut chart"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#8a5aa8",
+        "files": [
+          "src/features/landing/pages/LandingPage.tsx"
+        ],
+        "createdAt": "2026-09-08T19:24:56.126Z",
+        "reason": "model decision: darker tonal step of accent-purple (#c678dd), same ownership-donut segment need"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#6f4880",
+        "files": [
+          "src/features/landing/pages/LandingPage.tsx"
+        ],
+        "createdAt": "2026-09-08T19:24:56.186Z",
+        "reason": "model decision: darkest tonal step of accent-purple (#c678dd), same ownership-donut segment need"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "2.1rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:35:27.126Z",
+        "reason": "model decision: new metrics-strip stat number clamp endpoint, part of the code-review-graph-style rebuild"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".82rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:35:27.167Z",
+        "reason": "model decision: new metrics-strip caption / trust-strip item size, new to this rebuild"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".86rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:35:27.205Z",
+        "reason": "model decision: new comparison-table without/with cell copy size, new to this rebuild"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".8rem",
+        "files": [
+          "src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:35:27.244Z",
+        "reason": "model decision: new connect-demo input field size, new to this rebuild"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "32px",
+        "files": [
+          "client/src/features/workspace/legacy/LegacyWorkspaceEngine.tsx"
+        ],
+        "createdAt": "2026-09-08T19:38:09.548Z",
+        "reason": "model decision: sizes a single decorative emoji glyph (🌿) in an empty-state graphic, not body/heading text on the type ramp — confident false positive, pre-existing code unrelated to this session's analysis-engine work"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "src/features/organization/pages/OrganizationPages.css"
+        ],
+        "createdAt": "2026-09-19T17:28:13.155Z",
+        "reason": "pre-existing icon-to-pill hover-expand buttons (workspace-create-button, project-create-pill); small contained width transition on a tiny element, not page layout thrash; matches the wildcard ignore already recorded in the root .impeccable/config.json for this same rule/file, added here under the client/ cwd path prefix this hook actually reads"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#9b5fc0",
+        "createdAt": "2026-09-22T15:21:40.105Z",
+        "reason": "intentional tonal ramp for the ownership-ring donut chart, derived from --chart-purple; not drift"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#b98ad4",
+        "createdAt": "2026-09-22T15:21:40.152Z",
+        "reason": "intentional tonal ramp for the ownership-ring donut chart, derived from --chart-purple; not drift"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#d4b3e8",
+        "createdAt": "2026-09-22T15:21:40.195Z",
+        "reason": "intentional tonal ramp for the ownership-ring donut chart, derived from --chart-purple; not drift"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#4c2427",
+        "createdAt": "2026-09-22T15:21:40.238Z",
+        "reason": "pre-existing dark-on-tint error/danger text color already used app-wide (auth pages, org pages); consistent convention, not landing-specific drift"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "2.4rem",
+        "createdAt": "2026-09-22T15:21:52.245Z",
+        "reason": "explorer-overview h1 is the Display voice scaled down for the narrower evidence-pane column (not full-bleed like the hero); using the literal Display clamp here would overflow the pane"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "2rem",
+        "createdAt": "2026-09-22T15:21:52.290Z",
+        "reason": "mobile clamp floor for the same pane-scoped Display headline, scaled further down for narrow viewports"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(3,7,18,0.72)",
+        "createdAt": "2026-09-22T15:49:16.599Z",
+        "reason": "modal backdrop scrim, consistent with other dark overlay scrims used app-wide (e.g. architecture-details-overlay, organization-dialog::backdrop); not a brand/semantic color"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0,0,0,0.85)",
+        "createdAt": "2026-09-22T15:49:16.643Z",
+        "reason": "modal backdrop scrim for the conflict-resolution modal; same rationale as other dark overlay scrims app-wide"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0,0,0,0.7)",
+        "createdAt": "2026-09-22T15:49:16.684Z",
+        "reason": "box-shadow tint on the conflict editor panel, not a fill/text color; standard neutral shadow-black"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "1.25rem",
+        "createdAt": "2026-09-22T15:50:44.019Z",
+        "reason": "compact sub-heading size for the Create Project dialog's panel steps (gg.h2); intentionally smaller than the page-level Headline scale, which would overwhelm a small dialog panel"
       }
     ]
   }

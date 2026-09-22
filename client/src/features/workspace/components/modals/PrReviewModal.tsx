@@ -1,6 +1,9 @@
 import { ArrowRight } from 'lucide-react';
 import { Icon } from '../../../../shared/components/Icon';
 import { calcBlast, calcPRRisk, findDependencyChains, findSuggestedReviewers, findTestImpact } from '../../../repository/services/github';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface Props {
   prUrl: string;
@@ -28,16 +31,19 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
   const riskColor = risk ? (risk.level === 'critical' ? 'var(--red)' : risk.level === 'high' ? 'var(--orange)' : risk.level === 'medium' ? 'var(--blue)' : 'var(--green)') : '';
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal pr-modal" onClick={e => e.stopPropagation()}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="modal pr-modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none sm:max-w-none"
+        showCloseButton={false}
+      >
         <div className="modal-header">
           <div className="modal-title">{iconLabel('chart', 'PR Impact Analyzer')}</div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <Button variant="ghost" className="modal-close hover:bg-transparent h-auto p-0" onClick={onClose}>×</Button>
         </div>
         <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
           <div className="form-group">
             <label className="form-label">Pull Request URL</label>
-            <input
+            <Input
               className="form-input"
               aria-label="Pull Request URL"
               placeholder="https://github.com/owner/repo/pull/123"
@@ -46,7 +52,7 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
               onKeyDown={e => { if (e.key === 'Enter') onAnalyze(); }}
             />
           </div>
-          <button className="top-btn primary" aria-label="Analyze Pull Request" onClick={onAnalyze} style={{ marginBottom: 16, width: '100%' }}>{iconLabel('search', 'Analyze PR Impact')}</button>
+          <Button className="top-btn primary" aria-label="Analyze Pull Request" onClick={onAnalyze} style={{ marginBottom: 16, width: '100%', height: 'auto' }}>{iconLabel('search', 'Analyze PR Impact')}</Button>
           {prData && risk && (
             <>
               <div className="pr-header" style={{ marginBottom: 16 }}>
@@ -60,7 +66,7 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
               <div className="pr-impact-grid">
                 <div className="pr-impact-card">
                   <div className="pr-risk-meter">
-                    <div className="pr-risk-circle" style={{ borderColor: riskColor, background: 'rgba(' + [risk.level === 'critical' ? '255,95,95' : risk.level === 'high' ? '255,159,67' : risk.level === 'medium' ? '77,159,255' : '34,197,94'].join(',') + ',0.1)' }}>
+                    <div className="pr-risk-circle" style={{ borderColor: riskColor, background: 'rgba(' + [risk.level === 'critical' ? '220,38,38' : risk.level === 'high' ? '217,119,6' : risk.level === 'medium' ? '79,70,229' : '5,150,105'].join(',') + ',0.1)' }}>
                       <div className="pr-risk-value" style={{ color: riskColor }}>{risk.score}</div>
                       <div className="pr-risk-text" style={{ color: riskColor }}>{risk.level}</div>
                     </div>
@@ -164,10 +170,10 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
                           <div className="pr-file-folder">{f.filename.includes('/') ? f.filename.substring(0, f.filename.lastIndexOf('/')) : 'root'}</div>
                         </div>
                         <div className="pr-file-badges">
-                          {f.additions > 0 && <span className="pr-mini-badge" style={{ background: 'rgba(34,197,94,0.2)', color: 'var(--green)' }}>+{f.additions}</span>}
-                          {f.deletions > 0 && <span className="pr-mini-badge" style={{ background: 'rgba(255,95,95,0.2)', color: 'var(--red)' }}>-{f.deletions}</span>}
-                          {blast && <span className="pr-mini-badge" style={{ background: blast.level === 'low' ? 'rgba(34,197,94,0.2)' : blast.level === 'medium' ? 'rgba(255,159,67,0.2)' : 'rgba(255,95,95,0.2)', color: blast.level === 'low' ? 'var(--green)' : blast.level === 'medium' ? 'var(--orange)' : 'var(--red)' }}><Icon name="impact" size="s" /> {blast.count}</span>}
-                          {revertCounts[f.filename || f.path || ''] > 0 && <span style={{ background: '#9e2a2b', color: 'var(--text-primary)', borderRadius: 4, padding: '1px 6px', fontSize: 11, marginLeft: 8 }}>{revertCounts[f.filename || f.path || ''] + ' reverts'}</span>}
+                          {f.additions > 0 && <span className="pr-mini-badge" style={{ background: 'rgba(5,150,105,0.15)', color: 'var(--green)' }}>+{f.additions}</span>}
+                          {f.deletions > 0 && <span className="pr-mini-badge" style={{ background: 'rgba(220,38,38,0.15)', color: 'var(--red)' }}>-{f.deletions}</span>}
+                          {blast && <span className="pr-mini-badge" style={{ background: blast.level === 'low' ? 'rgba(5,150,105,0.15)' : blast.level === 'medium' ? 'rgba(217,119,6,0.15)' : 'rgba(220,38,38,0.15)', color: blast.level === 'low' ? 'var(--green)' : blast.level === 'medium' ? 'var(--orange)' : 'var(--red)' }}><Icon name="impact" size="s" /> {blast.count}</span>}
+                          {revertCounts[f.filename || f.path || ''] > 0 && <span style={{ background: 'var(--color-danger)', color: '#ffffff', borderRadius: 4, padding: '1px 6px', fontSize: 11, marginLeft: 8 }}>{revertCounts[f.filename || f.path || ''] + ' reverts'}</span>}
                         </div>
                       </div>
                     );
@@ -178,7 +184,7 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
             </>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

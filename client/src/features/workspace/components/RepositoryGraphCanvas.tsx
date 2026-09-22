@@ -19,7 +19,6 @@ interface Props {
   onSelectFile: (path: string) => void;
   onFilterFolder: (folder: string) => void;
   onClearSelection: () => void;
-  onFetchFileContent: (path: string) => Promise<{ content: string | null; error?: string | null }>;
   className?: string;
 }
 
@@ -31,7 +30,7 @@ function iconLabel(name: string, label: string) {
   );
 }
 
-export default function RepositoryGraphCanvas({ data, loading, progress, folderFilter, selected, blastRadius, activeSection, onSelectFile, onFilterFolder, onClearSelection, onFetchFileContent, className }: Props) {
+export default function RepositoryGraphCanvas({ data, loading, progress, folderFilter, selected, blastRadius, activeSection, onSelectFile, onFilterFolder, onClearSelection, className }: Props) {
   const dendroRef = useRef<HTMLDivElement>(null);
   const bundleRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +55,7 @@ export default function RepositoryGraphCanvas({ data, loading, progress, folderF
       (data.files || []).forEach((f: any) => { m[f.path] = (LAYER_COLORS as Record<string, string>)[f.layer] || COLORS[0]; });
     } else if (colorMode === 'churn') {
       const maxC = Math.max.apply(null, (data.files || []).map((f: any) => f.churn || 0)) || 1;
-      (data.files || []).forEach((f: any) => { const r = (f.churn || 0) / maxC; m[f.path] = r > 0.7 ? '#ff5f5f' : r > 0.4 ? '#ff9f43' : '#22c55e'; });
+      (data.files || []).forEach((f: any) => { const r = (f.churn || 0) / maxC; m[f.path] = r > 0.7 ? '#c22b3a' : r > 0.4 ? '#D97706' : '#1d7a3c'; });
     }
     return m;
   }, [data, colorMode]);
@@ -243,9 +242,9 @@ export default function RepositoryGraphCanvas({ data, loading, progress, folderF
       link.transition().duration(300)
         .attr('stroke-opacity', function (linkDatum: any) { return isBundleLinkMatch(nodeId, linkDatum) ? 0.96 : 0.08; })
         .attr('stroke-width', function (linkDatum: any) { return isBundleLinkMatch(nodeId, linkDatum) ? 3.6 : 1.15; })
-        .attr('stroke', function (linkDatum: any) { return isBundleLinkMatch(nodeId, linkDatum) ? '#ff9f43' : getBundleLinkColor(linkDatum); });
+        .attr('stroke', function (linkDatum: any) { return isBundleLinkMatch(nodeId, linkDatum) ? '#D97706' : getBundleLinkColor(linkDatum); });
       node.selectAll('.bundle-circle').transition().duration(300)
-        .attr('fill', function (nodeDatum: any) { return nodeDatum.id === nodeId ? '#ff5f5f' : affectedSet.has(nodeDatum.id) ? '#ff9f43' : colorMap[nodeDatum.folder] || COLORS[0]; })
+        .attr('fill', function (nodeDatum: any) { return nodeDatum.id === nodeId ? '#c22b3a' : affectedSet.has(nodeDatum.id) ? '#D97706' : colorMap[nodeDatum.folder] || COLORS[0]; })
         .attr('opacity', function (nodeDatum: any) { return directConnections.has(nodeDatum.id) || affectedSet.has(nodeDatum.id) ? 1 : 0.22; })
         .attr('r', function (nodeDatum: any) { return nodeDatum.id === nodeId ? 9 : 6; })
         .attr('stroke', function (nodeDatum: any) { return nodeDatum.id === nodeId ? 'var(--acc)' : 'var(--bg0)'; })
@@ -309,7 +308,7 @@ export default function RepositoryGraphCanvas({ data, loading, progress, folderF
           <div className="empty-state-glow" />
           <div className="empty-state-content">
             <Icon name="logo" size="xxl" className="empty-icon" />
-            <div className="empty-title">GraphKeep</div>
+            <div className="empty-title">Structrace</div>
             <div className="empty-desc">{'High-performance repository introspection and database visualization.\nEnter a GitHub URL above or open a local folder to get started.'}</div>
             <div className="empty-features">
               <span className="empty-feature"><Icon name="graph" size="s" /> Dependency Graph</span>
@@ -330,7 +329,7 @@ export default function RepositoryGraphCanvas({ data, loading, progress, folderF
           </div>
           {vizType === 'dendro' && <div ref={dendroRef} className="dendro-container" style={{ width: '100%', height: '100%', position: 'relative' }} />}
           {vizType === 'bundle' && <div ref={bundleRef} className="bundle-container" />}
-          {vizType === 'code' && <CodeCanvas data={data} folderFilter={folderFilter} colorMap={colorMap} selected={selected} onSelectFile={onSelectFile} onFetchFileContent={onFetchFileContent} />}
+          {vizType === 'code' && <CodeCanvas data={data} folderFilter={folderFilter} colorMap={colorMap} selected={selected} onSelectFile={onSelectFile} />}
           <div className="canvas-info">
               <div className="info-chip"><strong>{folderFilter ? data.files.filter((f: any) => f.folder === folderFilter || f.folder.startsWith(folderFilter + '/')).length : data.files.length}</strong> files</div>
               <div className="info-chip"><strong>{data.connections.length}</strong> links</div>
@@ -360,9 +359,9 @@ export default function RepositoryGraphCanvas({ data, loading, progress, folderF
               ))}
               {colorMode === 'churn' && (
                 <>
-                  <div className="legend-item"><div className="legend-color" style={{ background: '#ff5f5f' }} />High (7+ commits)</div>
-                  <div className="legend-item"><div className="legend-color" style={{ background: '#ff9f43' }} />Medium (4-6)</div>
-                  <div className="legend-item"><div className="legend-color" style={{ background: '#22c55e' }} />Low (0-3)</div>
+                  <div className="legend-item"><div className="legend-color" style={{ background: '#c22b3a' }} />High (7+ commits)</div>
+                  <div className="legend-item"><div className="legend-color" style={{ background: '#D97706' }} />Medium (4-6)</div>
+                  <div className="legend-item"><div className="legend-color" style={{ background: '#1d7a3c' }} />Low (0-3)</div>
                 </>
               )}
             </div>

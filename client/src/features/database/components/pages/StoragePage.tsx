@@ -4,6 +4,7 @@ import { GG, GGErrorBanner } from '../dbConnectTheme';
 import MiniLineChart from '../ui/MiniLineChart';
 import KpiCard from '../ui/KpiCard';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 function formatBytes(bytes: number | null): string {
   if (bytes === null) return 'Not available';
@@ -47,27 +48,27 @@ export default function StoragePage({ projectId, paused }: StoragePageProps) {
 
       <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ padding: '14px 18px', fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', borderBottom: `1px solid ${GG.line}` }}>Largest Objects</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: GG.bg2, textAlign: 'left' }}>
+        <Table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 12 }}>
+          <TableHeader>
+            <TableRow style={{ background: GG.bg2, textAlign: 'left' }}>
               {['Table', 'Rows', 'Data', 'Indexes', 'Total'].map(h => (
-                <th key={h} style={{ padding: '9px 18px', color: GG.fg4, fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</th>
+                <TableHead key={h} style={{ padding: '9px 18px', color: GG.fg4, fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.tables.map(t => (
-              <tr key={`${t.schema}.${t.name}`} style={{ borderTop: `1px solid ${GG.line}` }}>
-                <td style={{ padding: '9px 18px', color: GG.fg2 }}>{t.schema ? `${t.schema}.` : ''}{t.name}</td>
-                <td style={{ padding: '9px 18px', color: GG.fg2 }}>{t.rows === null ? '—' : t.rows.toLocaleString()}</td>
-                <td style={{ padding: '9px 18px', color: GG.fg2 }}>{formatBytes(t.dataBytes)}</td>
-                <td style={{ padding: '9px 18px', color: GG.fg2 }}>{formatBytes(t.indexBytes)}</td>
-                <td style={{ padding: '9px 18px', color: GG.fg, fontWeight: 700 }}>{formatBytes(t.totalBytes)}</td>
-              </tr>
+              <TableRow key={`${t.schema}.${t.name}`} style={{ borderTop: `1px solid ${GG.line}` }}>
+                <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{t.schema ? `${t.schema}.` : ''}{t.name}</TableCell>
+                <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{t.rows === null ? '—' : t.rows.toLocaleString()}</TableCell>
+                <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{formatBytes(t.dataBytes)}</TableCell>
+                <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{formatBytes(t.indexBytes)}</TableCell>
+                <TableCell style={{ padding: '9px 18px', color: GG.fg, fontWeight: 700 }}>{formatBytes(t.totalBytes)}</TableCell>
+              </TableRow>
             ))}
-            {data.tables.length === 0 && <tr><td colSpan={5} style={{ padding: 20, textAlign: 'center', color: GG.fg4 }}>No tables found.</td></tr>}
-          </tbody>
-        </table>
+            {data.tables.length === 0 && <TableRow><TableCell colSpan={5} style={{ padding: 20, textAlign: 'center', color: GG.fg4 }}>No tables found.</TableCell></TableRow>}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

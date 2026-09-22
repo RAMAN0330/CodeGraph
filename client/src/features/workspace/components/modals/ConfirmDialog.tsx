@@ -1,5 +1,7 @@
 import { Icon } from '../../../../shared/components/Icon';
 import { getDialogTone } from '../../../analysis/services/parser';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 export interface ConfirmDialogState {
   title: string;
@@ -18,8 +20,12 @@ interface Props {
 export default function ConfirmDialog({ dialog, onResolve }: Props) {
   const tone = getDialogTone(dialog.tone);
   return (
-    <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={() => onResolve(false)}>
-      <div className="modal confirm-modal" onClick={e => e.stopPropagation()}>
+    <Dialog open onOpenChange={(open) => { if (!open) onResolve(false); }}>
+      <DialogContent
+        className="modal confirm-modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none w-[90%] sm:max-w-none"
+        style={{ zIndex: 1200 }}
+        showCloseButton={false}
+      >
         <div className="modal-body">
           <div className="confirm-content">
             <div className="confirm-icon" style={{ color: tone.color, background: tone.background, border: '1px solid ' + tone.borderColor }}>
@@ -32,10 +38,10 @@ export default function ConfirmDialog({ dialog, onResolve }: Props) {
           </div>
         </div>
         <div className="modal-footer">
-          <button className="top-btn" onClick={() => onResolve(false)}>{dialog.cancelLabel || 'Cancel'}</button>
-          <button className="top-btn primary" style={{ background: tone.color, borderColor: tone.color, color: 'var(--bg0)' }} onClick={() => onResolve(true)}>{dialog.confirmLabel || 'Continue'}</button>
+          <Button className="top-btn h-auto" onClick={() => onResolve(false)}>{dialog.cancelLabel || 'Cancel'}</Button>
+          <Button className="top-btn primary h-auto" style={{ background: tone.color, borderColor: tone.color, color: 'var(--bg0)' }} onClick={() => onResolve(true)}>{dialog.confirmLabel || 'Continue'}</Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

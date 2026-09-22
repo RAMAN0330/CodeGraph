@@ -1,4 +1,6 @@
 import { Icon } from '../../../../shared/components/Icon';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   onExportReport: (format: 'json' | 'md' | 'txt') => void;
@@ -8,11 +10,15 @@ interface Props {
 
 export default function AnalysisReportModal({ onExportReport, onExportRawJson, onClose }: Props) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none sm:max-w-none"
+        style={{ maxWidth: 480 }}
+        showCloseButton={false}
+      >
         <div className="modal-header">
           <div className="modal-title"><Icon name="export" size="m" /> Analysis Report</div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <Button variant="ghost" className="modal-close hover:bg-transparent h-auto p-0" onClick={onClose}>×</Button>
         </div>
         <div className="modal-body">
           <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 8 }}>Analysis Report</div>
@@ -39,7 +45,7 @@ export default function AnalysisReportModal({ onExportReport, onExportRawJson, o
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

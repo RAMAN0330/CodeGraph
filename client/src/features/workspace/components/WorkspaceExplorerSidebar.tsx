@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Icon } from '../../../shared/components/Icon';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   folderFilter: string | null;
@@ -13,9 +14,9 @@ export default function WorkspaceExplorerSidebar({ folderFilter, onClearFilter, 
       <div className="explorer-sidebar-heading">
         <div className="sidebar-title">Explorer</div>
         {folderFilter && (
-          <button className="top-btn" onClick={onClearFilter}>
+          <Button variant="ghost" className="top-btn" onClick={onClearFilter}>
             <Icon name="close" size="s" /> Clear {folderFilter}
-          </button>
+          </Button>
         )}
       </div>
       <div className="sidebar-scroll">{children}</div>

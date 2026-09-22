@@ -33,6 +33,7 @@ import { parseDbSchema } from '../../database/services/dbParser';
 import { saveBookmark } from '../services/bookmarks';
 import { recordAnalysisSnapshot } from '../services/analysisHistory';
 import { buildArchitectureGraph } from '../services/architectureGraph';
+import { adaptGraphifyGraph } from '../../analysis/services/graphifyAdapter';
 import CommandPalette from '../components/CommandPalette';
 import { decodeShareLink } from '../../export/services/exporters';
 import { extractManifestDependencies } from '../../security/services/manifestParser';
@@ -40,6 +41,10 @@ import { scanDependencies } from '../../security/services/osv';
 import { fetchTrendData, buildActivityPoints } from '../../analysis/services/trends';
 import { appConfig } from '../../../app/config';
 import { analyzeSource } from '../../analysis/services/sourceAnalysisClient';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const extractManifestDeps = extractManifestDependencies;
 const BranchDiff = React.lazy(() => import('../../git-insights/components/BranchDiff'));
@@ -118,6 +123,13 @@ export default function LegacyWorkspaceEngine(){
     var _brload=useState<any>(false),branchLoading=_brload[0],setBranchLoading=_brload[1];
     // DB schema auto-detected badge
     var _dbdet=useState<any>(false),dbSchemaDetected=_dbdet[0],setDbSchemaDetected=_dbdet[1];
+    // Real tree-sitter-derived graph from the server's `graphify` job, when the
+    // background analysis path produced one — a strictly better source than the
+    // browser's own token-matched `connections` (see graphifyAdapter.ts). Null
+    // until (and unless) that job succeeds; every consumer must fall back to the
+    // existing browser-computed graph, matching the server's own stated intent
+    // in tasks.py ("Graphify extraction failed; using browser graph fallback").
+    var _gfy=useState<any>(null),graphifyGraph=_gfy[0],setGraphifyGraph=_gfy[1];
     var _prevSnap=useState<any>(null),previousSnapshot=_prevSnap[0],setPreviousSnapshot=_prevSnap[1];
     // Active sidebar section
     var _sec=useState<any>('overview'),activeSection=_sec[0],setActiveSection=_sec[1];
@@ -269,6 +281,7 @@ export default function LegacyWorkspaceEngine(){
         setFolderFilter(null);
         setPrData(null);
         setFilePreview(null);
+        setGraphifyGraph(null);
     }
 
     function openExcludeModal(continueToFolder){
@@ -374,6 +387,10 @@ export default function LegacyWorkspaceEngine(){
                         if (tables.length) {
                             setDbSchema({ source: 'django', tables });
                             setDbSchemaDetected(true);
+                        }
+                        if (d.result?.graphify) {
+                            try { setGraphifyGraph(adaptGraphifyGraph(d.result.graphify)); }
+                            catch { /* malformed payload — the browser-computed graph stays authoritative */ }
                         }
                     } else if (d.status === 'failed') {
                         clearInterval(interval);
@@ -675,6 +692,17 @@ export default function LegacyWorkspaceEngine(){
 
         async function finishAnalysis(){
             try{
+            // Fire-and-forget: start fetching whichever tree-sitter grammars
+            // this file set actually needs now, in parallel with Phase 1-2
+            // below, so Phase 3's detectPatterns/detectSecurity don't stall on
+            // a cold WASM fetch when they run. Not awaited — those calls will
+            // await the same cached promise themselves when they get there.
+            Object.keys(analyzed.reduce(function(needed: any,f: any){
+                var ext=(f.name.match(/\.([^.]+)$/)||[])[1];
+                var lang=ext&&({py:'python',pyw:'python',pyi:'python',rb:'ruby',php:'php',java:'java'} as any)[ext.toLowerCase()];
+                if(lang)needed[lang]=true;
+                return needed;
+            },{})).forEach(function(lang: any){Parser.initTreeSitter(lang);});
             // Phase 1: Build function stats index
             setProgress('Building dependency graph (1/5)...');
             await new Promise(function(r: any){setTimeout(r,0);});
@@ -794,13 +822,13 @@ export default function LegacyWorkspaceEngine(){
             // Phase 3: Pattern and security detection with yielding
             setProgress('Detecting patterns (3/5)...');
             await new Promise(function(r: any){setTimeout(r,0);});
-            var patterns=Parser.detectPatterns(analyzed);
-            var securityIssues=Parser.detectSecurity(analyzed);
+            var patterns=await Parser.detectPatterns(analyzed);
+            var securityIssues=await Parser.detectSecurity(analyzed);
 
             // Phase 4: Duplicate detection and complexity (most expensive)
             setProgress('Analyzing code quality (4/5)...');
             await new Promise(function(r: any){setTimeout(r,0);});
-            var duplicates=Parser.detectDuplicates(analyzed,allFns);
+            var duplicates=await Parser.detectDuplicates(analyzed);
             var layerViolations=Parser.detectLayerViolations(analyzed,conns);
 
             // Calculate complexity in batches
@@ -948,7 +976,7 @@ export default function LegacyWorkspaceEngine(){
         });
     }
 
-    function exportJSON(){if(!data)return;var blob=new Blob([JSON.stringify({stats:(data as any).stats,files:(data as any).files.map(function(f: any){return{path:f.path,fns:f.functions.length,layer:f.layer,lines:f.lines,dependencies:f.dependencies||[]};}),connections:(data as any).connections,issues:(data as any).issues,patterns:(data as any).patterns,security:(data as any).securityIssues},null,2)],{type:'application/json'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='graphkeep-analysis.json';a.click();}
+    function exportJSON(){if(!data)return;var blob=new Blob([JSON.stringify({stats:(data as any).stats,files:(data as any).files.map(function(f: any){return{path:f.path,fns:f.functions.length,layer:f.layer,lines:f.lines,dependencies:f.dependencies||[]};}),connections:(data as any).connections,issues:(data as any).issues,patterns:(data as any).patterns,security:(data as any).securityIssues},null,2)],{type:'application/json'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='structrace-analysis.json';a.click();}
     function showNotification(msg,type){setToast({msg:msg,type:type||'success'});setTimeout(function(){setToast(null);},3000);}
     function analyzePR(){if(!prUrl||!repoInfo)return;var m=prUrl.match(/\/pull\/(\d+)/);if(!m){showNotification('Invalid PR URL','error');return;}GitHub.getPR(repoInfo.owner,repoInfo.repo,m[1]).then(function(pr: any){if(pr)setPrData(pr);else showNotification('Could not load PR','error');});}
     function filterByFolder(path){setFolderFilter(function(prev: any){return prev===path?null:path;});}
@@ -959,7 +987,20 @@ export default function LegacyWorkspaceEngine(){
     var overviewSuggestions=useMemo(function(){return data?Parser.generateSuggestions(data):[];},[data]);
     var overviewArchitecture=useMemo(function(){
         if(!data)return null;
-        var graph=buildArchitectureGraph((data as any).files||[],(data as any).connections||[]);
+        var graph;
+        if(graphifyGraph&&graphifyGraph.nodes&&graphifyGraph.nodes.length){
+            // graphify's edges reference function-level node ids, not file paths —
+            // buildArchitectureGraph groups by path, so translate id -> sourceFile
+            // before handing the edges off. See graphifyAdapter.ts for the shape.
+            var idToFile: Record<string,string> = {};
+            graphifyGraph.nodes.forEach(function(n: any){ idToFile[n.id]=n.sourceFile||n.id; });
+            var links=graphifyGraph.links.map(function(l: any){
+                return{source:idToFile[l.source]||l.source,target:idToFile[l.target]||l.target,label:l.relationship||l.fn};
+            });
+            graph=buildArchitectureGraph(graphifyGraph.nodes,links);
+        }else{
+            graph=buildArchitectureGraph((data as any).files||[],(data as any).connections||[]);
+        }
         var circularCount=((data as any).issues||[]).filter(function(i: any){return i.title&&i.title.includes('Circular');}).length;
         return{layers:graph.groups.length,modules:graph.nodes.length,edges:graph.edges.length,circular:circularCount};
     },[data]);
@@ -973,7 +1014,13 @@ export default function LegacyWorkspaceEngine(){
     var dbAppOptions=_dbLoader.dbAppOptions,filteredDbSchema=_dbLoader.filteredDbSchema,openDbSchema=_dbLoader.openDbSchema;
 
     var showNav=!(activeSection==='overview'&&!data);
-    return React.createElement('div',{className:'workspace-shell'+(showNav?'':' workspace-shell-nonav')},
+    // Before analysis lands there is nothing for the shell chrome to act on, so
+    // the loader owns the whole screen and carries its own topbar.
+    if(!showNav)return React.createElement(WorkspaceOverview,{
+        repoInfo:repoInfo,data:data,health:health,loading:loading,progress:progress,error:error,
+        onOpen:function(s: any){setActiveSection(s);},onOpenUnused:function(){setActiveSection('unused');},
+    });
+    return React.createElement('div',{className:'workspace-shell'},
         React.createElement(WorkspaceHeader,{
             repoInfo:repoInfo,
             loading:loading,
@@ -983,11 +1030,10 @@ export default function LegacyWorkspaceEngine(){
             branchLoading:branchLoading,
             onBranchSwitch:function(br: any){switchBranchLight(br);},
             onPaletteOpen: function(){ if(data) setShowPalette(true); },
-            onExport: data ? function(){ setShowExport(true); } : undefined,
-            onGoHome:function(){ window.location.href='/select-repo'; },
+            onGoHome:function(){ window.location.href='/'; },
             activeSection:activeSection,
         }),
-        showNav&&React.createElement(WorkspaceSidebar,{
+        React.createElement(WorkspaceSidebar,{
             login:authUser?.login??'',
             avatarUrl:authUser?.avatar_url??'',
             activeSection:activeSection,
@@ -995,8 +1041,8 @@ export default function LegacyWorkspaceEngine(){
             onSectionChange:function(s: any){setActiveSection(s);if(s==='database'&&data&&!dbSchema)openDbSchema();},
         }),
         React.createElement('div',{
-        className:'app workspace-one-dark'+(activeSection==='overview'?'':' workspace-tool-mode'),
-        style:{paddingTop:0,paddingLeft:showNav?12:0}
+        className:'app workspace-theme'+(activeSection==='overview'?'':' workspace-tool-mode'),
+        style:{paddingTop:0,paddingLeft:12}
     },
         React.createElement(React.Suspense,{fallback:sectionFallback()},
         React.createElement('div',{key:activeSection,className:'workspace-section-enter'},
@@ -1114,12 +1160,14 @@ export default function LegacyWorkspaceEngine(){
             ),
             !loading&&data&&React.createElement('div',{className:'explorer-view-toggle',role:'tablist','aria-label':'Explorer view'},
                 React.createElement('div',{className:'explorer-view-thumb'+(explorerView==='files'?' is-files':''),'aria-hidden':'true'}),
-                React.createElement('button',{
+                React.createElement(Button,{
+                    variant:'ghost',
                     role:'tab','aria-selected':explorerView==='graph',
                     className:'explorer-view-btn'+(explorerView==='graph'?' active':''),
                     onClick:function(){setExplorerView('graph');}
                 },iconLabel('graph','Graph','s')),
-                React.createElement('button',{
+                React.createElement(Button,{
+                    variant:'ghost',
                     role:'tab','aria-selected':explorerView==='files',
                     className:'explorer-view-btn'+(explorerView==='files'?' active':''),
                     disabled:!selected,
@@ -1133,8 +1181,7 @@ export default function LegacyWorkspaceEngine(){
                     data:data,loading:loading,progress:progress,folderFilter:folderFilter,
                     selected:selected,blastRadius:blastRadius,activeSection:activeSection,
                     onSelectFile:selectFile,onFilterFolder:filterByFolder,
-                    onClearSelection:function(){setSelected(null);setBlastRadius(null);},
-                    onFetchFileContent:fetchFileContent
+                    onClearSelection:function(){setSelected(null);setBlastRadius(null);}
                 })
                 :React.createElement('div',{className:'canvas-area canvas-area-files explorer-content-swap from-right'},
                     React.createElement(ExplorerFilesView,{
@@ -1154,7 +1201,7 @@ export default function LegacyWorkspaceEngine(){
                     React.createElement('div',{className:'modal-title'},iconLabel('ban','Exclude Patterns','m')),
                     React.createElement('div',{style:{display:'flex',alignItems:'center',gap:12}},
                         React.createElement('div',{className:'exclude-count'},parseExcludePatterns(excludePatternDraft).length,' custom'),
-                        React.createElement('button',{className:'modal-close',onClick:closeExcludeModal},'×')
+                        React.createElement(Button,{variant:'ghost',className:'modal-close',onClick:closeExcludeModal},'×')
                     )
                 ),
                 React.createElement('div',{className:'modal-body'},
@@ -1167,21 +1214,21 @@ export default function LegacyWorkspaceEngine(){
                         ', and path globs like ',React.createElement('code',null,'uploads/**'),' or ',React.createElement('code',null,'**/cache/**'),'.'
                     ),
                     React.createElement('div',{className:'form-group'},
-                        React.createElement('label',{className:'form-label'},'Always Excluded'),
+                        React.createElement(Label,{className:'form-label'},'Always Excluded'),
                         React.createElement('div',{className:'exclude-chip-list'},
                             DEFAULT_EXCLUDE_CHIPS.map(function(pattern: any){return React.createElement('div',{key:pattern,className:'exclude-chip'},pattern);})
                         )
                     ),
                     React.createElement('div',{className:'form-group'},
-                        React.createElement('label',{className:'form-label'},'Custom Patterns'),
-                        React.createElement('textarea',{className:'form-input exclude-textarea','aria-label':'Custom exclude patterns',placeholder:'attachments\nuploads/**\n**/cache/**\n*.png\n*.log',value:excludePatternDraft,onChange:function(e: any){setExcludePatternDraft(e.target.value);},rows:8}),
+                        React.createElement(Label,{className:'form-label',htmlFor:'exclude-custom-patterns'},'Custom Patterns'),
+                        React.createElement(Textarea,{id:'exclude-custom-patterns',className:'form-input exclude-textarea','aria-label':'Custom exclude patterns',placeholder:'attachments\nuploads/**\n**/cache/**\n*.png\n*.log',value:excludePatternDraft,onChange:function(e: any){setExcludePatternDraft(e.target.value);},rows:8}),
                         React.createElement('div',{className:'exclude-help'},'Use one pattern per line, or separate patterns with commas. Changes apply to the next analysis or refresh.')
                     )
                 ),
                 React.createElement('div',{className:'modal-footer'},
-                    excludePatternDraft&&React.createElement('button',{className:'top-btn',onClick:function(){setExcludePatternDraft('');},style:{marginRight:'auto'}},'Clear Custom'),
-                    React.createElement('button',{className:'top-btn',onClick:closeExcludeModal},'Cancel'),
-                    React.createElement('button',{className:'top-btn primary',onClick:saveExcludePatterns},launchFolderAfterExcludeSave?'Save & Continue':'Save')
+                    excludePatternDraft&&React.createElement(Button,{variant:'outline',className:'top-btn',onClick:function(){setExcludePatternDraft('');},style:{marginRight:'auto'}},'Clear Custom'),
+                    React.createElement(Button,{variant:'outline',className:'top-btn',onClick:closeExcludeModal},'Cancel'),
+                    React.createElement(Button,{className:'top-btn primary',onClick:saveExcludePatterns},launchFolderAfterExcludeSave?'Save & Continue':'Save')
                 )
             )
         ),
@@ -1191,11 +1238,11 @@ export default function LegacyWorkspaceEngine(){
         showKeyModal&&React.createElement(GithubAppKeyModal,{privateKey:privateKey,onPrivateKeyChange:setPrivateKey,onClose:function(){setShowKeyModal(false);}}),
         showUnused&&data&&(data as any).deadFunctions&&React.createElement(UnusedFunctionsModal,{deadFunctions:(data as any).deadFunctions,expandedFns:expandedFns,setExpandedFns:setExpandedFns,onClose:function(){setShowUnused(false);},onViewSource:openFilePreview}),
         confirmDialog&&React.createElement(ConfirmDialog,{dialog:confirmDialog,onResolve:closeConfirmDialog}),
-        toast&&React.createElement('div',{className:'toast '+(toast.type||'success'),'role':'alert'},toast.msg),
+        toast&&React.createElement(Alert,{className:'toast '+(toast.type||'success')},React.createElement(AlertDescription,{className:'text-inherit'},toast.msg)),
         filePreview&&React.createElement(FilePreviewModal,{filePreview:filePreview,onClose:function(){setFilePreview(null);}}),
-        error&&React.createElement('div',{style:{position:'fixed',bottom:20,right:20,background:'var(--red)',color:'white',padding:'12px 20px',borderRadius:8,zIndex:1000,maxWidth:350},'role':'alert'},
+        error&&React.createElement(Alert,{style:{position:'fixed',bottom:20,right:20,display:'flex',alignItems:'center',background:'var(--red)',color:'white',padding:'12px 20px',borderRadius:8,zIndex:1000,maxWidth:350}},
             React.createElement('span',{key:'msg'},error),
-            React.createElement('button',{key:'btn','aria-label':'Dismiss error','onClick':function(){setError(null);},style:{marginLeft:12,background:'none',border:'none',color:'white',cursor:'pointer',fontSize:16}},'×')
+            React.createElement(Button,{key:'btn',variant:'ghost','aria-label':'Dismiss error','onClick':function(){setError(null);},style:{marginLeft:12,background:'none',border:'none',color:'white',cursor:'pointer',fontSize:16}},'×')
         ),
         showDbSchema&&React.createElement(DbSchemaOverlay,{
             dbSchema:dbSchema,

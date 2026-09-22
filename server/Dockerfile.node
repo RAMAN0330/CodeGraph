@@ -1,9 +1,16 @@
+# Build context is the repo root (../), not this directory — see
+# docker-compose.yml's legacy-api service. This Dockerfile needs to reach
+# client/src/features/analysis/services/analysisRules.ts (see the COPY below
+# for why), and Docker's COPY can never escape its own build context with
+# `../`, so every path here is written relative to the root, not to
+# server/ — that's also why this Dockerfile copies server/package*.json
+# rather than the package*.json a context: ./server build would have used.
 FROM node:24-alpine AS build
 WORKDIR /app
-COPY package*.json ./
+COPY server/package*.json ./
 RUN npm ci
-COPY tsconfig.json ./
-COPY src ./src
+COPY server/tsconfig.json ./
+COPY server/src ./src
 RUN npm run build && npm prune --omit=dev
 
 FROM node:24-alpine
@@ -11,7 +18,30 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-COPY package.json ./
+COPY server/package.json ./
+# dist/analysis/parser.js requires this client file directly, by a relative
+# path across the service boundary, at runtime — see that import's own header
+# comment in server/src/analysis/parser.ts for why (it's a real architectural
+# decision, not an accident) and for what would need to change if this file
+# ever grows a second, non-npm dependency of its own (confirmed today it has
+# none: only `acorn` and `web-tree-sitter`, both already server
+# dependencies). The build stage above never needed this — `@ts-nocheck`
+# suppresses module resolution at compile time — only the running server
+# actually executes the require(). The destination path is exactly what
+# `require('../../../client/src/features/analysis/services/analysisRules.ts')`
+# resolves to from /app/dist/analysis/parser.js: three levels up from
+# /app/dist/analysis/ is /, then +client/src/....
+COPY client/src/features/analysis/services/analysisRules.ts /client/src/features/analysis/services/analysisRules.ts
+# analysisRules.ts imports `acorn` by bare specifier. Node resolves that by
+# walking up from the importing file looking for a node_modules directory —
+# /client/... has no ancestry of its own in this image, so without this
+# symlink that walk finds nothing and the require() above throws "Cannot
+# find package 'acorn'" (confirmed against the actual failure, not assumed).
+# Pointing it at the node_modules already installed for this service — which
+# already contains acorn and web-tree-sitter, analysisRules.ts's only two
+# dependencies — resolves it, and keeps resolving it if a future edit adds a
+# third dependency already present here, with no Dockerfile change needed.
+RUN ln -s /app/node_modules /client/node_modules
 USER node
 EXPOSE 5001
 CMD ["node", "dist/index.js"]

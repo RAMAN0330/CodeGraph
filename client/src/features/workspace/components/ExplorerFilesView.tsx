@@ -4,6 +4,7 @@ import {
   Layers, Link2, ShieldCheck, Sparkles, Users, Zap,
 } from 'lucide-react';
 import { COLORS } from '../../analysis/services/parser';
+import { Button } from '@/components/ui/button';
 
 const BlameHeatmap = React.lazy(() => import('../../git-insights/components/BlameHeatmap'));
 
@@ -89,10 +90,10 @@ export default function ExplorerFilesView({
           )}
         </div>
         <div className="xfiles-head-actions">
-          <button className="xfiles-btn primary" onClick={() => onViewSource(selected.path)}>
+          <Button variant="ghost" className="xfiles-btn primary" onClick={() => onViewSource(selected.path)}>
             <Eye size={14} strokeWidth={1.9} /> View Source
-          </button>
-          <button className="xfiles-btn" onClick={onClearSelection}>Clear</button>
+          </Button>
+          <Button variant="ghost" className="xfiles-btn" onClick={onClearSelection}>Clear</Button>
         </div>
       </header>
 
@@ -110,6 +111,7 @@ export default function ExplorerFilesView({
       )}
 
       <div className="xfiles-grid">
+       <div className="xfiles-top-row">
         <section className="xfiles-card xfiles-fns">
           <header className="xfiles-card-head">
             <h2><Zap size={14} strokeWidth={2} /> Functions</h2>
@@ -127,7 +129,7 @@ export default function ExplorerFilesView({
                 const dead = internal === 0 && external === 0;
                 return (
                   <div key={fn.name} className={`xfiles-fn${open ? ' open' : ''}`}>
-                    <button className="xfiles-fn-head" onClick={() => onToggleFn(fn.name)}>
+                    <Button variant="ghost" className="xfiles-fn-head" onClick={() => onToggleFn(fn.name)}>
                       <ChevronRight className="xfiles-fn-caret" size={13} strokeWidth={2.2} />
                       <span className="xfiles-fn-name">{fn.name}()</span>
                       <span className="xfiles-fn-line">L{fn.line}</span>
@@ -149,7 +151,7 @@ export default function ExplorerFilesView({
                       >
                         <Eye size={13} strokeWidth={1.9} />
                       </span>
-                    </button>
+                    </Button>
                     {open && (
                       <div className="xfiles-fn-body">
                         {fn.code && <pre className="xfiles-code">{fn.code}</pre>}
@@ -157,11 +159,11 @@ export default function ExplorerFilesView({
                           <div className="xfiles-callers">
                             <h4>External callers</h4>
                             {stat.callers.slice(0, 10).map((caller: any, i: number) => (
-                              <button key={i} className="xfiles-caller" onClick={() => onSelectFile(caller.file)}>
+                              <Button variant="ghost" key={i} className="xfiles-caller" onClick={() => onSelectFile(caller.file)}>
                                 <FileCode2 size={12} strokeWidth={1.8} />
                                 <span>{caller.name}</span>
                                 <em>{caller.count}×</em>
-                              </button>
+                              </Button>
                             ))}
                             {stat.callers.length > 10 && (
                               <p className="xfiles-more">+{stat.callers.length - 10} more</p>
@@ -177,17 +179,16 @@ export default function ExplorerFilesView({
           )}
         </section>
 
-        <div className="xfiles-side">
           <section className="xfiles-card">
             <header className="xfiles-card-head">
               <h2><Link2 size={14} strokeWidth={2} /> Connections</h2>
               <div className="xfiles-seg">
-                <button className={connTab === 'uses' ? 'active' : ''} onClick={() => setConnTab('uses')}>
+                <Button variant="ghost" className={connTab === 'uses' ? 'active' : ''} onClick={() => setConnTab('uses')}>
                   Uses {outgoing.length}
-                </button>
-                <button className={connTab === 'usedby' ? 'active' : ''} onClick={() => setConnTab('usedby')}>
+                </Button>
+                <Button variant="ghost" className={connTab === 'usedby' ? 'active' : ''} onClick={() => setConnTab('usedby')}>
                   Used by {incoming.length}
-                </button>
+                </Button>
               </div>
             </header>
             {conns.length === 0 ? (
@@ -197,57 +198,57 @@ export default function ExplorerFilesView({
             ) : (
               <div className="xfiles-conns">
                 {conns.slice(0, 20).map(conn => (
-                  <button key={conn.file} className="xfiles-conn" onClick={() => onSelectFile(conn.file)}>
+                  <Button variant="ghost" key={conn.file} className="xfiles-conn" onClick={() => onSelectFile(conn.file)}>
                     <FileCode2 size={13} strokeWidth={1.8} />
                     <span className="xfiles-conn-name">{conn.file.split('/').pop()}</span>
                     <span className="xfiles-conn-path">{conn.file}</span>
                     <em>{conn.fns.length} fn{conn.fns.length !== 1 ? 's' : ''}</em>
-                  </button>
+                  </Button>
                 ))}
                 {conns.length > 20 && <p className="xfiles-more">+{conns.length - 20} more files</p>}
               </div>
             )}
           </section>
+       </div>
 
-          <section className="xfiles-card">
-            <header className="xfiles-card-head">
-              <h2><Users size={14} strokeWidth={2} /> Ownership</h2>
-            </header>
-            {ownerLoading ? (
-              <p className="xfiles-empty-note">Loading ownership data…</p>
-            ) : ownership?.length > 0 ? (
-              <div className="xfiles-owners">
-                <div className="xfiles-owner-bar">
-                  {ownership.slice(0, 5).map((o: any, i: number) => (
-                    <span key={i} style={{ width: `${o.percent}%`, background: COLORS[i % COLORS.length] }} />
-                  ))}
-                </div>
+        <section className="xfiles-card">
+          <header className="xfiles-card-head">
+            <h2><Users size={14} strokeWidth={2} /> Ownership</h2>
+          </header>
+          {ownerLoading ? (
+            <p className="xfiles-empty-note">Loading ownership data…</p>
+          ) : ownership?.length > 0 ? (
+            <div className="xfiles-owners">
+              <div className="xfiles-owner-bar">
                 {ownership.slice(0, 5).map((o: any, i: number) => (
-                  <div key={i} className="xfiles-owner">
-                    <span className="xfiles-owner-avatar" style={{ background: COLORS[i % COLORS.length] }}>
-                      {o.name[0].toUpperCase()}
-                    </span>
-                    <span className="xfiles-owner-name">{o.name}</span>
-                    <em>{o.percent}%</em>
-                  </div>
+                  <span key={i} style={{ width: `${o.percent}%`, background: COLORS[i % COLORS.length] }} />
                 ))}
               </div>
-            ) : (
-              <p className="xfiles-empty-note">No ownership data available.</p>
-            )}
-          </section>
-
-          {repoInfo && (
-            <section className="xfiles-card">
-              <header className="xfiles-card-head">
-                <h2><GitBranch size={14} strokeWidth={2} /> Change history</h2>
-              </header>
-              <Suspense fallback={<p className="xfiles-empty-note">Loading blame…</p>}>
-                <BlameHeatmap owner={repoInfo.owner} repo={repoInfo.repo} token={token} filePath={selected.path} />
-              </Suspense>
-            </section>
+              {ownership.slice(0, 5).map((o: any, i: number) => (
+                <div key={i} className="xfiles-owner">
+                  <span className="xfiles-owner-avatar" style={{ background: COLORS[i % COLORS.length] }}>
+                    {o.name[0].toUpperCase()}
+                  </span>
+                  <span className="xfiles-owner-name">{o.name}</span>
+                  <em>{o.percent}%</em>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="xfiles-empty-note">No ownership data available.</p>
           )}
-        </div>
+        </section>
+
+        {repoInfo && (
+          <section className="xfiles-card">
+            <header className="xfiles-card-head">
+              <h2><GitBranch size={14} strokeWidth={2} /> Change history</h2>
+            </header>
+            <Suspense fallback={<p className="xfiles-empty-note">Loading blame…</p>}>
+              <BlameHeatmap owner={repoInfo.owner} repo={repoInfo.repo} token={token} filePath={selected.path} />
+            </Suspense>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -301,9 +302,10 @@ function FilesOverview({ data, onSelectFile, onSelectIssue }: {
           ) : (
             <div className="xfiles-issues">
               {issues.map((issue: any, i: number) => (
-                <button
+                <Button
+                  variant="ghost"
                   key={i}
-                  className={`xfiles-issue ${issue.type === 'critical' ? 'critical' : 'warning'}`}
+                  className={`xfiles-issue h-auto ${issue.type === 'critical' ? 'critical' : 'warning'}`}
                   onClick={() => onSelectIssue(issue)}
                 >
                   <span className="xfiles-issue-dot" />
@@ -313,7 +315,7 @@ function FilesOverview({ data, onSelectFile, onSelectIssue }: {
                   </span>
                   <em>{issue.items ? issue.items.length : 0} items</em>
                   <ChevronRight size={15} strokeWidth={1.9} />
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -326,12 +328,12 @@ function FilesOverview({ data, onSelectFile, onSelectIssue }: {
             </header>
             <div className="xfiles-conns">
               {largest.map((file: any) => (
-                <button key={file.path} className="xfiles-conn" onClick={() => onSelectFile(file.path)}>
+                <Button variant="ghost" key={file.path} className="xfiles-conn" onClick={() => onSelectFile(file.path)}>
                   <FileCode2 size={13} strokeWidth={1.8} />
                   <span className="xfiles-conn-name">{file.name}</span>
                   <span className="xfiles-conn-path">{file.folder || 'root'}</span>
                   <em>{file.lines} lines</em>
-                </button>
+                </Button>
               ))}
             </div>
           </section>

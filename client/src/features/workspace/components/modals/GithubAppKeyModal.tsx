@@ -1,4 +1,7 @@
 import { Icon } from '../../../../shared/components/Icon';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Props {
   privateKey: string;
@@ -8,11 +11,14 @@ interface Props {
 
 export default function GithubAppKeyModal({ privateKey, onPrivateKeyChange, onClose }: Props) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal key-modal" onClick={e => e.stopPropagation()}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="modal key-modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none sm:max-w-none"
+        showCloseButton={false}
+      >
         <div className="modal-header">
           <div className="modal-title"><Icon name="key" size="m" /> GitHub App Private Key</div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <Button variant="ghost" className="modal-close hover:bg-transparent h-auto p-0" onClick={onClose}>×</Button>
         </div>
         <div className="modal-body">
           <div className="key-info">
@@ -25,7 +31,7 @@ export default function GithubAppKeyModal({ privateKey, onPrivateKeyChange, onCl
           </div>
           <div className="form-group">
             <label className="form-label">Private Key (PEM format)</label>
-            <textarea
+            <Textarea
               className="form-input"
               placeholder={'-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----'}
               value={privateKey}
@@ -35,11 +41,11 @@ export default function GithubAppKeyModal({ privateKey, onPrivateKeyChange, onCl
           </div>
         </div>
         <div className="modal-footer">
-          {privateKey && <button className="top-btn" onClick={() => onPrivateKeyChange('')} style={{ marginRight: 'auto' }}>Clear Key</button>}
-          <button className="top-btn" onClick={onClose}>Cancel</button>
-          <button className="top-btn primary" onClick={onClose}>Save</button>
+          {privateKey && <Button className="top-btn h-auto" onClick={() => onPrivateKeyChange('')} style={{ marginRight: 'auto' }}>Clear Key</Button>}
+          <Button className="top-btn h-auto" onClick={onClose}>Cancel</Button>
+          <Button className="top-btn primary h-auto" onClick={onClose}>Save</Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -2,6 +2,8 @@ import { ArrowRight } from 'lucide-react';
 import { Icon } from '../../../../shared/components/Icon';
 import { StatusDot } from '../../../../shared/components/StatusDot';
 import { getAccentBlockStyle, getSeverityColor } from '../../../analysis/services/parser';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 export interface DrillDownState {
   type: 'issue' | 'pattern' | 'security' | 'duplicate';
@@ -47,11 +49,15 @@ export default function DrillDownModal({ drillDown, onClose, onSelectFile, onVie
     );
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none sm:max-w-none"
+        style={{ maxWidth: 600, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
+        showCloseButton={false}
+      >
         <div className="modal-header">
           <div className="modal-title">{title}</div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <Button variant="ghost" className="modal-close hover:bg-transparent h-auto p-0" onClick={onClose}>×</Button>
         </div>
         <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
           {type === 'issue' && (
@@ -61,13 +67,13 @@ export default function DrillDownModal({ drillDown, onClose, onSelectFile, onVie
               </div>
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12 }}>All Affected Items ({data.items ? data.items.length : 0})</div>
               {data.items && data.items.map((item: any, j: number) => (
-                <div key={j} style={getAccentBlockStyle('rgba(0,255,157,0.28)', 'rgba(0,255,157,0.08)', { padding: 12, marginBottom: 8 })}>
+                <div key={j} style={getAccentBlockStyle('rgba(79,70,229,0.28)', 'rgba(79,70,229,0.08)', { padding: 12, marginBottom: 8 })}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontWeight: 600, fontSize: 11 }}>{item.name}</div>
                     {item.file && (
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="view-file-btn" onClick={e => { e.stopPropagation(); onViewSource(item.file, item.line); }}><Icon name="eye" size="s" /> View</button>
-                        <button style={{ fontSize: 9, padding: '4px 8px', background: 'var(--acc)', color: 'var(--bg0)', border: 'none', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} onClick={e => { e.stopPropagation(); onSelectFile(item.file); onClose(); }}>Go to file <span className="icon icon-s"><ArrowRight size={11} strokeWidth={1.9} /></span></button>
+                        <Button variant="ghost" className="view-file-btn h-auto" onClick={e => { e.stopPropagation(); onViewSource(item.file, item.line); }}><Icon name="eye" size="s" /> View</Button>
+                        <Button variant="ghost" style={{ fontSize: 9, padding: '4px 8px', background: 'var(--acc)', color: 'var(--bg0)', border: 'none', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, height: 'auto' }} onClick={e => { e.stopPropagation(); onSelectFile(item.file); onClose(); }}>Go to file <span className="icon icon-s"><ArrowRight size={11} strokeWidth={1.9} /></span></Button>
                       </div>
                     )}
                   </div>
@@ -89,7 +95,7 @@ export default function DrillDownModal({ drillDown, onClose, onSelectFile, onVie
                         <div key={k} style={{ fontSize: 9, color: 'var(--t2)', padding: '4px 8px', background: 'var(--bg2)', borderRadius: 4, marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontFamily: 'monospace', cursor: 'pointer', flex: 1 }} onClick={() => { onSelectFile(f.file || f); onClose(); }}>{(typeof f === 'string' ? f.split('/').pop() : (f.file || '').split('/').pop())}{f.line ? ' :' + f.line : ''}</span>
                           <div style={{ display: 'flex', gap: 4 }}>
-                            <button className="view-file-btn" onClick={e => { e.stopPropagation(); onViewSource(f.file || f, f.line); }}><Icon name="eye" size="s" /></button>
+                            <Button variant="ghost" className="view-file-btn h-auto" onClick={e => { e.stopPropagation(); onViewSource(f.file || f, f.line); }}><Icon name="eye" size="s" /></Button>
                             <span className="icon icon-s" style={{ color: 'var(--acc)', cursor: 'pointer' }} onClick={() => { onSelectFile(f.file || f); onClose(); }}><ArrowRight size={11} strokeWidth={1.9} /></span>
                           </div>
                         </div>
@@ -119,10 +125,10 @@ export default function DrillDownModal({ drillDown, onClose, onSelectFile, onVie
               )}
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12 }}>All Files ({data.files.length})</div>
               {data.files.map((f: any, j: number) => (
-                <div key={j} style={getAccentBlockStyle('rgba(0,255,157,0.28)', 'rgba(0,255,157,0.08)', { padding: 12, marginBottom: 8 })}>
+                <div key={j} style={getAccentBlockStyle('rgba(79,70,229,0.28)', 'rgba(79,70,229,0.08)', { padding: 12, marginBottom: 8 })}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontWeight: 600, fontSize: 11, cursor: 'pointer' }} onClick={() => { onSelectFile(f.path); onClose(); }}>{f.name}</div>
-                    <button className="view-file-btn" onClick={e => { e.stopPropagation(); onViewSource(f.path); }}><Icon name="eye" size="s" /> View</button>
+                    <Button variant="ghost" className="view-file-btn h-auto" onClick={e => { e.stopPropagation(); onViewSource(f.path); }}><Icon name="eye" size="s" /> View</Button>
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 4, fontFamily: 'monospace', cursor: 'pointer' }} onClick={() => { onSelectFile(f.path); onClose(); }}>{f.path}</div>
                   {f.fns && <div style={{ fontSize: 10, color: 'var(--orange)', marginTop: 4 }}>{f.fns} functions</div>}
@@ -136,10 +142,10 @@ export default function DrillDownModal({ drillDown, onClose, onSelectFile, onVie
             <>
               <div style={
                 data.severity === 'high'
-                  ? getAccentBlockStyle('rgba(255,95,95,0.36)', 'rgba(255,95,95,0.1)', { padding: 12, marginBottom: 16 })
+                  ? getAccentBlockStyle('rgba(220,38,38,0.36)', 'rgba(220,38,38,0.1)', { padding: 12, marginBottom: 16 })
                   : data.severity === 'medium'
-                    ? getAccentBlockStyle('rgba(255,159,67,0.34)', 'rgba(255,180,100,0.1)', { padding: 12, marginBottom: 16 })
-                    : getAccentBlockStyle('rgba(77,159,255,0.34)', 'rgba(100,180,255,0.1)', { padding: 12, marginBottom: 16 })
+                    ? getAccentBlockStyle('rgba(217,119,6,0.34)', 'rgba(217,119,6,0.1)', { padding: 12, marginBottom: 16 })
+                    : getAccentBlockStyle('rgba(79,70,229,0.34)', 'rgba(79,70,229,0.1)', { padding: 12, marginBottom: 16 })
               }>
                 <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>{data.severity.toUpperCase()} Severity</div>
                 <div style={{ fontSize: 11, color: 'var(--t2)' }}>{data.desc}</div>
@@ -148,7 +154,7 @@ export default function DrillDownModal({ drillDown, onClose, onSelectFile, onVie
               <div style={{ background: 'var(--bg0)', padding: 12, borderRadius: 8, marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ fontWeight: 600, fontSize: 11, cursor: 'pointer' }} onClick={() => { onSelectFile(data.path); onClose(); }}>{data.file}</div>
-                  <button className="view-file-btn" onClick={e => { e.stopPropagation(); onViewSource(data.path, data.line); }}><Icon name="eye" size="s" /> View</button>
+                  <Button variant="ghost" className="view-file-btn h-auto" onClick={e => { e.stopPropagation(); onViewSource(data.path, data.line); }}><Icon name="eye" size="s" /> View</Button>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 4, fontFamily: 'monospace', cursor: 'pointer' }} onClick={() => { onSelectFile(data.path); onClose(); }}>{data.path}</div>
                 {data.line && <div style={{ fontSize: 10, color: 'var(--orange)', marginTop: 4 }}>Line {data.line}</div>}
@@ -175,12 +181,12 @@ export default function DrillDownModal({ drillDown, onClose, onSelectFile, onVie
               {data.files.map((f: any, j: number) => (
                 <div key={j} style={
                   data.type === 'code'
-                    ? getAccentBlockStyle('rgba(167,139,250,0.34)', 'rgba(167,139,250,0.08)', { padding: 12, marginBottom: 8 })
-                    : getAccentBlockStyle('rgba(255,159,67,0.34)', 'rgba(255,159,67,0.08)', { padding: 12, marginBottom: 8 })
+                    ? getAccentBlockStyle('rgba(124,63,168,0.34)', 'rgba(124,63,168,0.08)', { padding: 12, marginBottom: 8 })
+                    : getAccentBlockStyle('rgba(217,119,6,0.34)', 'rgba(217,119,6,0.08)', { padding: 12, marginBottom: 8 })
                 }>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontWeight: 600, fontSize: 11, cursor: 'pointer' }} onClick={() => { onSelectFile(f.file); onClose(); }}>{f.name || data.name}</div>
-                    <button className="view-file-btn" onClick={e => { e.stopPropagation(); onViewSource(f.file, f.line); }}><Icon name="eye" size="s" /> View</button>
+                    <Button variant="ghost" className="view-file-btn h-auto" onClick={e => { e.stopPropagation(); onViewSource(f.file, f.line); }}><Icon name="eye" size="s" /> View</Button>
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 4, fontFamily: 'monospace', cursor: 'pointer' }} onClick={() => { onSelectFile(f.file); onClose(); }}>{f.file}</div>
                   {f.line && <div style={{ fontSize: 10, color: 'var(--orange)', marginTop: 4 }}>Line {f.line}</div>}
@@ -195,7 +201,7 @@ export default function DrillDownModal({ drillDown, onClose, onSelectFile, onVie
             </>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

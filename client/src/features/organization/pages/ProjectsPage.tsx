@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { appConfig } from '../../../app/config';
 import { Avatar } from '../../../components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { organizationStore, type DbConnectionInput, type OrganizationState, type Project, type ProjectType } from '../services/organizationStore';
 import { TopbarSearch } from '../components/TopbarSearch';
 import { TopbarAccount } from '../components/TopbarAccount';
@@ -37,7 +41,7 @@ const gg = {
   actionButton: (disabled: boolean): React.CSSProperties => ({
     height: 40, border: disabled ? `1px solid ${GG.lineStrong}` : 'none', borderRadius: 8, fontFamily: GG.mono, fontSize: 13, fontWeight: 700,
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    background: disabled ? GG.bg1 : GG.accent, color: disabled ? GG.fg2 : '#181a1f', cursor: disabled ? 'not-allowed' : 'pointer',
+    background: disabled ? GG.bg1 : GG.accent, color: disabled ? GG.fg2 : '#ffffff', cursor: disabled ? 'not-allowed' : 'pointer',
   }),
   sideCard: (): React.CSSProperties => ({ background: GG.bg2, borderRadius: 8, border: `1px solid ${GG.line}`, padding: '12px 14px' }),
   sideCardTitle: (): React.CSSProperties => ({ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }),
@@ -146,18 +150,18 @@ export default function ProjectsPage() {
   const removeMember = (memberId: number) => { if (!selected) return; organizationStore.removeMember(selected.id, memberId).then(refresh); };
   if (!workspace) return null;
   return <main className="organization-page project-picker-page">
-    <header className="organization-topbar"><div className="organization-brand"><span className="organization-brand-mark"><GitBranch size={20} /></span><button className="picker-back" onClick={() => navigate('/workspaces')}>Workspaces</button><span className="organization-brand-divider">/</span><strong>Projects</strong></div><div className="topbar-actions"><TopbarSearch value={query} onChange={setQuery} placeholder="Search projects" className="topbar-search-slot" /><TopbarAccount /></div></header>
-    {!projects.length ? <section className="workspace-empty-page"><span><FolderKanban size={34} /></span><h1>Start your first project</h1><p>Attach a verified GitHub repository to begin organizing work inside {workspace.name}.</p><button className="projects-primary-action" onClick={() => void openDialog()}><Plus size={16} /> Create project</button></section> : <section className="project-workspace-layout">
+    <header className="organization-topbar"><div className="organization-brand"><span className="organization-brand-mark"><GitBranch size={20} /></span><Button className="picker-back" onClick={() => navigate('/workspaces')}>Workspaces</Button><span className="organization-brand-divider">/</span><strong>Projects</strong></div><div className="topbar-actions"><TopbarSearch value={query} onChange={setQuery} placeholder="Search projects" className="topbar-search-slot" /><TopbarAccount /></div></header>
+    {!projects.length ? <section className="workspace-empty-page"><div className="empty-state-card"><span><FolderKanban size={34} /></span><h1>Start your first project</h1><p>Attach a verified GitHub repository to begin organizing work inside {workspace.name}.</p><Button className="projects-primary-action" onClick={() => void openDialog()}><Plus size={16} /> Create project</Button><ul className="empty-state-points"><li><CheckCircle2 size={15} /> Attach a GitHub repository or a database connection</li><li><CheckCircle2 size={15} /> See dependencies, ownership, and schema together</li><li><CheckCircle2 size={15} /> Pick up right where analysis left off</li></ul></div></section> : <section className="project-workspace-layout">
       <aside className="project-list-panel">
-        <div className="project-list-heading"><h2>Projects</h2><button className="project-create-pill" aria-label="Create project" onClick={() => void openDialog()}><Plus size={16} /><span className="project-create-pill-label">New project</span></button></div>
+        <div className="project-list-heading"><h2>Projects</h2><Button className="project-create-pill" aria-label="Create project" onClick={() => void openDialog()}><Plus size={16} /><span className="project-create-pill-label">New project</span></Button></div>
         <nav className="project-list" aria-label="Your projects">{visible.map(project => <div key={project.id} className="project-list-row">
-          <button className={`project-list-item${project.id === selected?.id ? ' is-selected' : ''}`} onClick={() => setSelectedProjectId(project.id)} aria-current={project.id === selected?.id}>
+          <Button className={`project-list-item${project.id === selected?.id ? ' is-selected' : ''}`} onClick={() => setSelectedProjectId(project.id)} aria-current={project.id === selected?.id}>
             <span className="project-list-icon">{project.projectType === 'database' ? <Database size={20} /> : <FolderKanban size={20} />}</span>
             <span className="project-list-copy"><strong>{project.name}</strong><small>{projectSubtitle(project)}</small></span>
-          </button>
+          </Button>
           <span className="project-row-actions">
-            <button className="project-delete-button" aria-label={`Delete ${project.name}`} onClick={() => deleteProject(project)}><Trash2 size={16} /></button>
-            <button className="project-row-open-button" aria-label={`Open ${project.name}`} onClick={() => openProject(project)}>Open <ArrowRight size={15} /></button>
+            <Button className="project-delete-button" aria-label={`Delete ${project.name}`} onClick={() => deleteProject(project)}><Trash2 size={16} /></Button>
+            <Button className="project-row-open-button" aria-label={`Open ${project.name}`} onClick={() => openProject(project)}>Open <ArrowRight size={15} /></Button>
           </span>
         </div>)}</nav>
         {!visible.length && <p className="organization-empty">No project matches “{query}”.</p>}
@@ -165,7 +169,7 @@ export default function ProjectsPage() {
       {selected && <motion.article className="project-detail-panel" key={selected.id} initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={reduceMotion ? undefined : { opacity: 1, y: 0 }} transition={{ duration: .22 }}>
         <header className="project-detail-header">
           <div className="project-detail-title"><span className="organization-card-mark">{selected.projectType === 'database' ? <Database size={21} /> : <FolderKanban size={21} />}</span><div><h1>{selected.name}</h1><p>{projectSubtitle(selected)}</p></div></div>
-          <button className="projects-primary-action" onClick={() => openProject(selected)}>{selected.projectType === 'database' ? 'Open database' : 'Open workspace'} <ArrowRight size={16} /></button>
+          <Button className="projects-primary-action" onClick={() => openProject(selected)}>{selected.projectType === 'database' ? 'Open database' : 'Open workspace'} <ArrowRight size={16} /></Button>
         </header>
         <div className="project-meta-grid">
           <div><CalendarDays size={18} /><span><small>Created</small><strong>{relativeTime(selected.createdAt)}</strong></span></div>
@@ -176,12 +180,12 @@ export default function ProjectsPage() {
           <div className="project-section-title"><h2>Project members</h2></div>
           <div className="project-member-stack">
             <Avatar seed="you" className="project-member-avatar" />
-            {selected.members.map(member => <span key={member.id} className="project-member-row"><Avatar seed={member.email} className="project-member-avatar" /><small>{member.email}</small><button className="project-delete-button" aria-label={`Remove ${member.email}`} onClick={() => removeMember(member.id)}><Trash2 size={13} /></button></span>)}
+            {selected.members.map(member => <span key={member.id} className="project-member-row"><Avatar seed={member.email} className="project-member-avatar" /><small>{member.email}</small><Button className="project-delete-button" aria-label={`Remove ${member.email}`} onClick={() => removeMember(member.id)}><Trash2 size={13} /></Button></span>)}
           </div>
           <form className="project-invite-form" onSubmit={inviteMember}>
             <UserPlus size={16} />
-            <input type="email" placeholder="teammate@company.com" value={inviteEmail} onChange={event => { setInviteEmail(event.target.value); setInviteMessage(''); }} />
-            <button className="projects-primary-action" type="submit">Invite</button>
+            <Input type="email" placeholder="teammate@company.com" value={inviteEmail} onChange={event => { setInviteEmail(event.target.value); setInviteMessage(''); }} />
+            <Button className="projects-primary-action" type="submit">Invite</Button>
           </form>
           {inviteMessage && <p className={inviteError ? 'organization-error' : 'organization-success'}>{inviteMessage}</p>}
         </div>
@@ -189,7 +193,7 @@ export default function ProjectsPage() {
     </section>}
     <dialog ref={deleteDialog} className="organization-dialog delete-project-dialog" onCancel={cancelDeleteProject}>
       <form onSubmit={confirmDeleteProject}>
-        <button type="button" className="dialog-close-button" aria-label="Close" onClick={cancelDeleteProject}><X size={16} /></button>
+        <Button type="button" className="dialog-close-button" aria-label="Close" onClick={cancelDeleteProject}><X size={16} /></Button>
         <div className="delete-dialog-heading">
           <span className="project-dialog-mark project-dialog-mark-danger"><AlertTriangle size={22} /></span>
           <div><h2>Delete project</h2><p className="delete-dialog-subtitle">This action is permanent and cannot be undone.</p></div>
@@ -199,16 +203,17 @@ export default function ProjectsPage() {
           <span className="project-list-copy"><strong>{pendingDelete?.name}</strong><small>{pendingDelete ? projectSubtitle(pendingDelete) : ''}</small></span>
         </div>
         <div className="delete-dialog-warning"><ShieldAlert size={16} /><span>Deleting this project removes it, its members, and its link to <strong>{pendingDelete ? projectSubtitle(pendingDelete) : ''}</strong> from this workspace.</span></div>
-        <label className="organization-field">Type <strong>{pendingDelete?.name}</strong> to confirm
+        <div className="organization-field">
+          <Label htmlFor="delete-confirm-input">Type <strong>{pendingDelete?.name}</strong> to confirm</Label>
           <span className="delete-dialog-confirm-input">
-            <input autoFocus value={deleteConfirmText} onChange={event => { setDeleteConfirmText(event.target.value); setDeleteError(''); }} placeholder={pendingDelete?.name} autoComplete="off" spellCheck={false} />
+            <Input id="delete-confirm-input" autoFocus value={deleteConfirmText} onChange={event => { setDeleteConfirmText(event.target.value); setDeleteError(''); }} placeholder={pendingDelete?.name} autoComplete="off" spellCheck={false} />
             {!!pendingDelete && deleteConfirmText.trim() === pendingDelete.name && <CheckCircle2 size={16} className="delete-dialog-confirm-check" />}
           </span>
-        </label>
+        </div>
         {deleteError && <p className="organization-error">{deleteError}</p>}
         <div className="organization-dialog-actions">
-          <button className="dialog-cancel" type="button" onClick={cancelDeleteProject}>Cancel</button>
-          <button className="dialog-danger-action" type="submit" disabled={!pendingDelete || deleteConfirmText.trim() !== pendingDelete.name}><Trash2 size={15} /> Delete project</button>
+          <Button className="dialog-cancel" type="button" onClick={cancelDeleteProject}>Cancel</Button>
+          <Button className="dialog-danger-action" type="submit" disabled={!pendingDelete || deleteConfirmText.trim() !== pendingDelete.name}><Trash2 size={15} /> Delete project</Button>
         </div>
       </form>
     </dialog>
@@ -222,32 +227,32 @@ export default function ProjectsPage() {
           </div>
         </div>
         <div className="project-type-grid">
-          <button type="button" className="project-type-card" onClick={() => setProjectTypeStep('codebase')}>
+          <Button type="button" className="project-type-card whitespace-normal h-auto" onClick={() => setProjectTypeStep('codebase')}>
             <span className="project-type-icon"><GitBranch size={20} /></span>
             <strong>Codebase</strong>
-            <small>Attach a GitHub repository for GraphKeep analysis — architecture, insights, security, and more.</small>
-          </button>
-          <button type="button" className="project-type-card" onClick={() => setProjectTypeStep('database')}>
+            <small>Attach a GitHub repository for Structrace analysis — architecture, insights, security, and more.</small>
+          </Button>
+          <Button type="button" className="project-type-card whitespace-normal h-auto" onClick={() => setProjectTypeStep('database')}>
             <span className="project-type-icon"><Database size={20} /></span>
             <strong>Database</strong>
             <small>Connect a PostgreSQL or MySQL database to explore its schema as an ER diagram.</small>
-          </button>
+          </Button>
         </div>
-        <div className="organization-dialog-actions"><button className="dialog-cancel" type="button" onClick={() => dialog.current?.close()}>Cancel</button></div>
+        <div className="organization-dialog-actions"><Button className="dialog-cancel" type="button" onClick={() => dialog.current?.close()}>Cancel</Button></div>
       </> : projectTypeStep === 'codebase' ? <form onSubmit={createProject} style={gg.panel()}>
         <div style={gg.headerRow()}>
           <div style={gg.titleBlock()}>
             <span style={gg.mark()}><FolderKanban size={20} /></span>
             <div style={gg.titleCopy()}>
               <h2 style={gg.h2()}>Create project</h2>
-              <p style={gg.p()}>Attach a verified GitHub repository before opening GraphKeep analysis.</p>
+              <p style={gg.p()}>Attach a verified GitHub repository before opening Structrace analysis.</p>
             </div>
           </div>
-          <button type="button" className="gg-change-type" style={gg.backLink()} onClick={() => setProjectTypeStep(null)}>Change type</button>
+          <Button type="button" className="gg-change-type" style={gg.backLink()} onClick={() => setProjectTypeStep(null)}>Change type</Button>
         </div>
         <div style={gg.fieldRow()}>
-          <div><label style={ggLabel}>Project name</label><input style={ggInput} autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="My project" /></div>
-          <div><label style={ggLabel}>Instructions (optional)</label><input style={ggInput} value={instructions} onChange={event => setInstructions(event.target.value)} placeholder="What is this for?" /></div>
+          <div><Label style={ggLabel}>Project name</Label><Input style={ggInput} autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="My project" /></div>
+          <div><Label style={ggLabel}>Instructions (optional)</Label><Input style={ggInput} value={instructions} onChange={event => setInstructions(event.target.value)} placeholder="What is this for?" /></div>
         </div>
 
         <div style={gg.gridWrap()}>
@@ -260,14 +265,14 @@ export default function ProjectsPage() {
                 const owner = slash === -1 ? '' : repo.full_name.slice(0, slash);
                 const repoName = slash === -1 ? repo.full_name : repo.full_name.slice(slash + 1);
                 return (
-                  <button type="button" key={repo.full_name} className="gg-repo-tile" style={gg.tile(active)} onClick={() => { setRepositoryFullName(repo.full_name); setVerified(false); setMessage(''); }}>
+                  <Button type="button" key={repo.full_name} className="gg-repo-tile h-auto" style={gg.tile(active)} onClick={() => { setRepositoryFullName(repo.full_name); setVerified(false); setMessage(''); }}>
                     <GitBranch size={14} color={active ? GG.accent : GG.fg3} style={{ flexShrink: 0 }} />
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <span style={{ fontFamily: GG.sans, fontSize: 12.5, color: active ? GG.accent : GG.fg2, fontWeight: active ? 600 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{repoName}</span>
                       {owner && <span style={{ fontFamily: GG.mono, fontSize: 9.5, color: GG.fg4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{owner}</span>}
                     </span>
                     {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: GG.accent, flexShrink: 0 }} />}
-                  </button>
+                  </Button>
                 );
               }) : <p style={{ color: GG.fg4, fontSize: 11.5, fontStyle: 'italic', margin: 0, padding: '4px 2px' }}>No repositories found — type one below.</p>}
             </div>
@@ -282,13 +287,13 @@ export default function ProjectsPage() {
               </div>
             </div>
             <div>
-              <label style={ggLabel}>Repository</label>
-              <input style={ggInput} list="project-repositories" placeholder="owner/repository" value={repositoryFullName} onChange={event => { setRepositoryFullName(event.target.value); setVerified(false); setMessage(''); }} />
+              <Label style={ggLabel}>Repository</Label>
+              <Input style={ggInput} list="project-repositories" placeholder="owner/repository" value={repositoryFullName} onChange={event => { setRepositoryFullName(event.target.value); setVerified(false); setMessage(''); }} />
               <datalist id="project-repositories">{repositories.map(repo => <option key={repo.full_name} value={repo.full_name} />)}</datalist>
             </div>
             {message && <GGErrorBanner msg={message} />}
-            <button type="button" style={gg.actionButton(false)} onClick={verifyRepository}><Check size={14} /> Verify repository</button>
-            {verified && <span style={{ color: '#98c379', fontSize: 12, fontFamily: GG.mono, display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={14} /> {message}</span>}
+            <Button type="button" style={gg.actionButton(false)} onClick={verifyRepository}><Check size={14} /> Verify repository</Button>
+            {verified && <span style={{ color: 'var(--color-success)', fontSize: 12, fontFamily: GG.mono, display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={14} /> {message}</span>}
           </div>
 
           <div style={gg.col(GG.panel)}>
@@ -309,8 +314,8 @@ export default function ProjectsPage() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-          <button type="button" style={{ border: `1px solid ${GG.lineStrong}`, borderRadius: 8, padding: '9px 14px', background: 'transparent', color: GG.fg2, font: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' }} onClick={() => dialog.current?.close()}>Cancel</button>
-          <button style={gg.actionButton(!verified)} disabled={!verified}>Create project</button>
+          <Button type="button" style={{ border: `1px solid ${GG.lineStrong}`, borderRadius: 8, padding: '9px 14px', background: 'transparent', color: GG.fg2, font: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' }} onClick={() => dialog.current?.close()}>Cancel</Button>
+          <Button style={gg.actionButton(!verified)} disabled={!verified}>Create project</Button>
         </div>
       </form> : <form onSubmit={createProject} style={gg.panel()}>
         <div style={gg.headerRow()}>
@@ -321,33 +326,33 @@ export default function ProjectsPage() {
               <p style={gg.p()}>Connect a database to explore its schema. Credentials are encrypted before they're stored.</p>
             </div>
           </div>
-          <button type="button" className="gg-change-type" style={gg.backLink()} onClick={() => setProjectTypeStep(null)}>Change type</button>
+          <Button type="button" className="gg-change-type" style={gg.backLink()} onClick={() => setProjectTypeStep(null)}>Change type</Button>
         </div>
         <div style={gg.fieldRow()}>
-          <div><label style={ggLabel}>Project name</label><input style={ggInput} autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="My database" /></div>
-          <div><label style={ggLabel}>Instructions (optional)</label><input style={ggInput} value={instructions} onChange={event => setInstructions(event.target.value)} placeholder="What is this for?" /></div>
+          <div><Label style={ggLabel}>Project name</Label><Input style={ggInput} autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="My database" /></div>
+          <div><Label style={ggLabel}>Instructions (optional)</Label><Input style={ggInput} value={instructions} onChange={event => setInstructions(event.target.value)} placeholder="What is this for?" /></div>
         </div>
 
         <div style={gg.gridWrap()}>
           <div style={gg.col(GG.panel)}>
             <span style={gg.kicker()}>Data sources</span>
-            <button type="button" style={gg.tile(dbType === 'postgres')} onClick={() => { setDbType('postgres'); setDbPort('5432'); setDbVerified(false); }}>
+            <Button type="button" style={gg.tile(dbType === 'postgres')} onClick={() => { setDbType('postgres'); setDbPort('5432'); setDbVerified(false); }}>
               <span style={{ fontSize: 16, lineHeight: 1 }}>🐘</span>
               <span style={{ flex: 1, fontFamily: GG.sans, fontSize: 13, color: dbType === 'postgres' ? GG.accent : GG.fg2, fontWeight: dbType === 'postgres' ? 600 : 400 }}>PostgreSQL</span>
               {dbType === 'postgres' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: GG.accent, flexShrink: 0 }} />}
-            </button>
-            <button type="button" style={gg.tile(dbType === 'mysql')} onClick={() => { setDbType('mysql'); setDbPort('3306'); setDbVerified(false); }}>
+            </Button>
+            <Button type="button" style={gg.tile(dbType === 'mysql')} onClick={() => { setDbType('mysql'); setDbPort('3306'); setDbVerified(false); }}>
               <span style={{ fontSize: 16, lineHeight: 1 }}>🐬</span>
               <span style={{ flex: 1, fontFamily: GG.sans, fontSize: 13, color: dbType === 'mysql' ? GG.accent : GG.fg2, fontWeight: dbType === 'mysql' ? 600 : 400 }}>MySQL</span>
               {dbType === 'mysql' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: GG.accent, flexShrink: 0 }} />}
-            </button>
+            </Button>
             <div style={{ height: 1, background: GG.line, margin: '4px 0' }} />
             {[{ icon: '🗃', label: 'SQLite' }, { icon: '🍃', label: 'MongoDB' }, { icon: '📄', label: 'SQL Dump' }, { icon: '🗂', label: 'From Repo' }, { icon: '❄️', label: 'Snowflake' }].map(src => (
-              <button type="button" key={src.label} style={gg.tileDisabled()} disabled>
+              <Button type="button" key={src.label} style={gg.tileDisabled()} disabled>
                 <span style={{ fontSize: 16, lineHeight: 1 }}>{src.icon}</span>
                 <span style={{ flex: 1, fontFamily: GG.sans, fontSize: 13, color: GG.fg3 }}>{src.label}</span>
                 <span style={{ fontFamily: GG.mono, fontSize: 9, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Soon</span>
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -360,24 +365,24 @@ export default function ProjectsPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 2 }}><label style={ggLabel}>Host</label><input style={ggInput} value={dbHost} onChange={event => { setDbHost(event.target.value); setDbVerified(false); }} placeholder="localhost" /></div>
-              <div style={{ flex: 1 }}><label style={ggLabel}>Port</label><input style={ggInput} value={dbPort} onChange={event => { setDbPort(event.target.value); setDbVerified(false); }} /></div>
+              <div style={{ flex: 2 }}><Label style={ggLabel}>Host</Label><Input style={ggInput} value={dbHost} onChange={event => { setDbHost(event.target.value); setDbVerified(false); }} placeholder="localhost" /></div>
+              <div style={{ flex: 1 }}><Label style={ggLabel}>Port</Label><Input style={ggInput} value={dbPort} onChange={event => { setDbPort(event.target.value); setDbVerified(false); }} /></div>
             </div>
-            <div><label style={ggLabel}>Database</label><input style={ggInput} value={dbDatabase} onChange={event => { setDbDatabase(event.target.value); setDbVerified(false); }} placeholder="my_database" /></div>
+            <div><Label style={ggLabel}>Database</Label><Input style={ggInput} value={dbDatabase} onChange={event => { setDbDatabase(event.target.value); setDbVerified(false); }} placeholder="my_database" /></div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1 }}><label style={ggLabel}>Username</label><input style={ggInput} value={dbUser} onChange={event => { setDbUser(event.target.value); setDbVerified(false); }} placeholder={dbType === 'postgres' ? 'postgres' : 'root'} /></div>
-              <div style={{ flex: 1 }}><label style={ggLabel}>Password</label><input type="password" style={ggInput} value={dbPassword} onChange={event => { setDbPassword(event.target.value); setDbVerified(false); }} /></div>
+              <div style={{ flex: 1 }}><Label style={ggLabel}>Username</Label><Input style={ggInput} value={dbUser} onChange={event => { setDbUser(event.target.value); setDbVerified(false); }} placeholder={dbType === 'postgres' ? 'postgres' : 'root'} /></div>
+              <div style={{ flex: 1 }}><Label style={ggLabel}>Password</Label><Input type="password" style={ggInput} value={dbPassword} onChange={event => { setDbPassword(event.target.value); setDbVerified(false); }} /></div>
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: GG.mono, fontSize: 12, color: GG.fg3, cursor: 'pointer' }}>
-              <input type="checkbox" checked={dbSsl} onChange={event => { setDbSsl(event.target.checked); setDbVerified(false); }} /> Require SSL
-            </label>
+            <Label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: GG.mono, fontSize: 12, color: GG.fg3, cursor: 'pointer' }}>
+              <Checkbox checked={dbSsl} onCheckedChange={checked => { setDbSsl(checked === true); setDbVerified(false); }} /> Require SSL
+            </Label>
             <div style={{ background: GG.bg1, border: `1px solid ${GG.line}`, borderRadius: 8, padding: '8px 12px', fontFamily: GG.mono, fontSize: 11, color: GG.fg3, wordBreak: 'break-all' }}>
               <span style={{ color: GG.fg4, marginRight: 6 }}>$</span>{dbType === 'postgres' ? 'postgresql' : 'mysql'}://{dbUser || '<user>'}:••••@{dbHost || '<host>'}:{dbPort}/{dbDatabase || '<database>'}
             </div>
-            {dbMessage && (dbVerified ? <span style={{ color: '#98c379', fontSize: 12, fontFamily: GG.mono, display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={14} /> {dbMessage}</span> : <GGErrorBanner msg={dbMessage} />)}
-            <button type="button" style={gg.actionButton(dbTesting || !dbHost.trim() || !dbDatabase.trim() || !dbUser.trim())} onClick={() => void testDbConnection()} disabled={dbTesting || !dbHost.trim() || !dbDatabase.trim() || !dbUser.trim()}>
+            {dbMessage && (dbVerified ? <span style={{ color: 'var(--color-success)', fontSize: 12, fontFamily: GG.mono, display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={14} /> {dbMessage}</span> : <GGErrorBanner msg={dbMessage} />)}
+            <Button type="button" style={gg.actionButton(dbTesting || !dbHost.trim() || !dbDatabase.trim() || !dbUser.trim())} onClick={() => void testDbConnection()} disabled={dbTesting || !dbHost.trim() || !dbDatabase.trim() || !dbUser.trim()}>
               {dbTesting ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> testing…</> : <>test connection</>}
-            </button>
+            </Button>
           </div>
 
           <div style={gg.col(GG.panel)}>
@@ -402,8 +407,8 @@ export default function ProjectsPage() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-          <button type="button" style={{ border: `1px solid ${GG.lineStrong}`, borderRadius: 8, padding: '9px 14px', background: 'transparent', color: GG.fg2, font: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' }} onClick={() => dialog.current?.close()}>Cancel</button>
-          <button style={gg.actionButton(!dbVerified)} disabled={!dbVerified}>Create project</button>
+          <Button type="button" style={{ border: `1px solid ${GG.lineStrong}`, borderRadius: 8, padding: '9px 14px', background: 'transparent', color: GG.fg2, font: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' }} onClick={() => dialog.current?.close()}>Cancel</Button>
+          <Button style={gg.actionButton(!dbVerified)} disabled={!dbVerified}>Create project</Button>
         </div>
       </form>}
     </dialog>

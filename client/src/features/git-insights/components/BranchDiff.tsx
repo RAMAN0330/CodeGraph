@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GitHub } from '../../repository/services/github';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import hljs from 'highlight.js/lib/core';
 import typescript from 'highlight.js/lib/languages/typescript';
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -102,6 +106,28 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
     return () => worker.terminate();
   }, []);
 
+  // `base`/`head` only get an initial guess from `branches`/`currentBranch` at
+  // mount — when those props arrive asynchronously after this component is
+  // already mounted (the common case: the parent is still fetching the repo's
+  // branch list), the guess is locked in as stale or empty and never
+  // recovers, leaving one or both dropdowns permanently blank. Re-resolve
+  // whenever the real branch list shows up or changes, but leave an already
+  // valid manual selection alone.
+  useEffect(() => {
+    if (!branches.length) return;
+    const validNames = new Set(branches.map(b => b.name));
+    setBase(prev => (prev && validNames.has(prev)) ? prev
+      : (currentBranch && validNames.has(currentBranch)) ? currentBranch
+      : branches[0].name);
+  }, [branches, currentBranch]);
+
+  useEffect(() => {
+    if (!branches.length) return;
+    const validNames = new Set(branches.map(b => b.name));
+    setHead(prev => (prev && validNames.has(prev) && prev !== base) ? prev
+      : branches.find(b => b.name !== base)?.name || '');
+  }, [branches, base]);
+
   const loadDiff = useCallback(async () => {
     if (!base || !head || base === head) return;
     setLoading(true);
@@ -201,13 +227,14 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
     setPatchMode('preview');
   }
 
-  const statusColor = (s: string) => s === 'added' ? 'var(--green)' : s === 'removed' ? 'var(--red)' : s === 'renamed' ? 'var(--purple)' : 'var(--blue)';
+  const statusColor = (s: string) => s === 'added' ? 'var(--color-success)' : s === 'removed' ? 'var(--color-danger)' : s === 'renamed' ? 'var(--chart-purple)' : 'var(--teal-500)';
   const statusLabel = (s: string) => ({ added: 'A', removed: 'D', modified: 'M', renamed: 'R', copied: 'C' } as any)[s] || '?';
   const mainConflict = diff?.find(f => conflictCandidates.has(f.filename)) || null;
 
-  const colStyle: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg1)' };
-  const colHeader: React.CSSProperties = { padding: '8px 12px', fontSize: 10, fontWeight: 700, color: 'var(--t2)', borderBottom: '1px solid var(--border)', letterSpacing: '0.06em', textTransform: 'uppercase', background: 'var(--bg2)' };
-  const selectStyle: React.CSSProperties = { background: 'var(--bg0)', border: '1px solid var(--border)', color: 'var(--t0)', borderRadius: 6, padding: '5px 8px', fontSize: 12, fontFamily: 'inherit' };
+  const colStyle: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-card)' };
+  const colHeader: React.CSSProperties = { padding: '8px 12px', fontSize: 10, fontWeight: 700, color: 'var(--t2)', borderBottom: '1px solid var(--border-subtle)', letterSpacing: '0.06em', textTransform: 'uppercase', background: 'var(--bg-canvas)' };
+  const selectStyle: React.CSSProperties = { background: 'var(--bg0)', border: '1px solid var(--border-subtle)', color: 'var(--t0)', borderRadius: 6, padding: '5px 8px', fontSize: 12, fontFamily: 'inherit', minWidth: 96 };
+  const sameBranch = !!base && !!head && base === head;
   const patchLines = patchDraft.split('\n');
 
   return (
@@ -216,17 +243,24 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--t0)', letterSpacing: '-0.3px' }}>Code Diff</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
-          <select value={base} onChange={e => setBase(e.target.value)} style={selectStyle}>
-            {branches.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
-          </select>
+          <Select value={base || undefined} onValueChange={setBase}>
+            <SelectTrigger style={selectStyle}><SelectValue placeholder="Base branch" /></SelectTrigger>
+            <SelectContent>
+              {branches.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <span style={{ color: 'var(--t2)', fontSize: 12 }}>←→</span>
-          <select value={head} onChange={e => setHead(e.target.value)} style={selectStyle}>
-            {branches.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
-          </select>
-          <button onClick={loadDiff} style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: '1px solid color-mix(in srgb, var(--acc) 40%, transparent)', background: 'var(--accbg)', color: 'var(--acc)', cursor: 'pointer' }}>Compare</button>
+          <Select value={head || undefined} onValueChange={setHead}>
+            <SelectTrigger style={selectStyle}><SelectValue placeholder="Compare branch" /></SelectTrigger>
+            <SelectContent>
+              {branches.length > 1 ? branches.filter(b => b.name !== base).map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>) : branches.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" onClick={loadDiff} disabled={!base || !head || sameBranch || loading} title={sameBranch ? 'Pick two different branches to compare' : undefined} style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: '1px solid color-mix(in srgb, var(--teal-500) 40%, transparent)', background: 'var(--accbg)', color: 'var(--teal-500)', cursor: 'pointer', opacity: (!base || !head || sameBranch || loading) ? 0.5 : 1 }}>Compare</Button>
+          {sameBranch && <span style={{ fontSize: 10, color: 'var(--color-warning)' }}>Pick two different branches</span>}
         </div>
-        {status && <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: status === 'diverged' ? 'color-mix(in srgb, var(--red) 12%, transparent)' : 'var(--accbg)', color: status === 'diverged' ? 'var(--red)' : 'var(--acc)', border: `1px solid ${status === 'diverged' ? 'color-mix(in srgb, var(--red) 30%, transparent)' : 'color-mix(in srgb, var(--acc) 25%, transparent)'}` }}>{status}</span>}
-        {conflictCandidates.size > 0 && <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'color-mix(in srgb, var(--red) 12%, transparent)', color: 'var(--red)', border: '1px solid color-mix(in srgb, var(--red) 30%, transparent)' }}>{conflictCandidates.size} file conflict{conflictCandidates.size !== 1 ? 's' : ''}</span>}
+        {status && <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: status === 'diverged' ? 'color-mix(in srgb, var(--color-danger) 12%, transparent)' : 'var(--accbg)', color: status === 'diverged' ? 'var(--color-danger)' : 'var(--teal-500)', border: `1px solid ${status === 'diverged' ? 'color-mix(in srgb, var(--color-danger) 30%, transparent)' : 'color-mix(in srgb, var(--teal-500) 25%, transparent)'}` }}>{status}</span>}
+        {conflictCandidates.size > 0 && <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'color-mix(in srgb, var(--color-danger) 12%, transparent)', color: 'var(--color-danger)', border: '1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)' }}>{conflictCandidates.size} file conflict{conflictCandidates.size !== 1 ? 's' : ''}</span>}
       </div>
 
       {/* Body */}
@@ -235,28 +269,28 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
           <div style={colStyle}>
             <div style={colHeader}>{head || '—'} changes ({diff?.length ?? 0} files) — drag to stage →</div>
             {mainConflict && (
-              <div style={{ margin: 8, padding: '9px 10px', borderRadius: 8, border: '1px solid color-mix(in srgb, var(--red) 28%, transparent)', background: 'color-mix(in srgb, var(--red) 8%, transparent)' }}>
-                <div style={{ color: 'var(--red)', fontSize: 11, fontWeight: 800, marginBottom: 4 }}>Main conflict</div>
+              <div style={{ margin: 8, padding: '9px 10px', borderRadius: 8, border: '1px solid color-mix(in srgb, var(--color-danger) 28%, transparent)', background: 'color-mix(in srgb, var(--color-danger) 8%, transparent)' }}>
+                <div style={{ color: 'var(--color-danger)', fontSize: 11, fontWeight: 800, marginBottom: 4 }}>Main conflict</div>
                 <div style={{ color: 'var(--t0)', fontSize: 11, fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={mainConflict.filename}>{mainConflict.filename}</div>
-                <button onClick={() => openConflictEditor(mainConflict)} style={{ marginTop: 8, width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid color-mix(in srgb, var(--red) 32%, transparent)', background: 'color-mix(in srgb, var(--red) 12%, transparent)', color: 'var(--red)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Open conflict editor</button>
+                <Button variant="ghost" onClick={() => openConflictEditor(mainConflict)} style={{ marginTop: 8, width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid color-mix(in srgb, var(--color-danger) 32%, transparent)', background: 'color-mix(in srgb, var(--color-danger) 12%, transparent)', color: 'var(--color-danger)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Open conflict editor</Button>
               </div>
             )}
             <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
               {loading && <div style={{ color: 'var(--t2)', fontSize: 12, padding: 12, textAlign: 'center' }}>Loading diff…</div>}
-              {error && <div style={{ color: 'var(--red)', fontSize: 12, padding: 12 }}>{error}</div>}
+              {error && <div style={{ color: 'var(--color-danger)', fontSize: 12, padding: 12 }}>{error}</div>}
               {diff?.map(f => (
                 <div
                   key={f.filename}
                   draggable
                   onDragStart={() => onDragStart(f)}
                   onClick={() => setSelectedFile(selectedFile?.filename === f.filename ? null : f)}
-                  style={{ padding: '6px 10px', borderRadius: 6, marginBottom: 4, cursor: 'grab', background: selectedFile?.filename === f.filename ? 'var(--accbg)' : 'var(--bg2)', border: `1px solid ${selectedFile?.filename === f.filename ? 'color-mix(in srgb, var(--acc) 30%, transparent)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }}
+                  style={{ padding: '6px 10px', borderRadius: 6, marginBottom: 4, cursor: 'grab', background: selectedFile?.filename === f.filename ? 'var(--accbg)' : 'var(--bg-canvas)', border: `1px solid ${selectedFile?.filename === f.filename ? 'color-mix(in srgb, var(--teal-500) 30%, transparent)' : 'var(--border-subtle)'}`, display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }}
                 >
                   <span style={{ width: 16, textAlign: 'center', fontWeight: 700, color: statusColor(f.status), fontSize: 10 }}>{statusLabel(f.status)}</span>
                   <span style={{ flex: 1, fontSize: 11, color: 'var(--t0)', fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.filename}</span>
-                  {conflictCandidates.has(f.filename) && <button onClick={(e) => { e.stopPropagation(); openConflictEditor(f); }} style={{ fontSize: 10, color: 'var(--red)', background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 25%, transparent)', borderRadius: 4, padding: '2px 5px', cursor: 'pointer' }}>conflict</button>}
-                  <span style={{ fontSize: 10, color: 'var(--green)' }}>+{f.additions}</span>
-                  <span style={{ fontSize: 10, color: 'var(--red)' }}>-{f.deletions}</span>
+                  {conflictCandidates.has(f.filename) && <Button variant="ghost" onClick={(e) => { e.stopPropagation(); openConflictEditor(f); }} style={{ fontSize: 10, color: 'var(--color-danger)', background: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-danger) 25%, transparent)', borderRadius: 4, padding: '2px 5px', cursor: 'pointer' }}>conflict</Button>}
+                  <span style={{ fontSize: 10, color: 'var(--color-success)' }}>+{f.additions}</span>
+                  <span style={{ fontSize: 10, color: 'var(--color-danger)' }}>-{f.deletions}</span>
                 </div>
               ))}
             </div>
@@ -267,17 +301,17 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
             <div
               onDragOver={e => e.preventDefault()}
               onDrop={onDropToStage}
-              style={{ flex: 1, border: '2px dashed color-mix(in srgb, var(--acc) 35%, transparent)', borderRadius: 10, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--accbg)' }}
+              style={{ flex: 1, border: '2px dashed color-mix(in srgb, var(--teal-500) 35%, transparent)', borderRadius: 10, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--accbg)' }}
             >
-              <div style={{ ...colHeader, background: 'transparent', borderBottom: '1px solid color-mix(in srgb, var(--acc) 18%, transparent)', color: 'var(--acc)' }}>Staged ({stagedFiles.length})</div>
+              <div style={{ ...colHeader, background: 'transparent', borderBottom: '1px solid color-mix(in srgb, var(--teal-500) 18%, transparent)', color: 'var(--teal-500)' }}>Staged ({stagedFiles.length})</div>
               <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}
                 onDragOver={e => e.preventDefault()}
                 onDrop={onDropToUnstage}
               >
-                {stagedFiles.length === 0 && <div style={{ color: 'var(--t3)', fontSize: 11, textAlign: 'center', marginTop: 20 }}>Drop files here to stage for merge</div>}
+                {stagedFiles.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 11, textAlign: 'center', marginTop: 20 }}>Drop files here to stage for merge</div>}
                 {stagedFiles.map(f => (
                   <div key={f.filename} draggable onDragStart={() => onDragStart(f)}
-                    style={{ padding: '5px 8px', borderRadius: 5, marginBottom: 3, background: 'var(--accbg2)', border: '1px solid color-mix(in srgb, var(--acc) 25%, transparent)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--acc)', cursor: 'grab', display: 'flex', gap: 6, alignItems: 'center' }}>
+                    style={{ padding: '5px 8px', borderRadius: 5, marginBottom: 3, background: 'var(--accbg2)', border: '1px solid color-mix(in srgb, var(--teal-500) 25%, transparent)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--teal-500)', cursor: 'grab', display: 'flex', gap: 6, alignItems: 'center' }}>
                     <span>✓</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.filename.split('/').pop()}</span>
                   </div>
@@ -285,22 +319,23 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <input value={mergeMsg} onChange={e => setMergeMsg(e.target.value)} placeholder="Merge commit message…" style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg0)', color: 'var(--t0)', fontSize: 11, fontFamily: 'inherit' }} />
-              <button
+              <Input value={mergeMsg} onChange={e => setMergeMsg(e.target.value)} placeholder="Merge commit message…" style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-subtle)', background: 'var(--bg0)', color: 'var(--t0)', fontSize: 11, fontFamily: 'inherit' }} />
+              <Button
                 disabled={stagedFiles.length === 0}
                 onClick={() => alert('Merge is a read-only preview — push via your git client with the staged changes listed above.')}
-                style={{ padding: '9px', borderRadius: 7, border: 'none', background: stagedFiles.length > 0 ? 'var(--acc)' : 'var(--bg2)', color: stagedFiles.length > 0 ? 'var(--bg0)' : 'var(--t3)', cursor: stagedFiles.length > 0 ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 700 }}>
+                style={{ padding: '9px', borderRadius: 7, border: 'none', background: stagedFiles.length > 0 ? 'var(--teal-500)' : 'var(--bg-canvas)', color: stagedFiles.length > 0 ? 'var(--bg0)' : 'var(--text-muted)', cursor: stagedFiles.length > 0 ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 700 }}>
                 ⎇ Preview Merge ({stagedFiles.length})
-              </button>
+              </Button>
             </div>
             {/* Git Commands panel */}
-            <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-              <button
+            <div style={{ marginTop: 12, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
+              <Button
+                variant="ghost"
                 onClick={() => setShowGitCmds(g => !g)}
-                style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--t2)', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer', width: '100%' }}
+                style={{ background: 'none', border: '1px solid var(--border-subtle)', color: 'var(--t2)', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer', width: '100%' }}
               >
                 {showGitCmds ? '▾' : '▸'} Git Commands
-              </button>
+              </Button>
               {showGitCmds && (
                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {[
@@ -312,21 +347,22 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
                     { label: 'Push', cmd: `git push origin ${head}` },
                   ].map(({ label, cmd }) => (
                     <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: 'var(--t3)', fontSize: 10, width: 90, flexShrink: 0 }}>{label}</span>
-                      <code style={{ flex: 1, background: 'var(--bg0)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 7px', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--acc)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 10, width: 90, flexShrink: 0 }}>{label}</span>
+                      <code style={{ flex: 1, background: 'var(--bg0)', border: '1px solid var(--border-subtle)', borderRadius: 4, padding: '3px 7px', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--teal-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {cmd}
                       </code>
-                      <button
+                      <Button
+                        variant="ghost"
                         onClick={() => {
                           navigator.clipboard.writeText(cmd).catch(() => {});
                           setRunFeedback(label);
                           setTimeout(() => setRunFeedback(null), 2000);
                         }}
                         style={{
-                          background: runFeedback === label ? 'color-mix(in srgb, var(--green) 15%, transparent)' : 'var(--bg2)',
-                          border: '1px solid ' + (runFeedback === label ? 'color-mix(in srgb, var(--green) 40%, transparent)' : 'var(--border)'),
+                          background: runFeedback === label ? 'color-mix(in srgb, var(--color-success) 15%, transparent)' : 'var(--bg-canvas)',
+                          border: '1px solid ' + (runFeedback === label ? 'color-mix(in srgb, var(--color-success) 40%, transparent)' : 'var(--border-subtle)'),
                           borderRadius: 4,
-                          color: runFeedback === label ? 'var(--green)' : 'var(--t3)',
+                          color: runFeedback === label ? 'var(--color-success)' : 'var(--text-muted)',
                           cursor: 'pointer',
                           fontSize: 10,
                           padding: '2px 8px',
@@ -336,7 +372,7 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
                         title="Copy to clipboard"
                       >
                         {runFeedback === label ? '✓ Copied' : 'Run'}
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -347,15 +383,15 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
           {/* Right: base branch */}
           <div style={colStyle}>
             <div style={colHeader}>{base} (base)</div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 8, color: 'var(--t1)', fontSize: 11 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 8, color: 'var(--text-primary)', fontSize: 11 }}>
               {diff?.map(f => (
-                <div key={f.filename} style={{ padding: '6px 10px', borderRadius: 6, marginBottom: 4, background: 'var(--bg2)', border: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div key={f.filename} style={{ padding: '6px 10px', borderRadius: 6, marginBottom: 4, background: 'var(--bg-canvas)', border: '1px solid var(--border-subtle)', display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{f.filename}</span>
-                  {f.status === 'added' && <span style={{ fontSize: 10, color: 'var(--t3)' }}>not on base</span>}
-                  {f.status === 'removed' && <span style={{ fontSize: 10, color: 'var(--red)' }}>will be deleted</span>}
+                  {f.status === 'added' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>not on base</span>}
+                  {f.status === 'removed' && <span style={{ fontSize: 10, color: 'var(--color-danger)' }}>will be deleted</span>}
                 </div>
               ))}
-              {!loading && !diff && <div style={{ textAlign: 'center', marginTop: 20, color: 'var(--t3)' }}>Select branches and click Compare</div>}
+              {!loading && !diff && <div style={{ textAlign: 'center', marginTop: 20, color: 'var(--text-muted)' }}>Select branches and click Compare</div>}
             </div>
           </div>
         </div>
@@ -368,38 +404,38 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
           >
             <div
               onClick={e => e.stopPropagation()}
-              style={{ width: 'min(980px, 92%)', height: 'min(680px, 82%)', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--bg1)', boxShadow: 'var(--shadow-lg)' }}
+              style={{ width: 'min(980px, 92%)', height: 'min(680px, 82%)', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 14, border: '1px solid var(--border-subtle)', background: 'var(--surface-card)', boxShadow: 'var(--shadow-lg)' }}
             >
-              <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border)', background: 'linear-gradient(180deg, var(--bg2) 0%, var(--bg1) 100%)' }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accbg)', border: '1px solid color-mix(in srgb, var(--acc) 25%, transparent)', color: 'var(--acc)', fontWeight: 800, fontSize: 12 }}>
+              <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border-subtle)', background: 'linear-gradient(180deg, var(--bg-canvas) 0%, var(--surface-card) 100%)' }}>
+                <div style={{ width: 34, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accbg)', border: '1px solid color-mix(in srgb, var(--teal-500) 25%, transparent)', color: 'var(--teal-500)', fontWeight: 800, fontSize: 12 }}>
                   {statusLabel(selectedFile.status)}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ color: 'var(--t0)', fontSize: 13, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={selectedFile.filename}>
                     {selectedFile.filename}
                   </div>
-                  <div style={{ color: 'var(--t1)', fontSize: 11, marginTop: 3 }}>
+                  <div style={{ color: 'var(--text-primary)', fontSize: 11, marginTop: 3 }}>
                     {base} {'->'} {head}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
-                  <span style={{ color: 'var(--green)', padding: '3px 8px', borderRadius: 999, background: 'color-mix(in srgb, var(--green) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--green) 20%, transparent)' }}>+{selectedFile.additions}</span>
-                  <span style={{ color: 'var(--red)', padding: '3px 8px', borderRadius: 999, background: 'color-mix(in srgb, var(--red) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)' }}>-{selectedFile.deletions}</span>
+                  <span style={{ color: 'var(--color-success)', padding: '3px 8px', borderRadius: 999, background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-success) 20%, transparent)' }}>+{selectedFile.additions}</span>
+                  <span style={{ color: 'var(--color-danger)', padding: '3px 8px', borderRadius: 999, background: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)' }}>-{selectedFile.deletions}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => setPatchMode('edit')} style={{ padding: '6px 10px', borderRadius: 7, border: patchMode === 'edit' ? '1px solid color-mix(in srgb, var(--acc) 40%, transparent)' : '1px solid var(--border)', background: patchMode === 'edit' ? 'var(--accbg)' : 'var(--bg2)', color: patchMode === 'edit' ? 'var(--acc)' : 'var(--t1)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Edit</button>
-                  <button onClick={savePatchDraft} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid color-mix(in srgb, var(--acc) 35%, transparent)', background: 'var(--accbg)', color: 'var(--acc)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Save</button>
-                  <button onClick={() => setPatchMode('preview')} style={{ padding: '6px 10px', borderRadius: 7, border: patchMode === 'preview' ? '1px solid color-mix(in srgb, var(--acc) 40%, transparent)' : '1px solid var(--border)', background: patchMode === 'preview' ? 'var(--accbg)' : 'var(--bg2)', color: patchMode === 'preview' ? 'var(--acc)' : 'var(--t1)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Preview</button>
+                  <Button variant="ghost" onClick={() => setPatchMode('edit')} style={{ padding: '6px 10px', borderRadius: 7, border: patchMode === 'edit' ? '1px solid color-mix(in srgb, var(--teal-500) 40%, transparent)' : '1px solid var(--border-subtle)', background: patchMode === 'edit' ? 'var(--accbg)' : 'var(--bg-canvas)', color: patchMode === 'edit' ? 'var(--teal-500)' : 'var(--text-primary)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Edit</Button>
+                  <Button variant="ghost" onClick={savePatchDraft} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid color-mix(in srgb, var(--teal-500) 35%, transparent)', background: 'var(--accbg)', color: 'var(--teal-500)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Save</Button>
+                  <Button variant="ghost" onClick={() => setPatchMode('preview')} style={{ padding: '6px 10px', borderRadius: 7, border: patchMode === 'preview' ? '1px solid color-mix(in srgb, var(--teal-500) 40%, transparent)' : '1px solid var(--border-subtle)', background: patchMode === 'preview' ? 'var(--accbg)' : 'var(--bg-canvas)', color: patchMode === 'preview' ? 'var(--teal-500)' : 'var(--text-primary)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Preview</Button>
                 </div>
-                <button onClick={() => setSelectedFile(null)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--t1)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+                <Button variant="ghost" onClick={() => setSelectedFile(null)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'var(--bg-canvas)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</Button>
               </div>
               <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '12px 0', background: 'var(--bg0)' }}>
                 {patchMode === 'edit' ? (
-                  <textarea
+                  <Textarea
                     value={patchDraft}
                     onChange={e => setPatchDraft(e.target.value)}
                     spellCheck={false}
-                    style={{ width: '100%', height: '100%', minHeight: 0, boxSizing: 'border-box', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--green)', padding: '4px 16px 16px', fontFamily: 'JetBrains Mono, Consolas, monospace', fontSize: 11, lineHeight: 1.55, whiteSpace: 'pre', overflowWrap: 'normal', tabSize: 2 }}
+                    style={{ width: '100%', height: '100%', minHeight: 0, boxSizing: 'border-box', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--color-success)', padding: '4px 16px 16px', fontFamily: 'JetBrains Mono, Consolas, monospace', fontSize: 11, lineHeight: 1.55, whiteSpace: 'pre', overflowWrap: 'normal', tabSize: 2 }}
                   />
                 ) : (
                 <div style={{ minWidth: 720, fontFamily: 'JetBrains Mono, Consolas, monospace', fontSize: 11, lineHeight: 1.55 }}>
@@ -413,9 +449,9 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
                         style={{
                           display: 'grid',
                           gridTemplateColumns: '58px 1fr',
-                          color: isAdd ? 'var(--green)' : isDel ? 'var(--red)' : isMeta ? 'var(--purple)' : 'var(--t1)',
-                          background: isAdd ? 'rgba(0,255,157,0.08)' : isDel ? 'rgba(255,95,95,0.075)' : isMeta ? 'rgba(167,139,250,0.08)' : 'transparent',
-                          borderLeft: isAdd ? '2px solid rgba(0,255,157,0.55)' : isDel ? '2px solid rgba(255,95,95,0.5)' : isMeta ? '2px solid rgba(167,139,250,0.45)' : '2px solid transparent',
+                          color: isAdd ? 'var(--color-success)' : isDel ? 'var(--color-danger)' : isMeta ? 'var(--chart-purple)' : 'var(--text-primary)',
+                          background: isAdd ? 'rgba(5,150,105,0.08)' : isDel ? 'rgba(220,38,38,0.075)' : isMeta ? 'rgba(124,63,168,0.08)' : 'transparent',
+                          borderLeft: isAdd ? '2px solid rgba(5,150,105,0.55)' : isDel ? '2px solid rgba(220,38,38,0.5)' : isMeta ? '2px solid rgba(124,63,168,0.45)' : '2px solid transparent',
                         }}
                       >
                         <span style={{ color: 'rgba(148,163,184,0.45)', textAlign: 'right', padding: '0 10px', userSelect: 'none' }}>{i + 1}</span>
@@ -441,34 +477,34 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
         {/* Conflict resolution modal */}
         {conflict && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ width: '88vw', height: '80vh', background: 'var(--bg0)', border: '2px solid rgba(255,95,95,0.5)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 100px rgba(0,0,0,0.7)' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,95,95,0.2)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ color: 'var(--red)', fontWeight: 700 }}>⚠ Conflict editor: {conflict.filename}</span>
-                <button onClick={() => setConflict(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--t3)', cursor: 'pointer', fontSize: 18 }}>×</button>
+            <div style={{ width: '88vw', height: '80vh', background: 'var(--bg0)', border: '2px solid rgba(220,38,38,0.5)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 100px rgba(0,0,0,0.7)' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(220,38,38,0.2)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ color: 'var(--color-danger)', fontWeight: 700 }}>⚠ Conflict editor: {conflict.filename}</span>
+                <Button variant="ghost" onClick={() => setConflict(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18 }}>×</Button>
               </div>
               {(conflict.basePatch || conflict.headPatch) && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid rgba(255,255,255,0.07)', maxHeight: 150, overflow: 'hidden' }}>
-                  <pre style={{ margin: 0, padding: 10, overflow: 'auto', color: 'var(--red)', background: 'rgba(255,95,95,0.06)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'pre-wrap' }}>{conflict.basePatch || 'No base-side patch available'}</pre>
-                  <pre style={{ margin: 0, padding: 10, overflow: 'auto', color: 'var(--purple)', background: 'rgba(167,139,250,0.06)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'pre-wrap' }}>{conflict.headPatch || 'No head-side patch available'}</pre>
+                  <pre style={{ margin: 0, padding: 10, overflow: 'auto', color: 'var(--color-danger)', background: 'rgba(220,38,38,0.06)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'pre-wrap' }}>{conflict.basePatch || 'No base-side patch available'}</pre>
+                  <pre style={{ margin: 0, padding: 10, overflow: 'auto', color: 'var(--chart-purple)', background: 'rgba(124,63,168,0.06)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'pre-wrap' }}>{conflict.headPatch || 'No head-side patch available'}</pre>
                 </div>
               )}
               <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--t3)', background: 'rgba(255,95,95,0.05)' }}>BASE ({base})</div>
-                  <textarea readOnly value={conflict.baseContent} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--t3)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, padding: 10, resize: 'none', outline: 'none' }} />
+                  <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--text-muted)', background: 'rgba(220,38,38,0.05)' }}>BASE ({base})</div>
+                  <Textarea readOnly value={conflict.baseContent} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, padding: 10, resize: 'none', outline: 'none' }} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--purple)', background: 'rgba(167,139,250,0.05)' }}>HEAD ({head})</div>
-                  <textarea readOnly value={conflict.headContent} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--purple)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, padding: 10, resize: 'none', outline: 'none' }} />
+                  <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--chart-purple)', background: 'rgba(124,63,168,0.05)' }}>HEAD ({head})</div>
+                  <Textarea readOnly value={conflict.headContent} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--chart-purple)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, padding: 10, resize: 'none', outline: 'none' }} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--green)', background: 'rgba(0,255,157,0.05)' }}>RESOLVED (edit below)</div>
-                  <textarea value={conflict.resolved} onChange={e => setConflict(c => c ? { ...c, resolved: e.target.value } : c)} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--green)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, padding: 10, resize: 'none', outline: 'none' }} />
+                  <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--color-success)', background: 'rgba(5,150,105,0.05)' }}>RESOLVED (edit below)</div>
+                  <Textarea value={conflict.resolved} onChange={e => setConflict(c => c ? { ...c, resolved: e.target.value } : c)} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--color-success)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, padding: 10, resize: 'none', outline: 'none' }} />
                 </div>
               </div>
               <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button onClick={() => setConflict(null)} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontSize: 12 }}>Cancel</button>
-                <button onClick={resolveConflict} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: 'var(--green)', color: 'var(--bg0)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✓ Accept Resolution</button>
+                <Button variant="ghost" onClick={() => setConflict(null)} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}>Cancel</Button>
+                <Button onClick={resolveConflict} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: 'var(--color-success)', color: 'var(--bg0)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✓ Accept Resolution</Button>
               </div>
             </div>
           </div>

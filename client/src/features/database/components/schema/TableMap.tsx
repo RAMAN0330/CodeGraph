@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { GG } from '../dbConnectTheme';
 import type { SchemaTable } from '../../types';
+import { Button } from '@/components/ui/button';
 
 function formatBytes(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined) return 'Not available';
@@ -20,13 +21,14 @@ interface TableMapProps {
 export default function TableMap({ schemaName, tables, onBack, onSelectTable }: TableMapProps) {
   return (
     <div style={{ padding: 24 }}>
-      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 0, color: GG.fg3, fontFamily: GG.mono, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', marginBottom: 16, padding: 0 }}>
+      <Button variant="ghost" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 0, color: GG.fg3, fontFamily: GG.mono, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', marginBottom: 16, padding: 0 }}>
         <ArrowLeft size={13} /> {schemaName}
-      </button>
+      </Button>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
         {tables.map(table => (
-          <button
+          <Button
             key={table.name}
+            variant="ghost"
             onClick={() => onSelectTable(table.name)}
             style={{
               display: 'flex', flexDirection: 'column', gap: 5, padding: 14, textAlign: 'left',
@@ -37,7 +39,7 @@ export default function TableMap({ schemaName, tables, onBack, onSelectTable }: 
             <div style={{ fontFamily: GG.mono, fontSize: 10.5, color: GG.fg4 }}>{table.rowEstimate?.toLocaleString() ?? '—'} rows</div>
             <div style={{ fontFamily: GG.mono, fontSize: 10.5, color: GG.fg4 }}>{formatBytes(table.sizeBytes)}</div>
             <div style={{ fontFamily: GG.mono, fontSize: 10.5, color: GG.fg4 }}>{table.foreignKeys.length} relation{table.foreignKeys.length === 1 ? '' : 's'}</div>
-          </button>
+          </Button>
         ))}
       </div>
     </div>

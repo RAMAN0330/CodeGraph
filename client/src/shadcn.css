@@ -13,14 +13,16 @@
   --color-destructive: var(--destructive);
 }
 
+/* Points at the same semantic tokens defined in index.css, so shadcn
+   components and the rest of the platform never drift into two palettes. */
 :root {
-  --background: #1e2127;
-  --foreground: #f8fafd;
-  --border: #3e4452;
-  --input: #2c313c;
-  --ring: #61afef;
-  --primary: #61afef;
-  --primary-foreground: #151a20;
-  --muted-foreground: #7f848e;
-  --destructive: #e06c75;
+  --background: var(--surface-card);
+  --foreground: var(--text-primary);
+  --border: var(--border-subtle);
+  --input: var(--surface-subtle);
+  --ring: var(--border-focus);
+  --primary: var(--teal-500);
+  --primary-foreground: #ffffff;
+  --muted-foreground: var(--text-secondary);
+  --destructive: var(--color-danger);
 }

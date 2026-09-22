@@ -1,25 +1,26 @@
 import { AlertCircle } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 
 // ── Shared design tokens for the "connect to a database" experience.
 // Used by both the standalone DB Visualizer and the create-project dialog's
 // Database step so the two stay visually identical. ─────────────────────────
 export const GG = {
-  bg: '#181a1f',
-  bg1: '#21252b',
-  bg2: '#282c34',
-  panel: '#21252b',
-  line: 'rgba(97,175,239,0.14)',
-  lineStrong: 'rgba(97,175,239,0.32)',
-  fg: '#f2f3f5',
-  fg2: '#abb2bf',
-  fg3: '#7f8795',
-  fg4: '#5c6370',
-  accent: '#61afef',
-  info: '#528bff',
+  bg: 'var(--bg-canvas)',
+  bg1: 'var(--surface-card)',
+  bg2: 'var(--surface-subtle)',
+  panel: 'var(--surface-card)',
+  line: 'color-mix(in srgb, var(--teal-500) 14%, transparent)',
+  lineStrong: 'color-mix(in srgb, var(--teal-500) 32%, transparent)',
+  fg: 'var(--text-primary)',
+  fg2: 'var(--text-primary)',
+  fg3: 'var(--text-secondary)',
+  fg4: 'var(--text-muted)',
+  accent: 'var(--teal-500)',
+  info: 'var(--teal-600)',
   magenta: 'var(--chart-purple)',
-  cyan: '#56b6c2',
+  cyan: 'var(--chart-cyan)',
   mono: "'JetBrains Mono', monospace" as const,
-  sans: "'Montserrat', sans-serif" as const,
+  sans: "'JetBrains Mono', monospace" as const,
 };
 
 export const ggInput: React.CSSProperties = {
@@ -78,14 +79,14 @@ export function MiniSchemaPreview() {
 
 export function GGErrorBanner({ msg }: { msg: string }) {
   return (
-    <div style={{
+    <Alert variant="destructive" style={{
       display: 'flex', gap: 8, alignItems: 'flex-start',
       padding: '10px 12px',
-      background: 'rgba(248,81,73,0.1)', border: '1px solid rgba(248,81,73,0.3)',
+      background: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)',
       borderRadius: 8, color: 'var(--color-danger)', fontSize: 12, fontFamily: GG.mono,
     }}>
       <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
       {msg}
-    </div>
+    </Alert>
   );
 }

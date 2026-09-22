@@ -2,6 +2,7 @@ import { BarChart3, FolderTree, LayoutDashboard, ListChecks, Network, Settings, 
 import { motion, useReducedMotion } from 'framer-motion';
 import AccountMenu from '../../../shared/components/AccountMenu';
 import { WORKSPACE_MODULES, moduleForSection } from '../config/workspaceModules';
+import { Button } from '@/components/ui/button';
 
 const MODULE_ICONS = {
   overview: LayoutDashboard,
@@ -43,34 +44,38 @@ export default function WorkspaceSidebar({ login, avatarUrl, activeSection, hasD
           const expandable = module.tools.length > 1;
           return (
             <motion.div key={module.id} variants={fadeUp} className="workspace-nav-group">
-              <button
-                className={`workspace-nav-item${active ? ' active' : ''}`}
+              <Button
+                variant="ghost"
+                className={`workspace-nav-item h-auto${active ? ' active' : ''}`}
                 onClick={() => onSectionChange(module.defaultSection)}
                 aria-current={active ? 'page' : undefined}
                 aria-expanded={expandable ? active : undefined}
-                title={module.description}
               >
                 {active && <motion.span layoutId="workspace-nav-active" className="workspace-nav-active-indicator" transition={reduceMotion ? { duration: 0 } : SPRING_SNAPPY} />}
                 <span className="workspace-nav-item-content">
                   <ModuleIcon size={17} strokeWidth={1.8} />
-                  <span className="sidebar-inline-label">{module.label}</span>
+                  <span className="sidebar-inline-label">
+                    <strong>{module.label}</strong>
+                    <small>{module.description}</small>
+                  </span>
                 </span>
-              </button>
+              </Button>
 
               {expandable && active && (
                 <div className="workspace-nav-sublist">
                   {module.tools.map(tool => {
                     const disabled = !!tool.requiresData && !hasData;
                     return (
-                      <button
+                      <Button
+                        variant="ghost"
                         key={tool.id}
-                        className={`workspace-nav-subitem${activeSection === tool.id ? ' active' : ''}`}
+                        className={`workspace-nav-subitem h-auto${activeSection === tool.id ? ' active' : ''}`}
                         disabled={disabled}
                         onClick={() => !disabled && onSectionChange(tool.id)}
-                        title={disabled ? 'Analyze a repository first' : tool.description}
                       >
-                        {tool.label}
-                      </button>
+                        <span>{tool.label}</span>
+                        <small>{disabled ? 'Analyze a repository first' : tool.description}</small>
+                      </Button>
                     );
                   })}
                 </div>

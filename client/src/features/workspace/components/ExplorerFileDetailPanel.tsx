@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, ChevronRight } from 'lucide-react';
 import { Icon } from '../../../shared/components/Icon';
 import { StatusDot } from '../../../shared/components/StatusDot';
 import { COLORS } from '../../analysis/services/parser';
+import { Button } from '@/components/ui/button';
 
 const BlameHeatmap = React.lazy(() => import('../../git-insights/components/BlameHeatmap'));
 
@@ -48,22 +49,22 @@ export default function ExplorerFileDetailPanel({ data, selected, blastRadius, r
   return (
     <>
       <div className="panel-tabs">
-        <button className="panel-tab active" onClick={onCloseDrillDown}>{iconLabel(selected ? 'file' : 'search', selected ? 'FILE' : 'ISSUES')}</button>
+        <Button variant="ghost" className="panel-tab active" onClick={onCloseDrillDown}>{iconLabel(selected ? 'file' : 'search', selected ? 'FILE' : 'ISSUES')}</Button>
       </div>
       <div className="panel-content">
         {selected ? (
           <>
-            <button className="top-btn" style={{ width: '100%', marginBottom: 12 }} onClick={onClearSelection}>
+            <Button variant="ghost" className="top-btn" style={{ width: '100%', marginBottom: 12 }} onClick={onClearSelection}>
               <span className="icon icon-s" style={{ marginRight: 4 }}><ArrowLeft size={12} strokeWidth={1.9} /></span>
               Back to Issues
-            </button>
+            </Button>
             <div className="panel-header" style={{ margin: '0 -12px 12px', padding: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <div className="panel-title"><Icon name="file" size="m" /> {selected.name}</div>
                   <div className="panel-subtitle">{selected.folder || 'root'} • {selected.layer} • {selected.lines} lines{selected.complexity && selected.complexity.score > 0 ? ' • Complexity: ' + selected.complexity.score : ''}</div>
                 </div>
-                <button className="view-file-btn" onClick={() => onViewSource(selected.path)}>{iconLabel('eye', 'View Source')}</button>
+                <Button variant="ghost" className="view-file-btn" onClick={() => onViewSource(selected.path)}>{iconLabel('eye', 'View Source')}</Button>
               </div>
             </div>
 
@@ -189,7 +190,7 @@ export default function ExplorerFileDetailPanel({ data, selected, blastRadius, r
                         <div className="fn-header" onClick={() => onToggleFn(fn.name)}>
                           <span className="fn-name">{fn.name}()</span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <button className="view-file-btn" onClick={e => { e.stopPropagation(); onViewSource(selected.path, fn.line); }} title="View source"><Icon name="eye" size="s" /></button>
+                            <Button variant="ghost" className="view-file-btn" onClick={e => { e.stopPropagation(); onViewSource(selected.path, fn.line); }} title="View source"><Icon name="eye" size="s" /></Button>
                             <span className="fn-line">L{fn.line}</span>
                             <span className="badge badge-default" title="Internal calls (same file)">{intCalls} int</span>
                             <span className={'badge ' + (extCalls > 10 ? 'badge-danger' : extCalls > 0 ? 'badge-warning' : 'badge-default')} title="External calls (other files)">{extCalls} ext</span>
@@ -212,7 +213,7 @@ export default function ExplorerFileDetailPanel({ data, selected, blastRadius, r
                               </div>
                             )}
                             {intCalls === 0 && extCalls === 0 && (
-                              <div style={{ fontSize: 9, color: 'var(--orange)', padding: 8, textAlign: 'center', background: 'rgba(255,159,67,0.1)', borderRadius: 4 }}>
+                              <div style={{ fontSize: 9, color: 'var(--orange)', padding: 8, textAlign: 'center', background: 'rgba(217,119,6,0.1)', borderRadius: 4 }}>
                                 <Icon name="warning" size="s" /> This function is never called
                               </div>
                             )}

@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Copied from node_modules by scripts/copy-tree-sitter-wasm.mjs on every
+# `npm install` — never hand-edited, never source. See that script's header.
+public/wasm/
+
+# Stray compiled output server/tsc leaves next to analysisRules.ts when it
+# compiles across the client/server boundary — see the import-site comment in
+# server/src/analysis/parser.ts. Never real source; safe to delete anytime.
+src/features/analysis/services/analysisRules.js
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

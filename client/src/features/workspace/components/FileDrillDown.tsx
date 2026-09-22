@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
+import { Button } from '@/components/ui/button';
 
 interface FnEntry {
   name: string;
@@ -45,12 +46,12 @@ function getLayer(file: DrillDownFile): string {
 function layerColor(layer: string): string {
   const map: Record<string, string> = {
     component: 'var(--teal-500)',
-    page: '#a371f7',
+    page: 'var(--chart-purple)',
     hook: 'var(--color-warning)',
     util: 'var(--color-info)',
-    service: '#56d364',
-    state: '#ffa657',
-    api: '#ff7b72',
+    service: 'var(--color-success)',
+    state: 'var(--accent-orange)',
+    api: 'var(--color-danger)',
     module: 'var(--text-muted)',
   };
   return map[layer] ?? 'var(--text-muted)';
@@ -58,8 +59,8 @@ function layerColor(layer: string): string {
 
 function healthColor(score: number): string {
   if (score >= 80) return 'var(--color-success)';
-  if (score >= 50) return '#ffa657';
-  return '#ff7b72';
+  if (score >= 50) return 'var(--accent-orange)';
+  return 'var(--color-danger)';
 }
 
 // ─── component ──────────────────────────────────────────────────────────────
@@ -156,7 +157,7 @@ export default function FileDrillDown({ file, allFunctions, onClose }: Props) {
     node
       .append('circle')
       .attr('r', 18)
-      .attr('fill', (d: any) => (d.exported ? '#1a3a1a' : 'var(--surface-card)'))
+      .attr('fill', (d: any) => (d.exported ? '#e5f5e9' : 'var(--surface-card)'))
       .attr('stroke', (d: any) => (d.exported ? 'var(--color-success)' : 'var(--border-subtle)'))
       .attr('stroke-width', 1.5);
 
@@ -349,13 +350,12 @@ export default function FileDrillDown({ file, allFunctions, onClose }: Props) {
           )}
 
           {/* close button */}
-          <button
+          <Button
+            variant="ghost"
             onClick={onClose}
             style={{
               background: 'none',
-              border: 'none',
               color: 'var(--text-muted)',
-              cursor: 'pointer',
               fontSize: 20,
               lineHeight: 1,
               padding: '2px 4px',
@@ -366,7 +366,7 @@ export default function FileDrillDown({ file, allFunctions, onClose }: Props) {
             aria-label="Close"
           >
             ✕
-          </button>
+          </Button>
         </div>
 
         {/* ── two-column body ──────────────────────────────────────────────── */}
@@ -469,8 +469,8 @@ export default function FileDrillDown({ file, allFunctions, onClose }: Props) {
                           fontSize: 11,
                           padding: '3px 9px',
                           borderRadius: 6,
-                          background: fn.isExported ? '#1a3a1a' : 'var(--surface-card)',
-                          border: `1px solid ${fn.isExported ? '#2ea04333' : 'var(--border-subtle)'}`,
+                          background: fn.isExported ? '#e5f5e9' : 'var(--surface-card)',
+                          border: `1px solid ${fn.isExported ? '#1d7a3c40' : 'var(--border-subtle)'}`,
                           color: fn.isExported ? 'var(--color-success)' : 'var(--text-muted)',
                           whiteSpace: 'nowrap',
                           maxWidth: '100%',
@@ -562,8 +562,8 @@ export default function FileDrillDown({ file, allFunctions, onClose }: Props) {
         {hasIssues && (
           <div
             style={{
-              borderTop: '1px solid #3d2400',
-              background: '#2d1a00',
+              borderTop: '1px solid #e8d5ab',
+              background: '#faf1dc',
               padding: '7px 16px',
               display: 'flex',
               alignItems: 'flex-start',
@@ -571,10 +571,10 @@ export default function FileDrillDown({ file, allFunctions, onClose }: Props) {
               flexShrink: 0,
             }}
           >
-            <span style={{ color: '#ffa657', fontSize: 13, flexShrink: 0 }}>⚠</span>
+            <span style={{ color: '#92600a', fontSize: 13, flexShrink: 0 }}>⚠</span>
             <span
               style={{
-                color: '#ffa657',
+                color: '#5c3d06',
                 fontSize: 11,
                 lineHeight: 1.5,
                 overflow: 'hidden',
@@ -632,7 +632,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
           height: 10,
           borderRadius: '50%',
           border: `2px solid ${color}`,
-          background: color === 'var(--color-success)' ? '#1a3a1a' : 'var(--surface-card)',
+          background: color === 'var(--color-success)' ? '#e5f5e9' : 'var(--surface-card)',
         }}
       />
       <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{label}</span>

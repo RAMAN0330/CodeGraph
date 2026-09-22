@@ -190,9 +190,9 @@ export async function runAnalysis({ owner, repo, branch, token }: RunAnalysisInp
   if (circular.length) issues.push({ type: 'critical', title: `${circular.length} Circular Dependencies`, desc: 'Files that import each other', items: circular.map(p => { const parts = p.split('|'); return { name: parts.map(x => x.split('/').pop()).join(' ↔ '), files: parts }; }) });
 
   // Phase 3-4: patterns, security, duplicates, layer violations, complexity
-  const patterns = Parser.detectPatterns(analyzed);
-  const securityIssues = Parser.detectSecurity(analyzed);
-  const duplicates = Parser.detectDuplicates(analyzed, allFns);
+  const patterns = await Parser.detectPatterns(analyzed);
+  const securityIssues = await Parser.detectSecurity(analyzed);
+  const duplicates = await Parser.detectDuplicates(analyzed);
   const layerViolations = Parser.detectLayerViolations(analyzed, conns);
   analyzed.forEach(f => { f.complexity = Parser.calcComplexity(f.content, f.path); });
 

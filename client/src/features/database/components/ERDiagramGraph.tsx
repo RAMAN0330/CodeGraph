@@ -11,42 +11,42 @@ interface SchemaTable { name: string; columns: SchemaColumn[]; foreignKeys: Sche
 function TableNode({ data }: { data: any }) {
   if (data.compact) {
     return (
-      <div style={{ background: 'var(--bg-secondary, #1a1a2e)', border: `1px solid ${data.focused ? 'var(--accent-green,#00ff9d)' : 'var(--accent-purple, #a78bfa)'}`, borderRadius: 7, minWidth: 150, maxWidth: 190, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, overflow: 'hidden', position: 'relative' }}>
-        <Handle type="target" position={Position.Left} style={{ background: '#a78bfa', border: '2px solid #0f172a', width: 8, height: 8 }} />
-        <div style={{ padding: '7px 9px', fontWeight: 700, fontSize: 11, color: data.focused ? 'var(--accent-green,#00ff9d)' : 'var(--accent-purple,#a78bfa)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={data.tableName}>
+      <div style={{ background: 'var(--bg-secondary, #ffffff)', border: `1px solid ${data.focused ? 'var(--accent-green,#1d7a3c)' : 'var(--accent-purple, #7c3fa8)'}`, borderRadius: 7, minWidth: 150, maxWidth: 190, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, overflow: 'hidden', position: 'relative' }}>
+        <Handle type="target" position={Position.Left} style={{ background: '#7c3fa8', border: '2px solid #ffffff', width: 8, height: 8 }} />
+        <div style={{ padding: '7px 9px', fontWeight: 700, fontSize: 11, color: data.focused ? 'var(--accent-green,#1d7a3c)' : 'var(--accent-purple,#7c3fa8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={data.tableName}>
           {data.tableName}
         </div>
         <div style={{ padding: '0 9px 7px', color: 'var(--t1)', fontSize: 10 }}>
           {data.columnCount} cols · {data.relationCount} rels
         </div>
-        <Handle type="source" position={Position.Right} style={{ background: '#4d9fff', border: '2px solid #0f172a', width: 8, height: 8 }} />
+        <Handle type="source" position={Position.Right} style={{ background: '#2f6fd1', border: '2px solid #ffffff', width: 8, height: 8 }} />
       </div>
     );
   }
   return (
-    <div style={{ background: 'var(--bg-secondary, #1a1a2e)', border: '1px solid var(--accent-purple, #a78bfa)', borderRadius: 8, minWidth: 200, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, overflow: 'hidden', position: 'relative' }}>
-      <Handle type="target" position={Position.Left} style={{ background: '#a78bfa', border: '2px solid #0f172a', width: 10, height: 10 }} />
-      <div style={{ background: 'linear-gradient(135deg,rgba(167,139,250,0.25),rgba(77,159,255,0.15))', padding: '6px 10px', fontWeight: 700, fontSize: 12, color: 'var(--accent-purple,#a78bfa)', borderBottom: '1px solid rgba(167,139,250,0.2)', letterSpacing: '0.5px' }}>
+    <div style={{ background: 'var(--bg-secondary, #ffffff)', border: '1px solid var(--accent-purple, #7c3fa8)', borderRadius: 8, minWidth: 200, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, overflow: 'hidden', position: 'relative' }}>
+      <Handle type="target" position={Position.Left} style={{ background: '#7c3fa8', border: '2px solid #ffffff', width: 10, height: 10 }} />
+      <div style={{ background: 'linear-gradient(135deg,rgba(124,63,168,0.14),rgba(47,111,209,0.08))', padding: '6px 10px', fontWeight: 700, fontSize: 12, color: 'var(--accent-purple,#7c3fa8)', borderBottom: '1px solid rgba(124,63,168,0.16)', letterSpacing: '0.5px' }}>
         {data.tableName}
       </div>
       {data.columns.map((col: SchemaColumn, i: number) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderBottom: '1px solid rgba(20,24,32,0.05)', background: i % 2 === 0 ? 'transparent' : 'rgba(20,24,32,0.02)' }}>
           <span style={{ width: 14, textAlign: 'center', flexShrink: 0 }}>
             {col.isPrimary ? '🔑' : data.fkCols?.has(col.name) ? '🔗' : ''}
           </span>
-          <span style={{ color: col.isPrimary ? 'var(--accent-green,#00ff9d)' : 'var(--t0)', fontWeight: col.isPrimary ? 600 : 400, flexGrow: 1 }}>{col.name}</span>
+          <span style={{ color: col.isPrimary ? 'var(--accent-green,#1d7a3c)' : 'var(--t0)', fontWeight: col.isPrimary ? 600 : 400, flexGrow: 1 }}>{col.name}</span>
           <span style={{ color: 'var(--t1)', fontSize: 10, flexShrink: 0 }}>{col.type}</span>
           {col.nullable && <span style={{ color: 'var(--t3)', fontSize: 9 }}>?</span>}
         </div>
       ))}
-      <Handle type="source" position={Position.Right} style={{ background: '#4d9fff', border: '2px solid #0f172a', width: 10, height: 10 }} />
+      <Handle type="source" position={Position.Right} style={{ background: '#2f6fd1', border: '2px solid #ffffff', width: 10, height: 10 }} />
     </div>
   );
 }
 
 const nodeTypes: NodeTypes = { tableNode: TableNode as any };
 
-const ACCENT_COLORS = ['#a78bfa','#4d9fff','#00ff9d','#ff9f43','#ec4899','#22d3ee','#ff5f5f','#84cc16'];
+const ACCENT_COLORS = ['#7c3fa8','#2f6fd1','#1d7a3c','#D97706','#b8306f','#147a89','#c22b3a','#5a7a0f'];
 const LARGE_SCHEMA_TABLES = 60;
 const LARGE_SCHEMA_EDGES = 120;
 
@@ -272,8 +272,8 @@ function buildFlow(tables: SchemaTable[], selectedTable?: string | null) {
   // rainbow noise. The only edges that get an accent color and animation are
   // the ones actually touching the focused table, so the eye has something
   // to follow instead of untangling a hairball.
-  const DEFAULT_EDGE_COLOR = 'rgba(148, 163, 184, 0.32)';
-  const FOCUS_EDGE_COLOR = '#61afef';
+  const DEFAULT_EDGE_COLOR = 'rgba(88, 96, 112, 0.4)';
+  const FOCUS_EDGE_COLOR = '#2f6fd1';
 
   const edgeSet = new Set<string>();
   const edges: any[] = [];
@@ -293,8 +293,8 @@ function buildFlow(tables: SchemaTable[], selectedTable?: string | null) {
         animated: isFocusEdge,
         markerEnd: { type: MarkerType.ArrowClosed, color },
         style: { stroke: color, strokeWidth: isFocusEdge ? 2 : 1 },
-        labelStyle: { fill: '#94a3b8', fontSize: 9, fontFamily: 'JetBrains Mono, monospace' },
-        labelBgStyle: { fill: '#0f172a', fillOpacity: 0.85 },
+        labelStyle: { fill: '#565d6b', fontSize: 9, fontFamily: 'JetBrains Mono, monospace' },
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.85 },
       });
     });
   });

@@ -74,7 +74,7 @@ export function bindGroupedSigmaInteractions(
   });
 }
 
-const FOLDER_COLORS = ['#61afef', '#98c379', '#c678dd', '#e5c07b', '#56b6c2', '#e06c75'];
+const FOLDER_COLORS = ['#2f6fd1', '#1d7a3c', '#7c3fa8', '#92600a', '#147a89', '#c22b3a'];
 
 function folderColor(folderId: string): string {
   let hash = 0;
@@ -144,7 +144,7 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
     for (const edge of model.edges) {
       if (graph.hasNode(edge.source) && graph.hasNode(edge.target)) graph.addEdgeWithKey(edge.id, edge.source, edge.target, {
         size: Math.min(3, .7 + Math.log2(edge.count + 1)),
-        color: edge.crossFolder ? '#596675' : '#3f4854',
+        color: edge.crossFolder ? '#565d6b' : '#b8bfc9',
         type: 'arrow',
       });
     }
@@ -171,7 +171,7 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
           const related = !activeId || focused.relatedNodeIds.has(node);
           return {
             ...data,
-            color: related ? data.color : '#4b515b',
+            color: related ? data.color : '#727a89',
             hidden: Boolean(activeId && activeMode === 'selected-only' && !related),
             forceLabel: node === activeId || hovered,
             highlighted: node === activeId || hovered,
@@ -183,7 +183,7 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
           const related = !activeId || focused.relatedEdgeIds.has(edge);
           return {
             ...data,
-            color: activeId ? related ? '#abb2bf' : '#343a43' : data.color,
+            color: activeId ? related ? '#1a1d24' : '#c9ced7' : data.color,
             hidden: Boolean(activeId && activeMode === 'selected-only' && !related),
             size: related && activeId ? Math.max(1.8, Number(data.size)) : data.size,
             type: 'arrow',
@@ -252,7 +252,7 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
       className={`folder-group-overlay${selectedId && !focusedFolderIds.has(group.id) ? ' is-muted' : ''}`}
       style={{
         position: 'absolute', zIndex: 1, pointerEvents: 'none', boxSizing: 'border-box',
-        border: '1px solid #3e4652', borderRadius: 12, background: 'rgba(33,37,43,.54)',
+        border: '1px solid var(--border-medium)', borderRadius: 12, background: 'rgba(255,255,255,.7)',
         opacity: selectedId && !focusedFolderIds.has(group.id) ? .28 : 1,
       }}
     />)}
@@ -271,7 +271,7 @@ const GroupedSigmaGraph = forwardRef<GroupedSigmaGraphHandle, GroupedSigmaGraphP
         <span>{group.visibleFiles}/{group.totalFiles}</span>
       </div>
       {group.totalFiles > 40 && <button type="button" style={{
-        pointerEvents: 'auto', color: LABEL_COLOR, background: '#2c313a', border: '1px solid #596675',
+        pointerEvents: 'auto', color: LABEL_COLOR, background: 'var(--surface-card)', border: '1px solid var(--border-medium)',
         borderRadius: 5, padding: '3px 7px', cursor: 'pointer',
       }} onClick={() => onToggleFolder(group.id)}>{group.expanded ? 'Collapse' : 'Expand'}</button>}
     </div>)}

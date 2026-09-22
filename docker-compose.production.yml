@@ -23,7 +23,10 @@ services:
     deploy: { replicas: 3 }
 
   legacy-api:
-    build: { context: ./server, dockerfile: Dockerfile.node }
+    # context is the repo root, not ./server — this build needs to reach
+    # client/src/features/analysis/services/analysisRules.ts too. See
+    # server/Dockerfile.node's own header comment for why.
+    build: { context: ., dockerfile: server/Dockerfile.node }
     environment:
       PORT: "5001"
       NODE_ENV: production

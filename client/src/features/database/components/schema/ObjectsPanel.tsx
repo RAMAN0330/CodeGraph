@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Table2 } from 'lucide-react';
 import { GG } from '../dbConnectTheme';
 import type { SchemaTable } from '../../types';
+import { Button } from '@/components/ui/button';
 
 interface ObjectsPanelProps {
   tablesBySchema: Map<string, SchemaTable[]>;
@@ -35,31 +36,33 @@ export default function ObjectsPanel({ tablesBySchema, selectedTable, onSelectTa
 
   return (
     <div style={{ minWidth: 0 }}>
-      <div style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700, marginBottom: 8, padding: '0 4px' }}>Schema Objects</div>
+      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700, marginBottom: 8, padding: '0 4px' }}>Schema Objects</div>
       {Array.from(tablesBySchema.entries()).map(([schemaName, tables]) => {
         const isOpen = expanded.has(schemaName);
         return (
           <div key={schemaName} style={{ marginBottom: 4, breakInside: 'avoid' }}>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => toggle(schemaName)}
               className="objp-schema-row"
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 6px', minWidth: 0,
                 background: 'transparent', border: 0, borderRadius: 6, color: GG.fg2,
-                fontFamily: 'Montserrat, sans-serif', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, cursor: 'pointer',
               }}
             >
               {isOpen ? <ChevronDown size={12} style={{ flexShrink: 0, color: GG.fg4 }} /> : <ChevronRight size={12} style={{ flexShrink: 0, color: GG.fg4 }} />}
               <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' }}>{schemaName}</span>
               <span style={{ flexShrink: 0, fontFamily: GG.mono, fontSize: 9.5, fontWeight: 600, color: GG.fg4, background: GG.bg1, borderRadius: 999, padding: '1px 6px' }}>{tables.length}</span>
-            </button>
+            </Button>
             {isOpen && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginLeft: 9, paddingLeft: 8, borderLeft: `1px solid ${GG.line}` }}>
                 {tables.map(table => {
                   const active = selectedTable === table.name;
                   return (
-                    <button
+                    <Button
                       key={table.name}
+                      variant="ghost"
                       onClick={() => onSelectTable(table.name)}
                       className={`objp-table-row${active ? ' active' : ''}`}
                       style={{
@@ -72,7 +75,7 @@ export default function ObjectsPanel({ tablesBySchema, selectedTable, onSelectTa
                     >
                       <Table2 size={12} style={{ flexShrink: 0, opacity: active ? 1 : 0.6 }} />
                       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{table.name}</span>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>

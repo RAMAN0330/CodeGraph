@@ -3,6 +3,9 @@ import {
   Box, ChevronRight, Copy, Eye, FlaskConical, GitFork, Layers, Link2,
   ListChecks, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type Priority = 'critical' | 'high' | 'medium';
 
@@ -131,23 +134,23 @@ export default function ActionsSection({ data, onSelectFile, onViewSource }: Pro
           <h1>Actions</h1>
           <p>Prioritized recommendations based on your codebase analysis.</p>
         </div>
-        <div className="act-tabs" role="tablist" aria-label="Filter by priority">
-          {tabs.map(tab => {
-            const count = tab === 'all' ? items.length : counts[tab];
-            return (
-              <button
-                key={tab}
-                role="tab"
-                aria-selected={priorityFilter === tab}
-                className={`act-tab act-tab-${tab}${priorityFilter === tab ? ' active' : ''}`}
-                onClick={() => setPriorityFilter(tab)}
-              >
-                {tab === 'all' ? 'All' : PRIORITY_LABEL[tab]}
-                <span>{count}</span>
-              </button>
-            );
-          })}
-        </div>
+        <Tabs value={priorityFilter} onValueChange={value => setPriorityFilter(value as Priority | 'all')}>
+          <TabsList className="act-tabs" aria-label="Filter by priority">
+            {tabs.map(tab => {
+              const count = tab === 'all' ? items.length : counts[tab];
+              return (
+                <TabsTrigger
+                  key={tab}
+                  value={tab}
+                  className={`act-tab act-tab-${tab}${priorityFilter === tab ? ' active' : ''}`}
+                >
+                  {tab === 'all' ? 'All' : PRIORITY_LABEL[tab]}
+                  <span>{count}</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
       </header>
 
       <div className={`act-body${selected ? ' with-detail' : ''}`}>
@@ -167,9 +170,10 @@ export default function ActionsSection({ data, onSelectFile, onViewSource }: Pro
               {visible.map(item => {
                 const Glyph = iconFor(item);
                 return (
-                  <button
+                  <Button
                     key={item.id}
-                    className={`act-row pri-${item.priority}${selectedId === item.id ? ' selected' : ''}`}
+                    variant="ghost"
+                    className={`act-row h-auto pri-${item.priority}${selectedId === item.id ? ' selected' : ''}`}
                     onClick={() => setSelectedId(item.id)}
                     aria-current={selectedId === item.id}
                   >
@@ -178,9 +182,9 @@ export default function ActionsSection({ data, onSelectFile, onViewSource }: Pro
                       <span className="act-row-title">{item.title}</span>
                       <span className="act-row-desc">{item.desc}</span>
                     </span>
-                    <span className={`act-badge pri-${item.priority}`}>{PRIORITY_LABEL[item.priority]}</span>
+                    <Badge className={`act-badge pri-${item.priority}`}>{PRIORITY_LABEL[item.priority]}</Badge>
                     <ChevronRight className="act-row-chevron" size={16} strokeWidth={1.8} />
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -213,8 +217,8 @@ function ActionDetail({
           <h2>{item.title}</h2>
           <p>{item.desc}</p>
         </div>
-        <span className={`act-badge pri-${item.priority}`}>{PRIORITY_LABEL[item.priority]}</span>
-        <button className="act-detail-close" onClick={onClose} aria-label="Close details">×</button>
+        <Badge className={`act-badge pri-${item.priority}`}>{PRIORITY_LABEL[item.priority]}</Badge>
+        <Button variant="ghost" className="act-detail-close" onClick={onClose} aria-label="Close details">×</Button>
       </header>
 
       {item.suggestion && (
@@ -245,14 +249,14 @@ function ActionDetail({
             <div className="act-files">
               {item.duplicate.files.map((file, i) => (
                 <div key={`${file.file}-${i}`} className="act-file">
-                  <button className="act-file-main" onClick={() => onSelectFile?.(file.file)}>
+                  <Button variant="ghost" className="act-file-main h-auto" onClick={() => onSelectFile?.(file.file)}>
                     <strong>{file.name ?? item.duplicate!.name}</strong>
                     <code>{file.file}{file.line ? `:${file.line}` : ''}</code>
-                  </button>
+                  </Button>
                   {onViewSource && (
-                    <button className="act-file-view" onClick={() => onViewSource(file.file, file.line)} title="View source">
+                    <Button variant="ghost" className="act-file-view" onClick={() => onViewSource(file.file, file.line)} title="View source">
                       <Eye size={13} strokeWidth={1.9} />
-                    </button>
+                    </Button>
                   )}
                 </div>
               ))}

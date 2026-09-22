@@ -1,5 +1,6 @@
 import { GG } from '../dbConnectTheme';
 import type { SchemaTable } from '../../types';
+import { Button } from '@/components/ui/button';
 
 interface DomainMapProps {
   tablesBySchema: Map<string, SchemaTable[]>;
@@ -12,8 +13,9 @@ export default function DomainMap({ tablesBySchema, onSelectSchema }: DomainMapP
       {Array.from(tablesBySchema.entries()).map(([schemaName, tables]) => {
         const relationCount = tables.reduce((sum, t) => sum + t.foreignKeys.length, 0);
         return (
-          <button
+          <Button
             key={schemaName}
+            variant="ghost"
             onClick={() => onSelectSchema(schemaName)}
             style={{
               display: 'flex', flexDirection: 'column', gap: 6, padding: 18, textAlign: 'left',
@@ -26,7 +28,7 @@ export default function DomainMap({ tablesBySchema, onSelectSchema }: DomainMapP
             <div style={{ fontFamily: GG.mono, fontSize: 14, fontWeight: 700, color: GG.fg }}>{schemaName}</div>
             <div style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg3 }}>{tables.length} table{tables.length === 1 ? '' : 's'}</div>
             <div style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg4 }}>{relationCount} relation{relationCount === 1 ? '' : 's'}</div>
-          </button>
+          </Button>
         );
       })}
     </div>

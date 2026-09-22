@@ -190,21 +190,54 @@ function mermaidText(value: string, fallback = 'Unnamed'): string {
   return cleaned || fallback;
 }
 
+// Groups whose files feed straight into the next stage of the request path,
+// drawn in this order. `test`/`external` sit off that spine — every codebase
+// that has either wires it in with a dashed edge from the last spine group
+// that actually appears, rather than assuming a fixed neighbor.
+const FLOW_ORDER: ArchitectureKind[] = ['ui', 'api', 'service', 'data', 'infrastructure'];
+const OFF_SPINE: ArchitectureKind[] = ['test', 'external'];
+
 export function compileArchitectureMermaid(graph: ArchitectureGraph): string {
   const lines = ['flowchart LR'];
   for (const group of graph.groups) {
     lines.push(`  subgraph ${group.id}["${mermaidText(group.label, 'Group')}"]`);
-    for (const node of graph.nodes.filter(item => item.groupId === group.id)) lines.push(`    ${node.id}["${mermaidText(node.label, 'Component')}"]`);
+    for (const node of graph.nodes.filter(item => item.groupId === group.id)) {
+      const count = node.paths.length;
+      lines.push(`    ${node.id}["${mermaidText(node.label, 'Component')} (${count})"]`);
+    }
     lines.push('  end');
   }
-  for (const edge of graph.edges) lines.push(`  ${edge.source} -->|"${mermaidText(edge.label, 'depends on')}"| ${edge.target}`);
+
+  // The spine: one bold arrow per stage transition, so the request path reads
+  // top to bottom of the group list without following any individual file's edges.
+  const presentGroupIds = new Set(graph.groups.map(group => group.id));
+  const spineGroupIds = FLOW_ORDER.map(kind => `group_${kind}`).filter(id => presentGroupIds.has(id));
+  for (let i = 0; i < spineGroupIds.length - 1; i++) lines.push(`  ${spineGroupIds[i]} ==> ${spineGroupIds[i + 1]}`);
+  const lastSpineGroupId = spineGroupIds[spineGroupIds.length - 1];
+  if (lastSpineGroupId) {
+    for (const kind of OFF_SPINE) {
+      const groupId = `group_${kind}`;
+      if (presentGroupIds.has(groupId)) lines.push(`  ${lastSpineGroupId} -.-> ${groupId}`);
+    }
+  }
+
+  // Individual component edges stay unlabeled here — every edge's relationship
+  // name is still available in the node detail panel on click (ComponentDetails),
+  // so this view isn't the only place that information lives, just not the
+  // place it competes with the flow for attention. Edges into a test component
+  // are dashed to mark them as verification, not part of the runtime path.
+  const testNodeIds = new Set(graph.nodes.filter(node => node.kind === 'test').map(node => node.id));
+  for (const edge of graph.edges) {
+    const arrow = testNodeIds.has(edge.target) ? '-.->' : '-->';
+    lines.push(`  ${edge.source} ${arrow} ${edge.target}`);
+  }
   for (const node of graph.nodes) lines.push(`  class ${node.id} kind_${node.kind}`);
-  lines.push('  classDef kind_ui fill:#11333a,stroke:#55c4d4,color:#e8fbff');
-  lines.push('  classDef kind_api fill:#173121,stroke:#4ac26b,color:#effff3');
-  lines.push('  classDef kind_service fill:#2d2340,stroke:#a985e8,color:#faf5ff');
-  lines.push('  classDef kind_data fill:#3a2e16,stroke:#daa520,color:#fff8e8');
-  lines.push('  classDef kind_infrastructure fill:#2e2730,stroke:#d18fc2,color:#fff5fc');
-  lines.push('  classDef kind_test fill:#3a2020,stroke:#e36d6d,color:#fff2f2');
-  lines.push('  classDef kind_external fill:#202b38,stroke:#6da7e3,color:#f2f8ff');
+  lines.push('  classDef kind_ui fill:#e3f6f8,stroke:#147a89,color:#0d4a54');
+  lines.push('  classDef kind_api fill:#e5f5e9,stroke:#1d7a3c,color:#14532a');
+  lines.push('  classDef kind_service fill:#f1e9fa,stroke:#7c3fa8,color:#4c2470');
+  lines.push('  classDef kind_data fill:#faf1dc,stroke:#92600a,color:#5c3d06');
+  lines.push('  classDef kind_infrastructure fill:#fbe9f3,stroke:#b8306f,color:#701e46');
+  lines.push('  classDef kind_test fill:#fbe6e6,stroke:#c22b3a,color:#7a1a24');
+  lines.push('  classDef kind_external fill:#e6effa,stroke:#2f6fd1,color:#1d4488');
   return lines.join('\n');
 }

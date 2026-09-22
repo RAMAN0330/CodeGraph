@@ -6,6 +6,8 @@ import MiniLineChart from '../ui/MiniLineChart';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import { useRollingSeries } from '../../services/useRollingSeries';
 import type { DbNavId, HealthStatus } from '../../types';
+import { Button } from '@/components/ui/button';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 function formatBytes(bytes: number | null): string {
   if (bytes === null) return 'Not available';
@@ -75,7 +77,7 @@ export default function OverviewPage({ projectId, paused, onNavigate }: Overview
       {data.activeAlerts.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(224,108,117,.08)', border: '1px solid rgba(224,108,117,.3)', borderRadius: 8, color: 'var(--color-danger)', fontFamily: GG.mono, fontSize: 12 }}>
           <AlertTriangle size={14} /> {data.activeAlerts.length} alert{data.activeAlerts.length === 1 ? '' : 's'} active
-          <button onClick={() => onNavigate('alerts')} style={{ marginLeft: 'auto', background: 'none', border: 0, color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View <ArrowRight size={12} /></button>
+          <Button variant="ghost" onClick={() => onNavigate('alerts')} style={{ marginLeft: 'auto', background: 'none', border: 0, color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View <ArrowRight size={12} /></Button>
         </div>
       )}
 
@@ -128,7 +130,7 @@ export default function OverviewPage({ projectId, paused, onNavigate }: Overview
         <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <span style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em' }}>Live Activity</span>
-            <button onClick={() => onNavigate('activity')} style={{ background: 'none', border: 0, color: GG.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View Activity <ArrowRight size={12} /></button>
+            <Button variant="ghost" onClick={() => onNavigate('activity')} style={{ background: 'none', border: 0, color: GG.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View Activity <ArrowRight size={12} /></Button>
           </div>
           {data.recentActivity.length === 0 ? (
             <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5, fontStyle: 'italic' }}>No notable events since the dashboard started polling.</p>
@@ -147,25 +149,25 @@ export default function OverviewPage({ projectId, paused, onNavigate }: Overview
         <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <span style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em' }}>Top Problem Queries</span>
-            <button onClick={() => onNavigate('queries')} style={{ background: 'none', border: 0, color: GG.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View all <ArrowRight size={12} /></button>
+            <Button variant="ghost" onClick={() => onNavigate('queries')} style={{ background: 'none', border: 0, color: GG.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View all <ArrowRight size={12} /></Button>
           </div>
           {Array.isArray(data.topQueries) ? (
             data.topQueries.length === 0 ? <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5, fontStyle: 'italic' }}>No queries recorded yet.</p> : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 11.5 }}>
-                <thead><tr style={{ color: GG.fg4, textAlign: 'left' }}>
-                  <th style={{ fontWeight: 600, paddingBottom: 6 }}>Query</th><th style={{ fontWeight: 600, paddingBottom: 6 }}>Avg</th><th style={{ fontWeight: 600, paddingBottom: 6 }}>Calls</th><th style={{ fontWeight: 600, paddingBottom: 6 }}>Impact</th>
-                </tr></thead>
-                <tbody>
+              <Table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 11.5 }}>
+                <TableHeader><TableRow style={{ color: GG.fg4, textAlign: 'left' }}>
+                  <TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Query</TableHead><TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Avg</TableHead><TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Calls</TableHead><TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Impact</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
                   {data.topQueries.map(q => (
-                    <tr key={q.fingerprint} style={{ borderTop: `1px solid ${GG.line}` }}>
-                      <td style={{ padding: '7px 0', color: GG.fg2, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</td>
-                      <td style={{ color: GG.fg2 }}>{q.avgMs.toFixed(0)}ms</td>
-                      <td style={{ color: GG.fg2 }}>{q.calls.toLocaleString()}</td>
-                      <td style={{ color: q.impact === 'critical' ? 'var(--color-danger)' : q.impact === 'high' ? 'var(--color-warning)' : GG.fg3, fontWeight: 700, textTransform: 'capitalize' }}>{q.impact}</td>
-                    </tr>
+                    <TableRow key={q.fingerprint} style={{ borderTop: `1px solid ${GG.line}` }}>
+                      <TableCell style={{ padding: '7px 0', color: GG.fg2, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</TableCell>
+                      <TableCell style={{ color: GG.fg2 }}>{q.avgMs.toFixed(0)}ms</TableCell>
+                      <TableCell style={{ color: GG.fg2 }}>{q.calls.toLocaleString()}</TableCell>
+                      <TableCell style={{ color: q.impact === 'critical' ? 'var(--color-danger)' : q.impact === 'high' ? 'var(--color-warning)' : GG.fg3, fontWeight: 700, textTransform: 'capitalize' }}>{q.impact}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             )
           ) : (
             <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5 }}>{data.topQueries.reason}</p>

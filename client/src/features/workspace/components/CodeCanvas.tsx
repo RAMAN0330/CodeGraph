@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { Icon } from '../../../shared/components/Icon';
-import { highlightSyntax } from '../../analysis/services/parser';
 import { buildCodeCanvasNodes, buildCodeCanvasLinks } from '../services/codeCanvasGraph';
-import type { CodeCanvasNode } from '../services/codeCanvasGraph';
+import { buildCodeFlowLayout, CARD_HEIGHT, CARD_WIDTH, type FlowCard } from '../services/codeFlowLayout';
 
 interface CodeCanvasFile {
   path: string;
@@ -14,243 +12,279 @@ interface CodeCanvasFile {
   functions?: unknown[];
 }
 
-interface FetchResult {
-  content: string | null;
-  error?: string | null;
-}
-
 interface Props {
   data: { files: CodeCanvasFile[]; connections: any[] } | null;
   folderFilter: string | null;
   colorMap: Record<string, string>;
   selected: any;
   onSelectFile: (path: string) => void;
-  onFetchFileContent: (path: string) => Promise<FetchResult>;
 }
 
-type SimNode = CodeCanvasNode & d3.SimulationNodeDatum;
-type SimLink = { source: string | SimNode; target: string | SimNode; count: number };
+interface CodeFlowCardProps {
+  card: FlowCard;
+  color: string;
+  isSelected: boolean;
+  tone: string;
+  incomingCount: number;
+  outgoingCount: number;
+}
 
-type CardState = { status: 'loading' } | { status: 'ready'; content: string } | { status: 'error'; error: string };
+// Memoized so hovering one card (which retones every other card between
+// normal/muted/upstream/downstream) doesn't re-render cards whose own props
+// haven't changed.
+const CodeFlowCard = memo(function CodeFlowCard({ card, color, isSelected, tone, incomingCount, outgoingCount }: CodeFlowCardProps) {
+  return (
+    <div
+      data-path={card.id}
+      className={`code-flow-card${isSelected ? ' is-selected' : ''}${tone}`}
+      style={{ left: card.x, top: card.y, width: CARD_WIDTH, height: CARD_HEIGHT }}
+    >
+      <div className="code-flow-card-header">
+        <span className="code-flow-dot" style={{ background: color }} />
+        <span className="code-flow-name" title={card.id}>{card.name}</span>
+        <span className="code-flow-meta">{card.fnCount} fn · {card.lines} ln</span>
+      </div>
+      <div className="code-flow-ports">
+        {incomingCount > 0 && <span className="code-flow-port in">{incomingCount}</span>}
+        {outgoingCount > 0 && <span className="code-flow-port out">{outgoingCount}</span>}
+      </div>
+    </div>
+  );
+});
 
-const CARD_MAX_HEIGHT = 240;
+// Below this zoom level individual cards are too small to read anyway, so
+// the whole graph swaps to plain dots — this is what keeps a large repo's
+// "see the shape of the flow" zoomed-out view cheap instead of laying out
+// hundreds of full DOM cards nobody can read at that scale.
+const DOT_ZOOM_THRESHOLD = 0.32;
+// World-space padding around the viewport so cards don't pop in right at
+// the edge of the screen while panning.
+const VIEWPORT_OVERSCAN = 400;
 
-export default function CodeCanvas({ data, folderFilter, colorMap, selected, onSelectFile, onFetchFileContent }: Props) {
+interface Viewport { x: number; y: number; k: number; width: number; height: number }
+
+export default function CodeCanvas({ data, folderFilter, colorMap, selected, onSelectFile }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const cardsLayerRef = useRef<HTMLDivElement>(null);
-  const cardElRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const nodePosRef = useRef<Record<string, { x: number; y: number }>>({});
-  const nodeIdsRef = useRef<Set<string>>(new Set());
-  const openPathsRef = useRef<string[]>([]);
-  const contentByPathRef = useRef<Record<string, CardState>>({});
-  const onSelectFileRef = useRef(onSelectFile);
-  onSelectFileRef.current = onSelectFile;
-  const onFetchFileContentRef = useRef(onFetchFileContent);
-  onFetchFileContentRef.current = onFetchFileContent;
+  const stageRef = useRef<HTMLDivElement>(null);
 
-  const [openPaths, setOpenPaths] = useState<string[]>([]);
-  const [contentByPath, setContentByPath] = useState<Record<string, CardState>>({});
-  const [fileByPath, setFileByPath] = useState<Record<string, CodeCanvasFile>>({});
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [viewport, setViewport] = useState<Viewport | null>(null);
 
-  openPathsRef.current = openPaths;
-  contentByPathRef.current = contentByPath;
-
-  function loadCard(path: string) {
-    if (contentByPathRef.current[path]) return;
-    setContentByPath(prev => ({ ...prev, [path]: { status: 'loading' } }));
-    onFetchFileContentRef.current(path).then(res => {
-      setContentByPath(prev => ({
-        ...prev,
-        [path]: res && res.content != null
-          ? { status: 'ready', content: res.content }
-          : { status: 'error', error: (res && res.error) || 'File not accessible' },
-      }));
-    }).catch((e: any) => {
-      setContentByPath(prev => ({ ...prev, [path]: { status: 'error', error: e?.message || 'Failed to load file' } }));
-    });
-  }
-
-  function handleNodeClick(path: string) {
-    onSelectFileRef.current(path);
-    if (openPathsRef.current.includes(path)) {
-      setOpenPaths(prev => prev.filter(p => p !== path));
-    } else {
-      setOpenPaths(prev => [...prev, path]);
-      loadCard(path);
-    }
-  }
-
-  const handleNodeClickRef = useRef(handleNodeClick);
-  handleNodeClickRef.current = handleNodeClick;
-
-  function closeCard(path: string) {
-    setOpenPaths(prev => prev.filter(p => p !== path));
-  }
-
-  // Drop cards for files that fell out of the current node set (folder filter, re-analysis).
-  useEffect(() => {
-    const files = (data && data.files) || [];
-    const byPath: Record<string, CodeCanvasFile> = {};
-    files.forEach(f => { byPath[f.path] = f; });
-    setFileByPath(byPath);
-    setOpenPaths(prev => prev.filter(p => nodeIdsRef.current.size === 0 || nodeIdsRef.current.has(p)));
-  }, [data]);
-
-  useEffect(function () {
-    if (!data || !containerRef.current) return;
-    const el = containerRef.current;
-    const container = d3.select(el);
-    container.selectAll('svg').remove();
-    container.selectAll('.treemap-tooltip').remove();
-    const w = el.clientWidth || 800, h = el.clientHeight || 600;
-    const svg = container.append('svg').attr('width', w).attr('height', h);
-    const g = svg.append('g');
-
-    const filteredFiles = folderFilter
+  const layout = useMemo(() => {
+    if (!data) return null;
+    const files = folderFilter
       ? data.files.filter(f => f.folder === folderFilter || (f.folder || '').startsWith(folderFilter + '/'))
       : data.files;
-    const nodesData = buildCodeCanvasNodes(filteredFiles);
-    const nodeIds = new Set(nodesData.map(n => n.id));
-    nodeIdsRef.current = nodeIds;
-    const linksData = buildCodeCanvasLinks(data.connections || [], nodeIds);
+    const nodes = buildCodeCanvasNodes(files);
+    const links = buildCodeCanvasLinks(data.connections || [], new Set(nodes.map(n => n.id)));
+    return buildCodeFlowLayout(nodes, links);
+  }, [data, folderFilter]);
 
-    const folders = Array.from(new Set(nodesData.map(n => n.folder)));
-    const folderAngle: Record<string, number> = {};
-    folders.forEach((f, i) => { folderAngle[f] = (i / Math.max(1, folders.length)) * Math.PI * 2; });
+  const cardById = useMemo(() => {
+    const map = new Map<string, FlowCard>();
+    layout?.cards.forEach(card => map.set(card.id, card));
+    return map;
+  }, [layout]);
 
-    const nodes: SimNode[] = nodesData.map(n => {
-      const prev = nodePosRef.current[n.id];
-      const angle = folderAngle[n.folder];
-      const seedR = 130 + Math.random() * 70;
-      return {
-        ...n,
-        x: prev ? prev.x : w / 2 + Math.cos(angle) * seedR,
-        y: prev ? prev.y : h / 2 + Math.sin(angle) * seedR,
-      };
-    });
-    const links: SimLink[] = linksData.map(l => ({ ...l }));
+  // Pan and zoom the whole stage — the cards are real DOM, so the same
+  // transform has to drive them and the edge layer together. The transform
+  // itself is applied straight to the DOM on every tick (no React involved,
+  // so panning stays smooth); React only re-renders to recompute which
+  // cards/edges are actually visible, and that's throttled to one update
+  // per animation frame instead of once per zoom tick.
+  useEffect(() => {
+    const container = containerRef.current;
+    const stage = stageRef.current;
+    if (!container || !stage || !layout) return;
 
-    const tooltip = container.append('div').attr('class', 'treemap-tooltip').style('display', 'none').style('position', 'absolute');
-
-    const linkSel = g.selectAll('line.code-link').data(links).join('line').attr('class', 'code-link')
-      .attr('stroke', 'var(--border)').attr('stroke-width', 1).attr('stroke-opacity', 0.35);
-
-    const nodeSel = g.selectAll('g.code-node').data(nodes, (d: any) => d.id).join('g').attr('class', 'code-node').style('cursor', 'pointer');
-    nodeSel.append('circle')
-      .attr('r', (d: any) => 4 + Math.min(6, Math.sqrt(d.fnCount || 1)))
-      .attr('fill', (d: any) => colorMap[d.folder] || '#4d9fff')
-      .attr('stroke', 'var(--bg0)').attr('stroke-width', 1.2);
-    nodeSel.append('text').attr('class', 'code-node-label').attr('dy', -10).attr('text-anchor', 'middle')
-      .attr('font-size', '9px').attr('fill', 'var(--t1)').style('pointer-events', 'none').style('opacity', 0)
-      .text((d: any) => (d.name.length > 20 ? d.name.slice(0, 18) + '…' : d.name));
-
-    nodeSel.on('mouseenter', function (this: any, e: any, d: any) {
-      d3.select(this).select('text.code-node-label').style('opacity', 1);
-      d3.select(this).select('circle').transition().duration(120).attr('r', 4 + Math.min(6, Math.sqrt(d.fnCount || 1)) + 2);
-      tooltip.html(
-        '<div class="treemap-tooltip-title">' + d.name + '</div>' +
-        '<div class="treemap-tooltip-stat"><span>Lines:</span><span>' + d.lines + '</span></div>' +
-        '<div class="treemap-tooltip-stat"><span>Functions:</span><span>' + d.fnCount + '</span></div>'
-      ).style('display', 'block').style('left', (e.offsetX + 15) + 'px').style('top', (e.offsetY + 15) + 'px');
-    }).on('mousemove', function (e: any) {
-      tooltip.style('left', (e.offsetX + 15) + 'px').style('top', (e.offsetY + 15) + 'px');
-    }).on('mouseleave', function (this: any, _e: any, d: any) {
-      d3.select(this).select('text.code-node-label').style('opacity', 0);
-      d3.select(this).select('circle').transition().duration(120).attr('r', 4 + Math.min(6, Math.sqrt(d.fnCount || 1)));
-      tooltip.style('display', 'none');
-    }).on('click', function (e: any, d: any) {
-      e.stopPropagation();
-      handleNodeClickRef.current(d.id);
-    });
-
-    const zoom = d3.zoom().scaleExtent([0.3, 3]).on('zoom', function (e: any) {
-      g.attr('transform', e.transform);
-      if (cardsLayerRef.current) {
-        cardsLayerRef.current.style.transform = 'translate(' + e.transform.x + 'px,' + e.transform.y + 'px) scale(' + e.transform.k + ')';
-      }
-    });
-    svg.call(zoom as any);
-
-    const sim = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink<SimNode, SimLink>(links).id((d: any) => d.id).distance(46).strength(0.25))
-      .force('charge', d3.forceManyBody().strength(-90))
-      .force('collide', d3.forceCollide(16))
-      .force('x', d3.forceX<SimNode>((d: any) => w / 2 + Math.cos(folderAngle[d.folder]) * 160).strength(0.05))
-      .force('y', d3.forceY<SimNode>((d: any) => h / 2 + Math.sin(folderAngle[d.folder]) * 160).strength(0.05))
-      .alpha(0.9).alphaDecay(0.035);
-
-    sim.on('tick', function () {
-      linkSel.attr('x1', (d: any) => (d.source as SimNode).x!).attr('y1', (d: any) => (d.source as SimNode).y!)
-        .attr('x2', (d: any) => (d.target as SimNode).x!).attr('y2', (d: any) => (d.target as SimNode).y!);
-      nodeSel.attr('transform', (d: any) => 'translate(' + d.x + ',' + d.y + ')');
-      nodes.forEach(n => { nodePosRef.current[n.id] = { x: n.x!, y: n.y! }; });
-      openPathsRef.current.forEach(path => {
-        const cardEl = cardElRefs.current[path];
-        const pos = nodePosRef.current[path];
-        if (cardEl && pos) {
-          cardEl.style.left = (pos.x + 16) + 'px';
-          cardEl.style.top = (pos.y - Math.min(cardEl.offsetHeight || 120, CARD_MAX_HEIGHT) / 2) + 'px';
-          cardEl.style.visibility = 'visible';
-        }
+    let rafId: number | null = null;
+    const publishViewport = (transform: d3.ZoomTransform) => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const rect = container.getBoundingClientRect();
+        setViewport({ x: transform.x, y: transform.y, k: transform.k, width: rect.width, height: rect.height });
       });
+    };
+
+    const zoom = d3.zoom<HTMLDivElement, unknown>()
+      .scaleExtent([0.08, 1.6])
+      .on('zoom', event => {
+        stage.style.transform = `translate(${event.transform.x}px,${event.transform.y}px) scale(${event.transform.k})`;
+        publishViewport(event.transform);
+      });
+    const selection = d3.select(container);
+    selection.call(zoom as any);
+
+    // This tab exists to read code, so it opens at 1:1 from the entry column
+    // rather than fitting the graph — a whole repo scaled to fit is unreadable.
+    // Zooming out to see the shape of the flow is one gesture away.
+    const initial = d3.zoomIdentity.translate(20, 20).scale(1);
+    selection.call(zoom.transform as any, initial);
+    stage.style.transform = `translate(${initial.x}px,${initial.y}px) scale(${initial.k})`;
+    const rect = container.getBoundingClientRect();
+    setViewport({ x: initial.x, y: initial.y, k: initial.k, width: rect.width, height: rect.height });
+
+    const resizeObserver = new ResizeObserver(() => {
+      const r = container.getBoundingClientRect();
+      setViewport(v => (v ? { ...v, width: r.width, height: r.height } : v));
     });
+    resizeObserver.observe(container);
 
-    svg.on('click', function () {
-      // Clicking empty canvas space doesn't clear selection here — folders/legend already own that gesture.
+    return () => {
+      selection.on('.zoom', null);
+      resizeObserver.disconnect();
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
+  }, [layout]);
+
+  const isDotMode = !!viewport && viewport.k < DOT_ZOOM_THRESHOLD;
+
+  // Only the cards and edges intersecting the current viewport (plus a
+  // margin) ever become real DOM nodes — this is what keeps a large,
+  // densely-linked repo from hanging the tab: node/edge count on screen is
+  // bounded by what's visible, not by how big the whole graph is.
+  const visible = useMemo(() => {
+    if (!layout) return null;
+    if (!viewport || !viewport.width) return { cards: layout.cards, edges: isDotMode ? [] : layout.edges };
+    const left = -viewport.x / viewport.k - VIEWPORT_OVERSCAN;
+    const top = -viewport.y / viewport.k - VIEWPORT_OVERSCAN;
+    const right = left + viewport.width / viewport.k + VIEWPORT_OVERSCAN * 2;
+    const bottom = top + viewport.height / viewport.k + VIEWPORT_OVERSCAN * 2;
+
+    const cards = layout.cards.filter(card =>
+      card.x + CARD_WIDTH >= left && card.x <= right && card.y + CARD_HEIGHT >= top && card.y <= bottom
+    );
+    if (isDotMode) return { cards, edges: [] };
+
+    const edges = layout.edges.filter(edge => {
+      const source = cardById.get(edge.source);
+      const target = cardById.get(edge.target);
+      if (!source || !target) return false;
+      const minX = Math.min(source.x, target.x);
+      const maxX = Math.max(source.x, target.x) + CARD_WIDTH;
+      const minY = Math.min(source.y, target.y);
+      const maxY = Math.max(source.y, target.y) + CARD_HEIGHT;
+      return maxX >= left && minX <= right && maxY >= top && minY <= bottom;
     });
+    return { cards, edges };
+  }, [layout, viewport, isDotMode, cardById]);
 
-    return function () { sim.stop(); };
-  }, [data, folderFilter, colorMap]);
+  const related = useMemo(() => {
+    if (!layout || !hovered) return null;
+    return {
+      upstream: new Set(layout.incoming[hovered] ?? []),
+      downstream: new Set(layout.outgoing[hovered] ?? []),
+    };
+  }, [layout, hovered]);
 
-  const files = (data && data.files) || [];
-  const hasNodes = files.length > 0;
+  if (!layout || !layout.cards.length) {
+    return (
+      <div className="code-canvas">
+        <div className="code-canvas-hud"><div className="code-canvas-hint">No files to graph.</div></div>
+      </div>
+    );
+  }
+
+  function cardTone(id: string) {
+    if (!related) return '';
+    if (id === hovered) return ' is-focus';
+    if (related.upstream.has(id)) return ' is-upstream';
+    if (related.downstream.has(id)) return ' is-downstream';
+    return ' is-muted';
+  }
+
+  function edgeTone(source: string, target: string) {
+    if (!hovered) return '';
+    if (target === hovered) return ' is-upstream';
+    if (source === hovered) return ' is-downstream';
+    return ' is-muted';
+  }
+
+  const upstreamCount = hovered ? (layout.incoming[hovered] ?? []).length : 0;
+  const downstreamCount = hovered ? (layout.outgoing[hovered] ?? []).length : 0;
+
+  // One stable pair of handlers on the stage, not one per card — delegation
+  // via data-path (present on every card and dot) means cards never receive
+  // a freshly-allocated closure prop, which is what lets React.memo below
+  // actually skip re-rendering untouched cards.
+  const handleMouseOver = useCallback((event: React.MouseEvent) => {
+    const path = (event.target as HTMLElement).closest<HTMLElement>('[data-path]')?.dataset.path;
+    if (path) setHovered(path);
+  }, []);
+  const handleMouseOut = useCallback((event: React.MouseEvent) => {
+    const leaving = (event.target as HTMLElement).closest<HTMLElement>('[data-path]')?.dataset.path;
+    const to = event.relatedTarget as HTMLElement | null;
+    if (leaving && !to?.closest?.(`[data-path="${leaving}"]`)) {
+      setHovered(current => (current === leaving ? null : current));
+    }
+  }, []);
+  const handleClick = useCallback((event: React.MouseEvent) => {
+    const path = (event.target as HTMLElement).closest<HTMLElement>('[data-path]')?.dataset.path;
+    if (path) onSelectFile(path);
+  }, [onSelectFile]);
+
+  const visibleCards = visible?.cards ?? [];
+  const visibleEdges = visible?.edges ?? [];
 
   return (
-    <div className="code-canvas" ref={containerRef}>
-      <div className="code-canvas-cards" ref={cardsLayerRef}>
-        {openPaths.map(path => {
-          const file = fileByPath[path];
-          const name = file ? file.name : path.split('/').pop() || path;
-          const entry = contentByPath[path];
-          const pos = nodePosRef.current[path];
-          const style = pos
-            ? { left: (pos.x + 16) + 'px', top: (pos.y - 90) + 'px' }
-            : { visibility: 'hidden' as const };
-          return (
-            <div
-              key={path}
-              className={'code-card' + (selected && selected.path === path ? ' active' : '')}
-              style={style}
-              ref={el => { cardElRefs.current[path] = el; }}
-            >
-              <div className="code-card-header">
-                <Icon name="file" size="s" />
-                <span className="code-card-name" title={path}>{name}</span>
-                <button className="code-card-close" onClick={() => closeCard(path)} title="Close">×</button>
-              </div>
-              <div className="code-card-body">
-                {!entry || entry.status === 'loading' ? (
-                  <div className="code-card-loading"><div className="spinner" /></div>
-                ) : entry.status === 'error' ? (
-                  <div className="code-card-error">{entry.error}</div>
-                ) : (
-                  <pre className="file-preview-code">
-                    {highlightSyntax(entry.content, name).map((lineHtml: string, i: number) => (
-                      <div key={i} className="file-preview-line">
-                        <span className="file-preview-linenum">{i + 1}</span>
-                        <span className="file-preview-text" dangerouslySetInnerHTML={{ __html: lineHtml || ' ' }} />
-                      </div>
-                    ))}
-                  </pre>
-                )}
-              </div>
-            </div>
-          );
-        })}
+    <div className={`code-canvas${hovered ? ' is-tracing' : ''}${isDotMode ? ' is-dot-mode' : ''}`} ref={containerRef}>
+      <div
+        className="code-flow-stage"
+        ref={stageRef}
+        style={{ width: layout.width, height: layout.height }}
+        onMouseOver={handleMouseOver}
+        onMouseOut={handleMouseOut}
+        onClick={handleClick}
+      >
+        {!isDotMode && (
+          <svg className="code-flow-edges" width={layout.width} height={layout.height}>
+            <defs>
+              <marker id="code-flow-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L8,4 L0,8 Z" fill="currentColor" />
+              </marker>
+            </defs>
+            {visibleEdges.map(edge => (
+              <path
+                key={edge.id}
+                className={`code-flow-edge${edge.backwards ? ' is-return' : ''}${edgeTone(edge.source, edge.target)}`}
+                d={edge.path}
+                markerEnd="url(#code-flow-arrow)"
+              />
+            ))}
+          </svg>
+        )}
+
+        {isDotMode
+          ? visibleCards.map(card => (
+              <span
+                key={card.id}
+                data-path={card.id}
+                className={`code-flow-dot-marker${selected && selected.path === card.id ? ' is-selected' : ''}`}
+                style={{ left: card.x, top: card.y, background: colorMap[card.folder] || 'var(--teal-500)' }}
+                title={card.id}
+              />
+            ))
+          : visibleCards.map(card => (
+              <CodeFlowCard
+                key={card.id}
+                card={card}
+                color={colorMap[card.folder] || 'var(--teal-500)'}
+                isSelected={!!(selected && selected.path === card.id)}
+                tone={cardTone(card.id)}
+                incomingCount={(layout.incoming[card.id] ?? []).length}
+                outgoingCount={(layout.outgoing[card.id] ?? []).length}
+              />
+            ))}
       </div>
+
       <div className="code-canvas-hud">
         <div className="code-canvas-hint">
-          {hasNodes ? 'Click a file to open its source. Click again to close. Scroll to zoom, drag to pan.' : 'No files to graph.'}
+          {isDotMode
+            ? `${layout.cards.length} files · zoom in to read them`
+            : hovered
+              ? `${upstreamCount} file${upstreamCount === 1 ? '' : 's'} import this · it imports ${downstreamCount}`
+              : 'Dependencies flow left to right. Hover a file to trace what it connects to.'}
         </div>
       </div>
     </div>

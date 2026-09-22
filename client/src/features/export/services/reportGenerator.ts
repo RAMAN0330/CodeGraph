@@ -16,7 +16,7 @@ export function generateReport(format: 'json' | 'md' | 'txt', data: any, repoInf
   const report = {
     repository: repo,
     analyzedAt: new Date().toISOString(),
-    graphkeepVersion: '1.0',
+    structraceVersion: '1.0',
     summary: {
       healthScore: h.score,
       healthGrade: h.grade,
@@ -96,9 +96,9 @@ export function generateReport(format: 'json' | 'md' | 'txt', data: any, repoInf
   };
 
   if (format === 'json') {
-    download(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }), 'graphkeep-report.json');
+    download(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }), 'structrace-report.json');
   } else if (format === 'md') {
-    let md = '# GraphKeep Analysis Report\n\n';
+    let md = '# Structrace Analysis Report\n\n';
     md += '**Repository:** ' + repo + '\n';
     md += '**Analyzed:** ' + new Date().toLocaleString() + '\n\n';
     md += '## Summary\n\n';
@@ -165,9 +165,9 @@ export function generateReport(format: 'json' | 'md' | 'txt', data: any, repoInf
       md += '| `' + f.name + '` | ' + f.folder + ' | ' + f.layer + ' | ' + f.lines + ' | ' + f.functions.length + ' |\n';
     });
     if (data.files.length > 100) md += '\n*...and ' + (data.files.length - 100) + ' more files*\n';
-    download(new Blob([md], { type: 'text/markdown' }), 'graphkeep-report.md');
+    download(new Blob([md], { type: 'text/markdown' }), 'structrace-report.md');
   } else if (format === 'txt') {
-    let txt = 'GRAPHKEEP ANALYSIS REPORT\n';
+    let txt = 'STRUCTRACE ANALYSIS REPORT\n';
     txt += '========================\n\n';
     txt += 'Repository: ' + repo + '\n';
     txt += 'Analyzed: ' + new Date().toLocaleString() + '\n\n';
@@ -228,6 +228,6 @@ export function generateReport(format: 'json' | 'md' | 'txt', data: any, repoInf
       txt += src.split('/').pop() + ' -> ' + tgt.split('/').pop() + ' (' + c.fn + ': ' + c.count + ' calls)\n';
     });
     if (data.connections.length > 100) txt += '\n...and ' + (data.connections.length - 100) + ' more dependencies\n';
-    download(new Blob([txt], { type: 'text/plain' }), 'graphkeep-report.txt');
+    download(new Blob([txt], { type: 'text/plain' }), 'structrace-report.txt');
   }
 }

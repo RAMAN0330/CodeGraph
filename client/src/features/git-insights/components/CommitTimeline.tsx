@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-const AUTHOR_COLORS = ['var(--green)','var(--acc2)','var(--orange)','var(--purple)','var(--red)','var(--acc)','var(--orange)','var(--purple)'];
+const AUTHOR_COLORS = ['var(--color-success)','var(--acc2)','var(--accent-orange)','var(--chart-purple)','var(--color-danger)','var(--teal-500)','var(--accent-orange)','var(--chart-purple)'];
 
 function hashToColorIndex(login: string): number {
   return login.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AUTHOR_COLORS.length;
@@ -53,15 +53,15 @@ const SHIMMER_STYLE = `
   to   { opacity: 1; transform: translateY(0); }
 }
 .ct-card:hover {
-  background: var(--bg1) !important;
-  border-color: var(--acc) !important;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--acc) 13%, transparent), 0 4px 16px rgba(0,0,0,.2) !important;
+  background: var(--surface-card) !important;
+  border-color: var(--teal-500) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--teal-500) 13%, transparent), 0 4px 16px rgba(0,0,0,.2) !important;
   transform: translateY(-1px);
 }
 .ct-sha:hover {
-  background: color-mix(in srgb, var(--acc) 13%, transparent) !important;
-  border-color: var(--acc) !important;
-  color: var(--blue) !important;
+  background: color-mix(in srgb, var(--teal-500) 13%, transparent) !important;
+  border-color: var(--teal-500) !important;
+  color: var(--teal-500) !important;
   cursor: pointer;
 }
 `;
@@ -88,7 +88,7 @@ function SkeletonRow() {
         <div style={{ width: 36, height: 36, borderRadius: '50%', ...shimmer }} />
       </div>
       <div style={{
-        flex: 1, background: 'var(--bg3)', border: '1px solid var(--border)',
+        flex: 1, background: 'var(--bg3)', border: '1px solid var(--border-subtle)',
         borderRadius: 8, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8,
       }}>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -161,7 +161,7 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
         {[0,1,2,3].map(i => (
           <div key={i} style={{
             height: 72, borderRadius: 10,
-            background: 'linear-gradient(90deg, var(--bg1) 25%, var(--bg3) 50%, var(--bg1) 75%)',
+            background: 'linear-gradient(90deg, var(--surface-card) 25%, var(--bg3) 50%, var(--surface-card) 75%)',
             backgroundSize: '600px 100%', animation: 'shimmer 1.4s infinite linear',
           }} />
         ))}
@@ -174,8 +174,8 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
   if (error) return (
     <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 200 }}>
       <div style={{ fontSize: 36 }}>⚠️</div>
-      <div style={{ fontSize: 15, color: 'var(--red)', fontWeight: 600 }}>Failed to load commits</div>
-      <div style={{ fontSize: 13, color: 'var(--t3)', maxWidth: 360, textAlign: 'center' }}>{error}</div>
+      <div style={{ fontSize: 15, color: 'var(--color-danger)', fontWeight: 600 }}>Failed to load commits</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 360, textAlign: 'center' }}>{error}</div>
     </div>
   );
 
@@ -183,7 +183,7 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
   if (!commits.length) return (
     <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 200 }}>
       <div style={{ fontSize: 36 }}>📭</div>
-      <div style={{ fontSize: 15, color: 'var(--t3)' }}>No commits found on branch "{branch}".</div>
+      <div style={{ fontSize: 15, color: 'var(--text-muted)' }}>No commits found on branch "{branch}".</div>
     </div>
   );
 
@@ -211,7 +211,7 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
         <span style={{
           fontFamily: '"JetBrains Mono", "Fira Code", monospace',
           fontSize: 12, fontWeight: 500,
-          background: 'var(--bg3)', color: 'var(--blue)',
+          background: 'var(--bg3)', color: 'var(--teal-500)',
           border: '1px solid color-mix(in srgb, var(--acc2) 33%, transparent)',
           borderRadius: 20, padding: '3px 10px',
           letterSpacing: '0.3px',
@@ -220,8 +220,8 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
         </span>
         <span style={{
           fontSize: 12, fontWeight: 600,
-          background: 'var(--bg3)', color: 'var(--t3)',
-          border: '1px solid var(--border)',
+          background: 'var(--bg3)', color: 'var(--text-muted)',
+          border: '1px solid var(--border-subtle)',
           borderRadius: 20, padding: '3px 10px',
         }}>
           {commits.length} commits
@@ -236,19 +236,19 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
         marginBottom: 32,
       }}>
         {[
-          { label: 'Total Commits', value: commits.length, accent: 'var(--acc)' },
-          { label: 'Unique Authors', value: uniqueAuthors.length, accent: 'var(--green)' },
-          { label: 'Date Range', value: `${firstDate} → ${lastDate}`, accent: 'var(--purple)', small: true },
-          { label: 'Most Active', value: mostActiveAuthor, accent: 'var(--orange)', small: true },
+          { label: 'Total Commits', value: commits.length, accent: 'var(--teal-500)' },
+          { label: 'Unique Authors', value: uniqueAuthors.length, accent: 'var(--color-success)' },
+          { label: 'Date Range', value: `${firstDate} → ${lastDate}`, accent: 'var(--chart-purple)', small: true },
+          { label: 'Most Active', value: mostActiveAuthor, accent: 'var(--accent-orange)', small: true },
         ].map(({ label, value, accent, small }) => (
           <div key={label} style={{
-            background: 'var(--bg1)',
+            background: 'var(--surface-card)',
             border: '1px solid var(--bg3)',
             borderRadius: 10,
             padding: '14px 18px',
             display: 'flex', flexDirection: 'column', gap: 4,
           }}>
-            <div style={{ fontSize: 11, color: 'var(--t3)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               {label}
             </div>
             <div style={{ fontSize: small ? 13 : 22, fontWeight: 700, color: accent, lineHeight: 1.2, wordBreak: 'break-word' }}>
@@ -267,7 +267,7 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
           top: 18,
           bottom: 18,
           width: 2,
-          background: 'linear-gradient(to bottom, var(--border) 0%, var(--bg3) 100%)',
+          background: 'linear-gradient(to bottom, var(--border-subtle) 0%, var(--bg3) 100%)',
           borderRadius: 2,
           zIndex: 0,
         }} />
@@ -309,7 +309,7 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
                   fontWeight: 700,
                   color: color,
                   letterSpacing: '0.5px',
-                  boxShadow: `0 0 0 3px var(--bg1), 0 0 8px color-mix(in srgb, ${color} 27%, transparent)`,
+                  boxShadow: `0 0 0 3px var(--surface-card), 0 0 8px color-mix(in srgb, ${color} 27%, transparent)`,
                 }}>
                   {initials}
                 </div>
@@ -320,8 +320,8 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
                 className="ct-card"
                 style={{
                   flex: 1,
-                  background: 'var(--bg1)',
-                  border: '1px solid var(--border)',
+                  background: 'var(--surface-card)',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: 8,
                   padding: '11px 16px',
                   minWidth: 0,
@@ -338,10 +338,10 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
                       fontFamily: '"JetBrains Mono", "Fira Code", monospace',
                       fontSize: 11,
                       background: 'var(--bg3)',
-                      border: '1px solid var(--border)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: 5,
                       padding: '2px 7px',
-                      color: copiedSha === commit.sha ? 'var(--green)' : 'var(--t3)',
+                      color: copiedSha === commit.sha ? 'var(--color-success)' : 'var(--text-muted)',
                       transition: 'background 0.1s, border-color 0.1s, color 0.1s',
                       userSelect: 'none',
                     }}
@@ -357,10 +357,10 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
                     }}>
                       {login[0].toUpperCase()}
                     </div>
-                    <span style={{ fontSize: 12, color: 'var(--t3)', fontWeight: 500 }}>{login}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{login}</span>
                   </div>
 
-                  <span style={{ fontSize: 11, color: 'var(--t3)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
                     {timeAgo(date)}
                   </span>
                 </div>

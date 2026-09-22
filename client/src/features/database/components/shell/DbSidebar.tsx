@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Activity, Terminal, Network, HardDrive, GitCompare, Radio, ShieldCheck, AlertTriangle,
 } from 'lucide-react';
 import type { DbNavId } from '../../types';
+import { Button } from '@/components/ui/button';
 
 const NAV_ITEMS: { id: DbNavId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -36,7 +37,8 @@ export default function DbSidebar({ active, onChange }: DbSidebarProps) {
           const Icon = item.icon;
           return (
             <motion.div key={item.id} variants={fadeUp}>
-              <button
+              <Button
+                variant="ghost"
                 className={`db-nav-item${isActive ? ' active' : ''}`}
                 onClick={() => onChange(item.id)}
                 aria-current={isActive ? 'page' : undefined}
@@ -47,7 +49,7 @@ export default function DbSidebar({ active, onChange }: DbSidebarProps) {
                   <Icon size={17} strokeWidth={1.8} />
                   <span className="db-sidebar-label">{item.label}</span>
                 </span>
-              </button>
+              </Button>
             </motion.div>
           );
         })}

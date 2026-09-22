@@ -12,7 +12,7 @@ Software engineers and engineering leads investigating an unfamiliar or changing
 
 ## Product Purpose
 
-GraphKeep turns a connected code repository into an explorable workspace for understanding its architecture, file relationships, ownership, history, databases, and security posture.
+Structrace turns a connected code repository into an explorable workspace for understanding its architecture, file relationships, ownership, history, databases, and security posture.
 
 ## Positioning
 
@@ -30,7 +30,7 @@ Users connect or enter a GitHub repository, select it, then work in a workspace 
 
 ## Brand Commitments
 
-- Product name: GraphKeep.
+- Product name: Structrace.
 - The interface should support dense technical work without becoming visually noisy.
 
 ## Evidence on Hand

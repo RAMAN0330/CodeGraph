@@ -6,6 +6,11 @@ import {
 } from 'lucide-react';
 import type { VulnResult } from '../../../security/services/osv';
 import { referenceFor } from '../../../security/data/issueReference';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type Severity = 'high' | 'medium' | 'low' | 'info';
 
@@ -184,23 +189,23 @@ export default function SecuritySection({
   const tabs: (Severity | 'all')[] = ['all', 'high', 'medium', 'low', 'info'];
 
   const tabsNode = (
-    <div className="sec-tabs" role="tablist" aria-label="Filter by severity">
-      {tabs.map(tab => {
-        const count = tab === 'all' ? findings.length : counts[tab];
-        return (
-          <button
-            key={tab}
-            role="tab"
-            aria-selected={severityFilter === tab}
-            className={`sec-tab sec-tab-${tab}${severityFilter === tab ? ' active' : ''}`}
-            onClick={() => setSeverityFilter(tab)}
-          >
-            {tab === 'all' ? 'All' : SEVERITY_LABEL[tab]}
-            <span>{count}</span>
-          </button>
-        );
-      })}
-    </div>
+    <Tabs value={severityFilter} onValueChange={value => setSeverityFilter(value as Severity | 'all')}>
+      <TabsList className="sec-tabs" aria-label="Filter by severity">
+        {tabs.map(tab => {
+          const count = tab === 'all' ? findings.length : counts[tab];
+          return (
+            <TabsTrigger
+              key={tab}
+              value={tab}
+              className={`sec-tab sec-tab-${tab}${severityFilter === tab ? ' active' : ''}`}
+            >
+              {tab === 'all' ? 'All' : SEVERITY_LABEL[tab]}
+              <span>{count}</span>
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </Tabs>
   );
 
   return (
@@ -214,7 +219,7 @@ export default function SecuritySection({
         tabs={tabsNode}
       />
 
-      {vulnError && <div className="sec-notice">{vulnError}</div>}
+      {vulnError && <Alert className="sec-notice"><AlertDescription className="text-inherit">{vulnError}</AlertDescription></Alert>}
 
       <div className={`sec-body${selected ? ' with-detail' : ''}`}>
         <section className="sec-list-panel">
@@ -233,18 +238,20 @@ export default function SecuritySection({
                 </select>
               </label>
               <div className="sec-view-toggle">
-                <button
+                <Button
+                  variant="ghost"
                   className={view === 'list' ? 'active' : ''}
                   onClick={() => setView('list')}
                   aria-label="List view"
                   aria-pressed={view === 'list'}
-                ><List size={14} strokeWidth={1.9} /></button>
-                <button
+                ><List size={14} strokeWidth={1.9} /></Button>
+                <Button
+                  variant="ghost"
                   className={view === 'grid' ? 'active' : ''}
                   onClick={() => setView('grid')}
                   aria-label="Grid view"
                   aria-pressed={view === 'grid'}
-                ><LayoutGrid size={14} strokeWidth={1.9} /></button>
+                ><LayoutGrid size={14} strokeWidth={1.9} /></Button>
               </div>
             </div>
           </header>
@@ -264,9 +271,10 @@ export default function SecuritySection({
               {visible.map(finding => {
                 const Glyph = iconFor(finding);
                 return (
-                  <button
+                  <Button
                     key={finding.id}
-                    className={`sec-row sev-${finding.severity}${selectedId === finding.id ? ' selected' : ''}`}
+                    variant="ghost"
+                    className={`sec-row h-auto sev-${finding.severity}${selectedId === finding.id ? ' selected' : ''}`}
                     onClick={() => select(finding)}
                     aria-current={selectedId === finding.id}
                   >
@@ -280,9 +288,9 @@ export default function SecuritySection({
                         </span>
                       )}
                     </span>
-                    <span className={`sec-badge sev-${finding.severity}`}>{SEVERITY_LABEL[finding.severity]}</span>
+                    <Badge className={`sec-badge sev-${finding.severity}`}>{SEVERITY_LABEL[finding.severity]}</Badge>
                     <ChevronRight className="sec-row-chevron" size={16} strokeWidth={1.8} />
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -325,7 +333,7 @@ function SecurityHeader({
         {tabs}
         <div className="sec-search">
           <Search size={15} strokeWidth={1.8} />
-          <input
+          <Input
             ref={searchRef}
             value={query}
             onChange={e => onQuery(e.target.value)}
@@ -335,10 +343,10 @@ function SecurityHeader({
           <kbd>⌘K</kbd>
         </div>
         {onRescan && (
-          <button className="sec-scan-btn" onClick={onRescan} disabled={scanning}>
+          <Button className="sec-scan-btn" onClick={onRescan} disabled={scanning}>
             <Play size={14} strokeWidth={2} />
             {scanning ? 'Scanning…' : 'Run Scan'}
-          </button>
+          </Button>
         )}
       </div>
     </header>
@@ -390,15 +398,15 @@ function SecurityDetail({
           <h2>{finding.title}</h2>
           <p>{finding.desc}</p>
         </div>
-        <span className={`sec-badge sev-${finding.severity}`}>{SEVERITY_LABEL[finding.severity]} Severity</span>
-        <button className="sec-detail-close" onClick={onClose} aria-label="Close details">
+        <Badge className={`sec-badge sev-${finding.severity}`}>{SEVERITY_LABEL[finding.severity]} Severity</Badge>
+        <Button variant="ghost" className="sec-detail-close" onClick={onClose} aria-label="Close details">
           <X size={17} strokeWidth={1.9} />
-        </button>
+        </Button>
       </header>
 
       {tags.length > 0 && (
         <div className="sec-chips">
-          {tags.map(tag => <span key={tag} className="sec-chip">{tag}</span>)}
+          {tags.map(tag => <Badge key={tag} variant="outline" className="sec-chip">{tag}</Badge>)}
         </div>
       )}
 
@@ -425,10 +433,10 @@ function SecurityDetail({
           <div className="sec-code">
             <header>
               <span>{(finding.path ?? '').split('.').pop() || 'code'}</span>
-              <button onClick={() => onCopy(finding.code!, 'code')}>
+              <Button variant="ghost" onClick={() => onCopy(finding.code!, 'code')}>
                 {copied === 'code' ? <Check size={13} strokeWidth={2} /> : <Copy size={13} strokeWidth={1.9} />}
                 {copied === 'code' ? 'Copied' : 'Copy'}
-              </button>
+              </Button>
             </header>
             <pre>{finding.code}</pre>
           </div>

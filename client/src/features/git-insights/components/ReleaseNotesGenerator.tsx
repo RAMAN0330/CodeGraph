@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 
 interface CommitItem {
   sha: string;
@@ -159,7 +160,7 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
   }
 
   if (loading) return <div className="gi-page"><p className="gi-note">Generating release notes…</p></div>;
-  if (error) return <div className="gi-page"><p className="gi-note" style={{ color: 'var(--red)' }}>Error: {error}</p></div>;
+  if (error) return <div className="gi-page"><p className="gi-note" style={{ color: 'var(--color-danger)' }}>Error: {error}</p></div>;
 
   const groupedCommits: Record<Category, CategorizedCommit[]> = {} as any;
   for (const cat of CATEGORY_ORDER) {
@@ -174,7 +175,7 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
           <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600, color: 'var(--t0)' }}>
             Release Notes Generator
           </h2>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--t3)' }}>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
             {tagFrom && tagTo
               ? `From ${tagFrom} → ${tagTo}`
               : 'Last 30 commits'}
@@ -182,12 +183,13 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
+          <Button
+            variant="ghost"
             onClick={() => copyText(buildMarkdown(), 'md')}
             style={{
               padding: '6px 14px',
-              background: copied === 'md' ? 'var(--green)' : 'var(--bg3)',
-              border: '1px solid var(--border)',
+              background: copied === 'md' ? 'var(--color-success)' : 'var(--bg3)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: 6,
               color: 'var(--t0)',
               fontSize: 13,
@@ -196,13 +198,14 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
             }}
           >
             {copied === 'md' ? 'Copied!' : 'Copy Markdown'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => copyText(buildJson(), 'json')}
             style={{
               padding: '6px 14px',
-              background: copied === 'json' ? 'var(--green)' : 'var(--bg3)',
-              border: '1px solid var(--border)',
+              background: copied === 'json' ? 'var(--color-success)' : 'var(--bg3)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: 6,
               color: 'var(--t0)',
               fontSize: 13,
@@ -211,7 +214,7 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
             }}
           >
             {copied === 'json' ? 'Copied!' : 'Copy JSON'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -222,7 +225,8 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
         const isCollapsed = collapsed[cat];
         return (
           <div key={cat} style={{ marginBottom: 16 }}>
-            <button
+            <Button
+              variant="ghost"
               onClick={() => setCollapsed((prev) => ({ ...prev, [cat]: !isCollapsed }))}
               style={{
                 display: 'flex',
@@ -231,7 +235,7 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
                 width: '100%',
                 background: 'none',
                 border: 'none',
-                borderBottom: '1px solid var(--border)',
+                borderBottom: '1px solid var(--border-subtle)',
                 padding: '8px 0',
                 cursor: 'pointer',
                 color: 'var(--t0)',
@@ -240,19 +244,19 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
                 textAlign: 'left',
               }}
             >
-              <span style={{ fontSize: 11, color: 'var(--t3)', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s' }}>▼</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s' }}>▼</span>
               {cat}
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--t3)', fontWeight: 400 }}>
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>
                 {items.length} commit{items.length !== 1 ? 's' : ''}
               </span>
-            </button>
+            </Button>
             {!isCollapsed && (
               <ul style={{ margin: '8px 0 0', padding: '0 0 0 20px', listStyle: 'disc' }}>
                 {items.map((c) => (
                   <li key={c.sha7} style={{ marginBottom: 6, fontSize: 13, color: 'var(--t0)', lineHeight: 1.5 }}>
                     {c.message}
-                    <span style={{ marginLeft: 8, color: 'var(--t3)', fontSize: 12 }}>
-                      <code style={{ fontSize: 11, background: 'var(--bg3)', padding: '1px 5px', borderRadius: 3, color: 'var(--blue)' }}>{c.sha7}</code>
+                    <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 12 }}>
+                      <code style={{ fontSize: 11, background: 'var(--bg3)', padding: '1px 5px', borderRadius: 3, color: 'var(--teal-500)' }}>{c.sha7}</code>
                       {' '}{c.author}
                     </span>
                   </li>
@@ -264,7 +268,7 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
       })}
 
       {commits.length === 0 && (
-        <p style={{ color: 'var(--t3)' }}>No commits found for this range.</p>
+        <p style={{ color: 'var(--text-muted)' }}>No commits found for this range.</p>
       )}
     </div>
   );

@@ -3,7 +3,7 @@ const API_ROOT = 'https://api.github.com';
 function headers(token?: string, etag?: string): Record<string, string> {
   const result: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
-    'User-Agent': 'GraphKeep-App',
+    'User-Agent': 'Structrace-App',
   };
   if (token) result.Authorization = `token ${token}`;
   if (etag) result['If-None-Match'] = etag;

@@ -148,17 +148,17 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
         return pt ? pt.sha7 : '';
       }))
       .call((a) => {
-        a.select('.domain').attr('stroke', 'var(--border)');
-        a.selectAll('text').attr('fill', 'var(--t3)').attr('font-size', 10).attr('transform', 'rotate(-35)').attr('text-anchor', 'end');
-        a.selectAll('.tick line').attr('stroke', 'var(--border)');
+        a.select('.domain').attr('stroke', 'var(--border-subtle)');
+        a.selectAll('text').attr('fill', 'var(--text-muted)').attr('font-size', 10).attr('transform', 'rotate(-35)').attr('text-anchor', 'end');
+        a.selectAll('.tick line').attr('stroke', 'var(--border-subtle)');
       });
 
     g.append('g')
       .call(d3.axisLeft(yScale).ticks(4))
       .call((a) => {
-        a.select('.domain').attr('stroke', 'var(--border)');
-        a.selectAll('text').attr('fill', 'var(--t3)').attr('font-size', 10);
-        a.selectAll('.tick line').attr('stroke', 'var(--border)');
+        a.select('.domain').attr('stroke', 'var(--border-subtle)');
+        a.selectAll('text').attr('fill', 'var(--text-muted)').attr('font-size', 10);
+        a.selectAll('.tick line').attr('stroke', 'var(--border-subtle)');
       });
 
     // Line factory
@@ -169,9 +169,9 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
         .curve(d3.curveMonotoneX);
 
     const lines: { key: keyof DataPoint; color: string; label: string }[] = [
-      { key: 'totalFiles', color: 'var(--acc)', label: 'Total Files' },
-      { key: 'testFiles',  color: 'var(--green)', label: 'Test Files' },
-      { key: 'debtFiles',  color: 'var(--orange)', label: 'Debt Files' },
+      { key: 'totalFiles', color: 'var(--teal-500)', label: 'Total Files' },
+      { key: 'testFiles',  color: 'var(--color-success)', label: 'Test Files' },
+      { key: 'debtFiles',  color: 'var(--accent-orange)', label: 'Debt Files' },
     ];
 
     for (const { key, color } of lines) {
@@ -197,32 +197,32 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
   }, [points]);
 
   if (loading) return <div className="gi-page"><p className="gi-note">Building tech debt timeline…</p></div>;
-  if (error) return <div className="gi-page"><p className="gi-note" style={{ color: 'var(--red)' }}>Error: {error}</p></div>;
+  if (error) return <div className="gi-page"><p className="gi-note" style={{ color: 'var(--color-danger)' }}>Error: {error}</p></div>;
   if (!points.length) return <div className="gi-page"><p className="gi-note">No data available.</p></div>;
 
   const stats = currentData?.stats || {};
   const summaryRows = [
-    { label: 'Dead Functions',  value: stats.dead       ?? 0, color: 'var(--red)' },
-    { label: 'Issues',          value: (currentData?.issues?.length) ?? 0, color: 'var(--orange)' },
-    { label: 'Duplicates',      value: stats.duplicates ?? 0, color: 'var(--orange)' },
-    { label: 'Security (High)', value: stats.security   ?? 0, color: 'var(--red)' },
+    { label: 'Dead Functions',  value: stats.dead       ?? 0, color: 'var(--color-danger)' },
+    { label: 'Issues',          value: (currentData?.issues?.length) ?? 0, color: 'var(--accent-orange)' },
+    { label: 'Duplicates',      value: stats.duplicates ?? 0, color: 'var(--accent-orange)' },
+    { label: 'Security (High)', value: stats.security   ?? 0, color: 'var(--color-danger)' },
   ];
 
   return (
     <div className="gi-page">
       <h1>Tech Debt Timeline</h1>
-      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--t3)' }}>
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)' }}>
         File counts over last {points.length} commits. Current commit marked with white dot.
       </p>
 
       {/* Legend */}
       <div style={{ display: 'flex', gap: 20, marginBottom: 12 }}>
         {[
-          { color: 'var(--acc)', label: 'Total Files' },
-          { color: 'var(--green)', label: 'Test Files' },
-          { color: 'var(--orange)', label: 'Debt Files' },
+          { color: 'var(--teal-500)', label: 'Total Files' },
+          { color: 'var(--color-success)', label: 'Test Files' },
+          { color: 'var(--accent-orange)', label: 'Debt Files' },
         ].map(({ color, label }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--t3)' }}>
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
             <div style={{ width: 24, height: 3, background: color, borderRadius: 2 }} />
             {label}
           </div>
@@ -235,7 +235,7 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
       </div>
 
       {/* Current snapshot summary table */}
-      <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Current Snapshot
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
@@ -249,7 +249,7 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-            <span style={{ fontSize: 13, color: 'var(--t3)' }}>{label}</span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{label}</span>
             <span style={{ fontSize: 20, fontWeight: 700, color }}>{value}</span>
           </div>
         ))}

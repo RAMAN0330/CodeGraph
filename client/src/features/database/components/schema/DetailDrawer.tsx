@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { KeyRound, Link2 } from 'lucide-react';
 import { GG } from '../dbConnectTheme';
 import type { SchemaTable } from '../../types';
+import { Button } from '@/components/ui/button';
 
 function formatBytes(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined) return 'Not available';
@@ -37,10 +38,10 @@ export default function DetailDrawer({ table, allTables }: DetailDrawerProps) {
 
       <div style={{ display: 'flex', gap: 3, borderBottom: `1px solid ${GG.line}`, marginTop: 4 }}>
         {(['columns', 'indexes', 'relations', 'stats'] as Tab[]).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
+          <Button key={t} variant="ghost" onClick={() => setTab(t)} style={{
             padding: '6px 10px', border: 0, borderBottom: tab === t ? `2px solid ${GG.accent}` : '2px solid transparent',
             background: 'none', color: tab === t ? GG.accent : GG.fg3, fontFamily: GG.mono, fontSize: 11, fontWeight: 700, textTransform: 'capitalize', cursor: 'pointer',
-          }}>{t}</button>
+          }}>{t}</Button>
         ))}
       </div>
 

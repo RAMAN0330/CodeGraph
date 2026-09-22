@@ -4,6 +4,7 @@ import {
   ShieldCheck, UserRound,
 } from 'lucide-react';
 import { appConfig } from '../../../../app/config';
+import { Button } from '@/components/ui/button';
 
 interface RepoInfo {
   owner: string;
@@ -61,9 +62,9 @@ export default function SettingsSection({
             <strong>{login || 'Account'}</strong>
             <span>Connected via GitHub</span>
           </div>
-          <button className="set-btn danger" onClick={handleSignOut} disabled={signingOut}>
+          <Button variant="ghost" className="set-btn danger" onClick={handleSignOut} disabled={signingOut}>
             <LogOut size={14} strokeWidth={1.9} /> {signingOut ? 'Signing out…' : 'Sign out'}
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -92,18 +93,18 @@ export default function SettingsSection({
                 <strong>Re-run analysis</strong>
                 <span>Re-scan the repository with the current exclude patterns</span>
               </div>
-              <button className="set-btn" onClick={onReanalyze} disabled={reanalyzing}>
+              <Button variant="ghost" className="set-btn" onClick={onReanalyze} disabled={reanalyzing}>
                 <RefreshCw size={14} strokeWidth={1.9} className={reanalyzing ? 'set-spin' : ''} /> {reanalyzing ? 'Analyzing…' : 'Re-analyze'}
-              </button>
+              </Button>
             </div>
             <div className="set-row">
               <div className="set-row-copy">
                 <strong>Export report</strong>
                 <span>Download this analysis as a shareable report</span>
               </div>
-              <button className="set-btn" onClick={onExportReport} disabled={!hasData}>
+              <Button variant="ghost" className="set-btn" onClick={onExportReport} disabled={!hasData}>
                 <Download size={14} strokeWidth={1.9} /> Export
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
@@ -120,7 +121,7 @@ export default function SettingsSection({
             <strong>{excludeCount} custom pattern{excludeCount === 1 ? '' : 's'}</strong>
             <span>Folders and files skipped during analysis, on top of the built-in defaults</span>
           </div>
-          <button className="set-btn" onClick={onManageExcludes}>Manage</button>
+          <Button variant="ghost" className="set-btn" onClick={onManageExcludes}>Manage</Button>
         </div>
       </section>
 

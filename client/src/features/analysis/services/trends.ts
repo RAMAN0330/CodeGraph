@@ -69,7 +69,7 @@ async function analyseCommit(
     if (analyzed.length === 0) return null;
 
     const allFns = analyzed.flatMap((f: any) => f.functions ?? []);
-    const securityIssues = Parser.detectSecurity(analyzed);
+    const securityIssues = await Parser.detectSecurity(analyzed);
     const testFiles = analyzed.filter((f: any) => isTestFile(f.name ?? f.path ?? ''));
 
     const mini = {

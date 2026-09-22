@@ -11,7 +11,7 @@ import type { Connection, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 
 const initialNodes = [
-  { id: 'root', type: 'input', data: { label: 'graphkeep-repo' }, position: { x: 250, y: 5 }, style: { background: 'var(--bg-secondary)', color: 'white', border: '1px solid var(--accent-blue)', borderRadius: '8px' } },
+  { id: 'root', type: 'input', data: { label: 'structrace-repo' }, position: { x: 250, y: 5 }, style: { background: 'var(--bg-secondary)', color: 'white', border: '1px solid var(--accent-blue)', borderRadius: '8px' } },
   { id: 'client', data: { label: 'client/' }, position: { x: 100, y: 100 }, style: { background: 'var(--bg-secondary)', color: 'white', border: '1px solid var(--border-glass)', borderRadius: '8px' } },
   { id: 'server', data: { label: 'server/' }, position: { x: 400, y: 100 }, style: { background: 'var(--bg-secondary)', color: 'white', border: '1px solid var(--border-glass)', borderRadius: '8px' } },
   { id: 'src', data: { label: 'src/' }, position: { x: 100, y: 200 }, style: { background: 'var(--bg-secondary)', color: 'white', border: '1px solid var(--border-glass)', borderRadius: '8px' } },
@@ -48,8 +48,8 @@ export default function RepositoryGraph() {
           style={{ background: 'var(--bg-secondary)' }}
           maskColor="rgba(0,0,0,0.5)"
         />
-        <Controls style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)', border: '1px solid var(--border-glass)', fill: 'white' }} />
-        <Background color="#aaa" gap={16} />
+        <Controls style={{ display: 'flex', flexDirection: 'column', background: 'var(--surface-card)', border: '1px solid var(--border-glass)', fill: 'var(--text-primary)' }} />
+        <Background color="var(--border-medium)" gap={16} />
       </ReactFlow>
     </div>
   );

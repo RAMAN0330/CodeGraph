@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Database, FolderKanban, GitBranch, LogOut, Network, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { appConfig } from '../../../app/config';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import './WelcomePage.css';
 
 const GH_PATH = 'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z';
@@ -65,18 +67,18 @@ export default function WelcomePage() {
   return (
     <main className="welcome-page">
       <header className="welcome-topbar">
-        <div className="welcome-brand"><span className="welcome-brand-mark"><GitBranch size={19} /></span><strong>GraphKeep</strong></div>
-        <button className="welcome-signout" onClick={signOut}><LogOut size={15} /> Sign out</button>
+        <div className="welcome-brand"><span className="welcome-brand-mark"><GitBranch size={19} /></span><strong>Structrace</strong></div>
+        <Button variant="outline" className="welcome-signout" onClick={signOut}><LogOut size={15} /> Sign out</Button>
       </header>
 
       <section className="welcome-hero">
         <span className="welcome-kicker"><Sparkles size={13} /> {user.organizationName}</span>
         <h1>Welcome, {user.username}.</h1>
-        <p>Connect GitHub to start analyzing repositories, or explore what GraphKeep can do below.</p>
+        <p>Connect GitHub to start analyzing repositories, or explore what Structrace can do below.</p>
       </section>
 
-      {connectFailed && <p className="welcome-notice welcome-notice-error">GitHub connection did not complete. Please try again.</p>}
-      {connectUnavailable && <p className="welcome-notice welcome-notice-error">GitHub OAuth is not configured on this server.</p>}
+      {connectFailed && <Alert variant="destructive" className="welcome-notice welcome-notice-error"><AlertDescription className="text-inherit">GitHub connection did not complete. Please try again.</AlertDescription></Alert>}
+      {connectUnavailable && <Alert variant="destructive" className="welcome-notice welcome-notice-error"><AlertDescription className="text-inherit">GitHub OAuth is not configured on this server.</AlertDescription></Alert>}
 
       {user.github ? (
         <section className="welcome-connection-card">
@@ -86,8 +88,8 @@ export default function WelcomePage() {
             <span>Connected as @{user.github.login}</span>
           </div>
           <div className="welcome-connection-actions">
-            <button className="welcome-switch" onClick={connectGithub}><RefreshCw size={14} /> Use a different account</button>
-            <button className="welcome-disconnect" onClick={() => void disconnectGithub()} disabled={disconnecting}>{disconnecting ? 'Disconnecting…' : 'Disconnect'}</button>
+            <Button variant="outline" className="welcome-switch" onClick={connectGithub}><RefreshCw size={14} /> Use a different account</Button>
+            <Button variant="outline" className="welcome-disconnect" onClick={() => void disconnectGithub()} disabled={disconnecting}>{disconnecting ? 'Disconnecting…' : 'Disconnect'}</Button>
           </div>
         </section>
       ) : (
@@ -97,12 +99,12 @@ export default function WelcomePage() {
             <strong>GitHub not connected</strong>
             <span>Connect your account to browse and analyze repositories.</span>
           </div>
-          <button className="welcome-connect-button" onClick={connectGithub}><GithubIcon size={16} /> Connect GitHub</button>
+          <Button className="welcome-connect-button" onClick={connectGithub}><GithubIcon size={16} /> Connect GitHub</Button>
         </section>
       )}
 
       <section className="welcome-offers">
-        <h2>What you'll get on GraphKeep</h2>
+        <h2>What you'll get on Structrace</h2>
         <div className="welcome-offers-grid">
           {platformOffers.map(({ icon: Icon, title, copy }) => (
             <article key={title} className="welcome-offer-card">
@@ -114,9 +116,9 @@ export default function WelcomePage() {
         </div>
       </section>
 
-      <button className="welcome-continue" onClick={() => navigate('/workspaces')}>
+      <Button className="welcome-continue" onClick={() => navigate('/workspaces')}>
         Continue to your workspaces <ArrowRight size={17} />
-      </button>
+      </Button>
     </main>
   );
 }

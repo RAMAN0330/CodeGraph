@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-20T00:00:00.000Z",
+  "title": "Design System: Structrace",
+  "extensions": {
+    "colorMeta": {
+      "indigo-500": { "role": "primary", "displayName": "Signal Indigo", "canonical": "#4f5bd5", "tonalRamp": ["#151837", "#212657", "#2d3378", "#3c46b0", "#4f5bd5", "#7e88e2", "#aeb4ee", "#dfe1f9"] },
+      "indigo-600": { "role": "primary", "displayName": "Signal Indigo (deep)", "canonical": "#3c46b0", "tonalRamp": ["#10132b", "#191e44", "#232a5e", "#2f3890", "#3c46b0", "#6c75c6", "#a2a8dd", "#d8daf3"] },
+      "chart-cyan": { "role": "tertiary", "displayName": "Trace Cyan", "canonical": "#147a89", "tonalRamp": ["#051c20", "#082c32", "#0b3c45", "#0f5d69", "#147a89", "#3fa0ae", "#8cc6cf", "#d6ecef"] },
+      "chart-purple": { "role": "tertiary", "displayName": "Trace Purple", "canonical": "#7c3fa8", "tonalRamp": ["#1e0f2a", "#2e1740", "#3e1f56", "#5f2f82", "#7c3fa8", "#a06cc3", "#c6a2dc", "#ebd9f4"] },
+      "color-warning": { "role": "tertiary", "displayName": "Trace Amber / Warning", "canonical": "#b7791f", "tonalRamp": ["#2c1c09", "#432b0d", "#5a3a11", "#8a591a", "#b7791f", "#d09c4f", "#e6c08e", "#f7e6cc"] },
+      "color-danger": { "role": "tertiary", "displayName": "Trace Red / Danger", "canonical": "#d1414a", "tonalRamp": ["#330f12", "#4c171b", "#661f24", "#a12f37", "#d1414a", "#e07980", "#f0b1b5", "#faddde"] },
+      "color-success": { "role": "tertiary", "displayName": "Success Green", "canonical": "#1a8f52", "tonalRamp": ["#062313", "#0a361d", "#0e4827", "#146b3d", "#1a8f52", "#4dae7c", "#93cfad", "#d5eee0"] },
+      "bg-canvas": { "role": "neutral", "displayName": "Canvas", "canonical": "#f7f8fa", "tonalRamp": ["#14161a", "#2c2f36", "#565b64", "#8a8f98", "#c7cbd2", "#e2e5ea", "#f7f8fa", "#ffffff"] },
+      "surface-card": { "role": "neutral", "displayName": "Surface Card", "canonical": "#ffffff" },
+      "surface-subtle": { "role": "neutral", "displayName": "Surface Subtle", "canonical": "#eef0f3" },
+      "surface-hover": { "role": "neutral", "displayName": "Surface Hover", "canonical": "#e6e9ee" },
+      "text-primary": { "role": "neutral", "displayName": "Text Primary", "canonical": "#14161a" },
+      "text-secondary": { "role": "neutral", "displayName": "Text Secondary", "canonical": "#5b6270" },
+      "text-muted": { "role": "neutral", "displayName": "Text Muted", "canonical": "#7b8291" },
+      "border-subtle": { "role": "neutral", "displayName": "Hairline Border", "canonical": "#e2e5ea" },
+      "border-medium": { "role": "neutral", "displayName": "Border Medium", "canonical": "#cdd2da" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero and close-out headlines only; em spans recolor to Signal Indigo instead of italicizing." },
+      "headline": { "displayName": "Headline", "purpose": "Section titles: comparison, connect, stage headings." },
+      "body": { "displayName": "Body", "purpose": "Lede and paragraph copy, ~495-640px max width depending on context." },
+      "label": { "displayName": "Label / Mono", "purpose": "Literal system values only: file paths, repo names, status words, graph node and table-column labels." }
+    },
+    "shadows": [
+      { "name": "frame-lift", "value": "0 32px 80px rgba(20,24,32,0.11)", "purpose": "Lifts the sticky explorer pane, hero graph frame, and connect-demo frame off the canvas." },
+      { "name": "shadow-sm", "value": "0 1px 3px rgba(20,24,32,.08), 0 1px 2px rgba(20,24,32,.05)", "purpose": "App-wide low lift for cards/stat tiles." },
+      { "name": "shadow-md", "value": "0 4px 16px rgba(20,24,32,.10), 0 2px 6px rgba(20,24,32,.06)", "purpose": "App-wide panel/toolbar lift." },
+      { "name": "shadow-lg", "value": "0 8px 32px rgba(20,24,32,.14), 0 4px 12px rgba(20,24,32,.08)", "purpose": "App-wide modal/legend lift." }
+    ],
+    "motion": [
+      { "name": "stage-reveal", "value": "opacity .3-.45s ease, transform .3-.45s cubic-bezier(.16,1,.3,1)", "purpose": "Scroll-triggered section/stage entrance (fade + rise), gated by whileInView/IntersectionObserver and prefers-reduced-motion." },
+      { "name": "pop-reveal", "value": "opacity .45s, scale .45s cubic-bezier(.16,1,.3,1) from .82", "purpose": "Staggered child entrance for evidence-panel items (grid cells, graph nodes, ownership ring segments)." },
+      { "name": "hover-standard", "value": "all .18s ease", "purpose": "Default hover/focus transition across nav, links, buttons, rail items." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "940px" },
+      { "name": "sm", "value": "640px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main CTA ('Get started'); Signal Indigo fill with white text. Rendered as the shared shadcn/ui-style `Button` primitive (components/ui/button.tsx, default variant) with the `.landing-primary` page class layered on via className for this world's exact tokens.",
+      "html": "<button class=\"ds-btn-primary\">Get started <svg class=\"ds-btn-icon\" width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M5 12h14M13 5l7 7-7 7\"/></svg></button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 18px; border: 1px solid #4f5bd5; border-radius: 8px; color: #ffffff; background: #4f5bd5; font-family: 'Montserrat', sans-serif; font-size: .88rem; font-weight: 750; cursor: pointer; transition: background .18s ease, transform .18s ease; } .ds-btn-primary:hover { background: #3c46b0; border-color: #3c46b0; } .ds-btn-primary:focus-visible { outline: 2px solid #4f5bd5; outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Ghost Link Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-emphasis secondary action ('Sign in', rail items). Rendered as the shared `Button` primitive with variant=\"ghost\" plus a page class (`.landing-sign-in`, `.explorer-rail-button`) for exact spacing/color.",
+      "html": "<a class=\"ds-btn-ghost\" href=\"#compare\">See the evidence</a>",
+      "css": ".ds-btn-ghost { color: #5b6270; font-family: 'Montserrat', sans-serif; font-size: .84rem; font-weight: 600; text-decoration: none; transition: color .18s ease; } .ds-btn-ghost:hover { color: #14161a; } .ds-btn-ghost:focus-visible { outline: 2px solid #4f5bd5; outline-offset: 3px; border-radius: 6px; }"
+    },
+    {
+      "name": "Navigation Bar",
+      "kind": "nav",
+      "refersTo": "nav-bar",
+      "description": "Transparent top nav on the canvas ground, brand mark + links + sign-in.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-brand\" href=\"#top\"><span class=\"ds-nav-mark\"><svg width=\"19\" height=\"19\" viewBox=\"0 0 28 28\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M9 7v11.2a3.8 3.8 0 1 0 2 3.3V12l7 4.1v2.1a3.8 3.8 0 1 0 2-3.3L11 9.7V7A3.8 3.8 0 1 0 9 7Z\"/></svg></span><span>Structrace</span></a><div class=\"ds-nav-links\"><a href=\"#explore\">How it works</a><a href=\"#close\">Get started</a></div><button class=\"ds-nav-signin\">Sign in</button></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; height: 74px; border-bottom: 1px solid rgba(184,191,201,.16); color: #14161a; } .ds-nav-brand { display: inline-flex; align-items: center; gap: 10px; color: #14161a; font-family: 'Montserrat', sans-serif; font-size: 1.02rem; font-weight: 720; text-decoration: none; } .ds-nav-mark { display: grid; place-items: center; width: 31px; height: 31px; color: #4f5bd5; border: 1px solid rgba(79,91,213,.45); border-radius: 9px; background: rgba(79,91,213,.1); } .ds-nav-links { display: flex; gap: 26px; margin-left: 70px; } .ds-nav-links a { color: #5b6270; font-size: .84rem; font-weight: 600; text-decoration: none; transition: color .18s ease; } .ds-nav-links a:hover { color: #14161a; } .ds-nav-signin { margin-left: auto; padding: 8px 13px; border: 0; border-radius: 7px; color: #14161a; background: transparent; font-family: 'Montserrat', sans-serif; font-weight: 650; cursor: pointer; transition: background .18s ease; } .ds-nav-signin:hover { background: rgba(184,191,201,.1); }"
+    },
+    {
+      "name": "Module Rail Item",
+      "kind": "nav",
+      "refersTo": "module-rail-item",
+      "description": "Signature rail row: icon tile + label + description + chevron; shared between the landing explorer (built on the shared `Button` primitive, variant=\"ghost\") and the connected workspace's WorkspaceModuleNav (built from a raw <button>) — markup differs, rendered row does not.",
+      "html": "<button class=\"ds-rail-item ds-rail-item-active\"><span class=\"ds-rail-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M3 12h18M3 6h18M3 18h18\"/></svg></span><span class=\"ds-rail-copy\"><strong>Architecture</strong><small>Dependencies, traced</small></span><span class=\"ds-rail-chevron\">-</span></button>",
+      "css": ".ds-rail-item { display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px; border: 0; border-radius: 9px; background: transparent; text-align: left; font-family: 'Montserrat', sans-serif; cursor: pointer; transition: background .15s ease; } .ds-rail-item:hover, .ds-rail-item-active { background: #e6e9ee; } .ds-rail-icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 8px; color: #147a89; border: 1px solid rgba(20,122,137,.4); background: rgba(20,122,137,.1); } .ds-rail-copy { flex: 1; display: flex; flex-direction: column; gap: 1px; } .ds-rail-copy strong { color: #2a3446; font-size: .85rem; font-weight: 700; } .ds-rail-copy small { color: #5b6270; font-size: .72rem; } .ds-rail-chevron { color: #4f5bd5; }"
+    },
+    {
+      "name": "Data Frame",
+      "kind": "custom",
+      "refersTo": "data-frame",
+      "description": "Signature bordered IDE-window panel: monospace topbar with live status dot, over the canvas.",
+      "html": "<div class=\"ds-frame\"><div class=\"ds-frame-topbar\"><span class=\"ds-frame-dot\"></span><span>acme/api</span><span class=\"ds-frame-status\">Analyzed</span></div><div class=\"ds-frame-body\"></div></div>",
+      "css": ".ds-frame { overflow: hidden; border: 1px solid rgba(184,191,201,.25); border-radius: 13px; background: #eef0f3; box-shadow: 0 32px 80px rgba(20,24,32,0.11); display: flex; flex-direction: column; } .ds-frame-topbar { display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 14px; border-bottom: 1px solid rgba(184,191,201,.13); color: #31363f; background: #ffffff; font-family: ui-monospace, monospace; font-size: .67rem; } .ds-frame-dot { width: 7px; height: 7px; border-radius: 50%; background: #1a8f52; box-shadow: 0 0 0 5px rgba(26,143,82,.1); } .ds-frame-status { margin-left: auto; color: #1a8f52; } .ds-frame-body { flex: 1; padding: 8px; }"
+    },
+    {
+      "name": "Status/Alert Chip",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "Inline semantic-colored pill pairing an icon with a short label; used for the close-out risk callout.",
+      "html": "<p class=\"ds-chip ds-chip-danger\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z\"/></svg>One signal found in <code>api/router.ts</code></p>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 8px 13px; border-radius: 8px; font-size: .78rem; font-family: 'Montserrat', sans-serif; } .ds-chip-danger { border: 1px solid rgba(209,65,74,.35); color: #4c2427; background: rgba(209,65,74,.08); } .ds-chip code { font-family: ui-monospace, monospace; font-weight: 700; }"
+    },
+    {
+      "name": "Comparison Table Row",
+      "kind": "custom",
+      "refersTo": "comparison-row",
+      "description": "Without/With row used in the evidence comparison table; label + two copy columns.",
+      "html": "<div class=\"ds-cmp-row\"><span class=\"ds-cmp-label\">Understanding structure</span><span class=\"ds-cmp-without\">grep and manual file-hopping</span><span class=\"ds-cmp-with\">one navigable dependency graph</span></div>",
+      "css": ".ds-cmp-row { display: grid; grid-template-columns: minmax(180px,.9fr) 1fr 1fr; gap: 16px; padding: 16px 22px; border-top: 1px solid rgba(184,191,201,.16); font-family: 'Montserrat', sans-serif; } .ds-cmp-label { color: #31363f; font-size: .88rem; font-weight: 650; } .ds-cmp-without { color: #31363f; font-size: .86rem; } .ds-cmp-with { color: #147a3f; font-size: .86rem; font-weight: 600; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Light Diagnostic Console",
+    "overview": "Structrace's world is a light IDE, not a marketing surface: a near-white canvas (#f7f8fa/#ffffff), a faint hairline indigo grid standing in for graph paper, and a single indigo accent (#4f5bd5) carrying every interactive and primary-brand moment, with a narrow semantic set (cyan/purple/amber/red) reserved for data meaning. Montserrat carries every authored sentence; monospace (ui-monospace) is reserved for literal values pulled out of the system under inspection - a file path, a repo name, a status word, a graph node label. The landing page's module rail is not a marketing invention: it reuses the same rail-plus-evidence-pane structure, the same 'Data Frame' chrome, and the same semantic accent assignment (cyan = architecture, purple = insights/ownership, amber = database, red = security) that the connected workspace itself uses once a repository is analyzed.\n\nDensity is instrument-panel, not editorial: hairline 1px borders plus a small set of soft, ambient shadows do the separating; color is functional rather than decorative. Text sits close to true near-black-on-near-white contrast for legibility. The system does not use kicker/eyebrow labels over headlines, does not use hard-offset (neobrutalist) shadows, and does not use glyph/emoji icons - only Lucide line icons at consistent small sizes, with one glass-tile brand mark as the sole exception.",
+    "keyCharacteristics": [
+      "Light IDE ground (#f7f8fa canvas, #ffffff card surfaces) with a masked hairline indigo grid on every full-bleed surface",
+      "One indigo accent (#4f5bd5) for every primary/interactive element; cyan/purple/amber/red are reserved for semantic and data-role signal only, never for CTAs",
+      "Montserrat for all prose and headings; monospace exclusively for literal system values (paths, labels, statuses, node text)",
+      "Flat-bordered surfaces with soft ambient shadows, never hard-offset shadows",
+      "Motion is a staged reveal (opacity + translateY/scale), gated by prefers-reduced-motion, with instant equivalents built for the same layout"
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Indigo (#4f5bd5) is the only color used for primary interactive elements (buttons, links, focus rings, the active module-rail icon). Cyan/purple/amber/red never appear on a call-to-action; they only ever encode a specific module's data meaning or a status.", "section": "colors" },
+      { "name": "The Grid Ground Rule", "body": "Every full-bleed page or panel surface sits on the same masked hairline dot/line grid (56px on the landing page; 28px on the workspace canvas), faded to transparent toward the bottom of the viewport. A surface in this world is never a flat, gridless void.", "section": "colors" },
+      { "name": "The Literal-Value-Is-Monospace Rule", "body": "Any string that is a literal value out of the system under inspection - a file path, a repo name, a status word, a graph node or table-column label - renders in monospace. Everything that is authored prose renders in Montserrat.", "section": "typography" },
+      { "name": "The No Hard Shadow Rule", "body": "Shadows are always soft and diffuse (blur >= 16px, low opacity, neutral near-black tint). A hard-offset shadow does not belong to this world; depth reads as blur and background-shade stepping, not as a drawn edge.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep indigo (#4f5bd5) as the only primary/interactive accent; reserve cyan/purple/amber/red for a specific module's data meaning or a status.",
+      "Do render literal system values (paths, repo names, status words, node/table labels) in monospace; render authored copy in Montserrat.",
+      "Do put every full-bleed surface on the masked hairline grid ground rather than a flat color.",
+      "Do use soft, diffuse shadows only to lift a genuinely floating panel; rely on hairline borders and background-shade steps for everything else.",
+      "Do reuse the module-rail + evidence-pane pattern for any new surface that lets a user browse product capabilities, rather than inventing a new navigation shape.",
+      "Do build new buttons on the shared Button primitive (components/ui/button.tsx) with a page-level class for this world's visual tokens, rather than a raw <button> or Tailwind-only styling.",
+      "Do gate scroll- or view-triggered motion behind prefers-reduced-motion, with a fully static fallback."
+    ],
+    "donts": [
+      "Don't introduce kicker/eyebrow labels above headlines on new surfaces; the core system's type hierarchy (display -> headline -> body) carries emphasis without them.",
+      "Don't use hard-offset (neobrutalist) shadows; this world's depth language is soft and ambient only.",
+      "Don't use glyph/emoji icons for general UI; the system uses Lucide line icons exclusively, with the single indigo glass tile reserved for the brand mark.",
+      "Don't put a second body/label typeface into a new surface; Montserrat + ui-monospace is the established pairing.",
+      "Don't treat a page-local text or accent override as a system-wide neutral redefinition; the app-wide tokens in index.css remain normative."
+    ]
+  }
+}

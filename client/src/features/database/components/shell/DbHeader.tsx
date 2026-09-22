@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Database, RefreshCw, Pause, Play, Settings2, MoreVertical, FileCode, LayoutDashboard } from 'lucide-react';
 import type { DbIdentity, HealthStatus, TimeRange } from '../../types';
+import { Button } from '@/components/ui/button';
 
 const RANGES: { id: TimeRange; label: string }[] = [
   { id: 'live', label: 'Live' },
@@ -55,13 +56,13 @@ export default function DbHeader({
   return (
     <header className="db-header">
       <div className="db-header-primary">
-        <button className="db-brand" onClick={onBackToProjects} title="Back to projects">
+        <Button variant="ghost" className="db-brand" onClick={onBackToProjects} title="Back to projects">
           <span className="db-brand-mark"><Database size={18} /></span>
-        </button>
+        </Button>
         <nav className="db-breadcrumb" aria-label="Breadcrumb">
-          <button onClick={onOpenWorkspace} title={workspaceName}>Workspace</button>
+          <Button variant="ghost" onClick={onOpenWorkspace} title={workspaceName}>Workspace</Button>
           <span className="db-breadcrumb-sep">/</span>
-          <button onClick={onBackToProjects} title={projectName}>Project</button>
+          <Button variant="ghost" onClick={onBackToProjects} title={projectName}>Project</Button>
           <span className="db-breadcrumb-sep">/</span>
           <span className="db-breadcrumb-current">{currentSectionLabel}</span>
         </nav>
@@ -75,27 +76,27 @@ export default function DbHeader({
       <div className="db-header-utilities">
         <div className="db-range-group">
           {RANGES.map(r => (
-            <button key={r.id} className={`db-range-pill${range === r.id ? ' active' : ''}`} onClick={() => onRangeChange(r.id)}>{r.label}</button>
+            <Button key={r.id} variant="ghost" className={`db-range-pill${range === r.id ? ' active' : ''}`} onClick={() => onRangeChange(r.id)}>{r.label}</Button>
           ))}
         </div>
-        <button className="db-header-icon-btn" onClick={onRefresh} title="Refresh now"><RefreshCw size={15} /></button>
-        <button className={`db-header-icon-btn${paused ? ' active' : ''}`} onClick={onTogglePause} title={paused ? 'Resume live updates' : 'Pause live updates'}>
+        <Button variant="ghost" className="db-header-icon-btn" onClick={onRefresh} title="Refresh now"><RefreshCw size={15} /></Button>
+        <Button variant="ghost" className={`db-header-icon-btn${paused ? ' active' : ''}`} onClick={onTogglePause} title={paused ? 'Resume live updates' : 'Pause live updates'}>
           {paused ? <Play size={15} /> : <Pause size={15} />}
-        </button>
-        <button className="db-header-action" onClick={onOpenSettings}><Settings2 size={14} /> Database Settings</button>
+        </Button>
+        <Button variant="ghost" className="db-header-action" onClick={onOpenSettings}><Settings2 size={14} /> Database Settings</Button>
         <div ref={menuRef} style={{ position: 'relative' }}>
-          <button className="db-header-icon-btn" onClick={() => setMenuOpen(o => !o)} aria-expanded={menuOpen} title="More actions"><MoreVertical size={15} /></button>
+          <Button variant="ghost" className="db-header-icon-btn" onClick={() => setMenuOpen(o => !o)} aria-expanded={menuOpen} title="More actions"><MoreVertical size={15} /></Button>
           {menuOpen && (
-            <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 40, minWidth: 180, padding: 5, border: '1px solid #3e4451', borderRadius: 9, background: '#21252b', boxShadow: '0 16px 36px rgba(0,0,0,.4)' }}>
+            <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 40, minWidth: 180, padding: 5, border: '1px solid var(--border-subtle)', borderRadius: 9, background: 'var(--surface-card)', boxShadow: '0 16px 36px rgba(20,24,32,.14)' }}>
               {onOpenMigration && (
-                <button onClick={() => { setMenuOpen(false); onOpenMigration(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 8, border: 0, borderRadius: 7, background: 'transparent', color: '#d7dae0', font: 'inherit', fontSize: 11, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }}>
+                <Button variant="ghost" onClick={() => { setMenuOpen(false); onOpenMigration(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 8, border: 0, borderRadius: 7, background: 'transparent', color: 'var(--text-primary)', font: 'inherit', fontSize: 11, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }}>
                   <FileCode size={14} /> Migration
-                </button>
+                </Button>
               )}
               {onNewConnection && (
-                <button onClick={() => { setMenuOpen(false); onNewConnection(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 8, border: 0, borderRadius: 7, background: 'transparent', color: '#d7dae0', font: 'inherit', fontSize: 11, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }}>
+                <Button variant="ghost" onClick={() => { setMenuOpen(false); onNewConnection(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 8, border: 0, borderRadius: 7, background: 'transparent', color: 'var(--text-primary)', font: 'inherit', fontSize: 11, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }}>
                   <LayoutDashboard size={14} /> New Connection
-                </button>
+                </Button>
               )}
             </div>
           )}

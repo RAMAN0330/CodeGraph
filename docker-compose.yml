@@ -22,7 +22,10 @@ services:
     restart: unless-stopped
 
   legacy-api:
-    build: { context: ./server, dockerfile: Dockerfile.node }
+    # context is the repo root, not ./server — this build needs to reach
+    # client/src/features/analysis/services/analysisRules.ts too. See
+    # server/Dockerfile.node's own header comment for why.
+    build: { context: ., dockerfile: server/Dockerfile.node }
     env_file: ./server/.env
     environment:
       PORT: "5001"

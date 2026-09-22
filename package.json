@@ -11,7 +11,8 @@
     "docker:up": "CLIENT_ORIGIN=http://localhost:8080 GITHUB_CALLBACK_URL=http://localhost:8080/auth/github/callback docker compose --env-file server/.env -f docker-compose.production.yml up -d --wait",
     "docker:down": "docker compose --env-file server/.env -f docker-compose.production.yml down",
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
-    "install:python": "pip install -r server/requirements.txt"
+    "install:python": "pip install -r server/requirements.txt",
+    "impact": "node scripts/impact.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

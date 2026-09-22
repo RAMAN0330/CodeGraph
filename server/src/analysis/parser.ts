@@ -2,7 +2,53 @@
 // Ported from client/src/features/analysis/services/parser.ts for server-side
 // background analysis jobs. Kept in sync manually — see the analysis job plan.
 import * as acorn from 'acorn';
-import { Parser as TSParser, Language as TSLanguage } from 'web-tree-sitter';
+// Reaches across into the client source rather than a second hand-maintained
+// copy — see that file's header comment and the audit that flagged this fork
+// as "kept in sync manually" (docs/analysis-engine-audit-and-modernization.md).
+//
+// This file sits outside this package's rootDir (server/tsconfig.json's
+// rootDir is ./src). `tsc` (this package's build script) still type-checks
+// and EMITS it — since it can't place the output under this package's dist/
+// (no clean relative path from an out-of-rootDir input), it writes the
+// compiled .js directly next to the .ts source in the client tree instead.
+// That's harmless for the build itself (dist/analysis/parser.js works either
+// way — confirmed against the actual compiled output, not just the tsx dev
+// server) but dangerous left alone: an extensionless import lets Node's
+// resolver prefer that stray .js over the real .ts, so every edit to
+// analysisRules.ts after the next `npm run build` here would be silently
+// shadowed by an increasingly stale compiled snapshot. The explicit .ts
+// extension below forces resolution to the real source unconditionally,
+// immune to whatever tsc leaves behind. It works at runtime because Node
+// >=22.18 strips TypeScript syntax from .ts files by default, including
+// under plain require() — server/package.json's "engines" field pins that
+// floor to match the node:24-alpine the Dockerfile already deploys. If this
+// package's Node floor is ever lowered below that, this import needs a real
+// build step (compile analysisRules.ts into this package's own dist, or a
+// shared workspace package) instead of a cross-boundary path. tsc also
+// regenerates the stray .js next to the source on every build regardless of
+// this extension choice — harmless (gitignored, and the explicit extension
+// above means Node never resolves it) but not worth fighting tsc to prevent.
+import { detectJsPatterns, detectJsSecrets, detectDuplicatesViaTokens, isReexportBarrel, detectTreeSitterSecrets, detectPythonAstPatterns } from '../../../client/src/features/analysis/services/analysisRules.ts';
+
+var TS_LANG_EXT={py:'python',pyw:'python',pyi:'python',rb:'ruby',php:'php',java:'java'};
+// Only requests grammars for languages actually present in this file set —
+// a pure-JS repo never pays to fetch the Ruby/PHP/Java WASM.
+function buildTreeSitterLoaders(files){
+    var needed={};
+    files.forEach(function(f){
+        var ext=(f.name.match(/\.([^.]+)$/)||[])[1];
+        var lang=ext&&TS_LANG_EXT[ext.toLowerCase()];
+        if(lang)needed[lang]=true;
+    });
+    var loaders={};
+    Object.keys(needed).forEach(function(lang){loaders[lang]=Parser.treeSitterLanguageLoader(lang);});
+    return loaders;
+}
+
+function isJsOrTsFile(name){
+    return /\.(jsx?|tsx?|mjs|cjs)$/i.test(name||'');
+}
+import { Parser as TSParser, Language as TSLanguage, Query as TSQuery } from 'web-tree-sitter';
 
 const COLORS=['#4d9fff','#a78bfa','#22d3ee','#00ff9d','#ff9f43','#ec4899','#ff5f5f','#84cc16'];
 const LAYER_COLORS={ui:'#4d9fff',components:'#22d3ee',services:'#a78bfa',utils:'#00ff9d',data:'#ff9f43',config:'#ec4899',test:'#f59e0b',modules:'#a78bfa',forms:'#22d3ee',classes:'#ff9f43',note:'#c084fc'};
@@ -93,14 +139,7 @@ function shouldExcludeFile(path,name,compiledPatterns){
 }
 
 function getSecurityScanContent(file){
-    var content=file&&file.content?file.content:'';
-    if(file&&file.name==='index.html'&&content.includes('detectSecurity:function(files){')&&content.includes('calcComplexity:function')){
-        return content.replace(
-            /detectSecurity:function\(files\)\{[\s\S]*?\n    \},\n    calcComplexity:function/,
-            "detectSecurity:function(files){\n        return[];\n    },\n    calcComplexity:function"
-        );
-    }
-    return content;
+    return file&&file.content?file.content:'';
 }
 
 function isSanitizedPreviewRenderer(content){
@@ -110,31 +149,46 @@ function isSanitizedPreviewRenderer(content){
 }
 
 const Parser={
-    // tree-sitter Python parser (real AST parser, loaded async via WASM)
-    _tsParser:null,
-    _tsInitPromise:null,
-    initTreeSitter:async function(){
-        if(this._tsParser)return this._tsParser;
-        if(this._tsInitPromise)return this._tsInitPromise;
-        this._tsInitPromise=(async()=>{
+    // Real tree-sitter AST parsers (WASM), one per language, cached for the
+    // life of this process. Was Python-only; generalized so
+    // detectTreeSitterSecrets/detectPythonAstPatterns (analysisRules.ts) can
+    // request ruby/php/java too. See the matching client-side comment in
+    // client/src/features/analysis/services/parser.ts for the full picture —
+    // both forks now load the same npm packages, just via different WASM
+    // loading mechanisms (filesystem path here, fetch of public/wasm/ there).
+    _tsParsers:{},
+    _tsInitPromises:{},
+    initTreeSitter:async function(lang='python'){
+        if(this._tsParsers[lang])return this._tsParsers[lang];
+        if(this._tsInitPromises[lang])return this._tsInitPromises[lang];
+        this._tsInitPromises[lang]=(async()=>{
             try{
-                await TSParser.init({
-                    locateFile:function(){
-                        return require.resolve('web-tree-sitter/tree-sitter.wasm');
-                    }
-                });
-                var parser=new TSParser();
-                var Python=await TSLanguage.load(
-                    require.resolve('tree-sitter-wasms/out/tree-sitter-python.wasm')
+                if(!Parser._tsCoreInitPromise){
+                    Parser._tsCoreInitPromise=TSParser.init({
+                        locateFile:function(){
+                            return require.resolve('web-tree-sitter/tree-sitter.wasm');
+                        }
+                    });
+                }
+                await Parser._tsCoreInitPromise;
+                var Lang=await TSLanguage.load(
+                    require.resolve('tree-sitter-wasms/out/tree-sitter-'+lang+'.wasm')
                 );
-                parser.setLanguage(Python);
-                this._tsParser=parser;
-                return parser;
+                var parser=new TSParser();
+                parser.setLanguage(Lang);
+                var bound={parser:parser,language:Lang,Query:TSQuery};
+                this._tsParsers[lang]=bound;
+                return bound;
             }catch(e){
                 return null;
             }
         })();
-        return this._tsInitPromise;
+        return this._tsInitPromises[lang];
+    },
+    // Language-only loader for analysisRules.ts's tree-sitter checks — those
+    // need a Language object (for the Query API), not a bound Parser.
+    treeSitterLanguageLoader:function(lang){
+        return function(){return Parser.initTreeSitter(lang);};
     },
     codeExts:['.js','.jsx','.ts','.tsx','.mjs','.cjs','.py','.pyw','.pyi','.java','.go','.rb','.php','.rs','.c','.cpp','.cc','.h','.hpp','.cs','.swift','.kt','.kts','.scala','.clj','.ex','.exs','.erl','.hs','.lua','.r','.R','.jl','.dart','.elm','.fs','.fsx','.ml','.pl','.pm','.sh','.bash','.zsh','.fish','.ps1','.psm1','.groovy','.gradle','.vba','.bas','.cls','.xlsm','.xlam','.xlsb','.xla','.xlw'],
     scriptContainerExts:['.html','.htm','.xhtml','.vue','.svelte'],
@@ -372,18 +426,26 @@ const Parser={
         if(l.includes('/standard/'))return'utils';
         return'utils';
     },
-    detectPatterns:function(files){
+    detectPatterns:async function(files){
         var patterns=[];
-        var singletons=files.filter(function(f){return f.content&&(f.content.includes('getInstance')||f.content.match(/let\s+instance\s*=/)||f.content.match(/private\s+static\s+instance/));});
-        if(singletons.length)patterns.push({name:'Singleton',icon:'lock',desc:'Ensures a class has only one instance. Common for configuration, logging, or connection pools.',severity:'info',files:singletons.map(function(f){return{name:f.name,path:f.path};}),metrics:{instances:singletons.length}});
-        var factories=files.filter(function(f){return f.content&&(f.name.toLowerCase().includes('factory')||f.content.match(/create[A-Z]\w*\s*\(/)||f.content.includes('return new'));});
-        if(factories.length)patterns.push({name:'Factory',icon:'factory',desc:'Creates objects without specifying exact class. Enables loose coupling and extensibility.',severity:'info',files:factories.map(function(f){return{name:f.name,path:f.path};}),metrics:{factories:factories.length}});
-        var observers=files.filter(function(f){return f.content&&(f.content.includes('subscribe')||f.content.includes('addEventListener')||f.content.includes('.on(')||f.content.includes('emit('));});
-        if(observers.length)patterns.push({name:'Observer/Event',icon:'eye',desc:'Defines a subscription mechanism for event-driven architecture. Great for decoupling.',severity:'info',files:observers.map(function(f){return{name:f.name,path:f.path};}),metrics:{emitters:observers.length}});
-        var hooks=files.filter(function(f){return f.content&&f.content.match(/export\s+(?:const|function)\s+use[A-Z]/);});
-        if(hooks.length)patterns.push({name:'Custom Hooks',icon:'hook',desc:'React hooks for reusable stateful logic. Promotes code reuse and separation of concerns.',severity:'info',files:hooks.map(function(f){return{name:f.name,path:f.path};}),metrics:{hooks:hooks.length}});
-        var hocs=files.filter(function(f){return f.content&&(f.content.match(/with[A-Z]\w*\s*=\s*\(/)||f.content.match(/export\s+default\s+connect/));});
-        if(hocs.length)patterns.push({name:'Higher-Order Component',icon:'spark',desc:'Functions that take a component and return an enhanced component.',severity:'info',files:hocs.map(function(f){return{name:f.name,path:f.path};}),metrics:{hocs:hocs.length}});
+        // Singleton, Factory, Observer/Event, Custom Hooks, and Higher-Order
+        // Component are AST-verified for JS/TS files in analysisRules.ts rather
+        // than matched by keyword — see that file for what each check actually
+        // requires structurally, and why (e.g. `let instance = createSandbox()`
+        // in a test helper used to match Singleton on the word alone).
+        var astPatterns=detectJsPatterns(files);
+        // react-redux's `export default connect(...)(Component)` is a real,
+        // well-known HOC factory that doesn't fit the `with[A-Z]` naming the
+        // AST check looks for — kept as its own signal, merged into the same
+        // pattern entry rather than duplicated as a second "HOC" card.
+        var connectHocs=files.filter(function(f){return f.content&&f.content.match(/export\s+default\s+connect/);});
+        if(connectHocs.length){
+            var hocEntry=astPatterns.find(function(p){return p.name==='Higher-Order Component';});
+            if(!hocEntry){hocEntry={name:'Higher-Order Component',icon:'spark',desc:'Functions that take a component and return an enhanced component.',severity:'info',files:[],metrics:{hocs:0}};astPatterns.push(hocEntry);}
+            connectHocs.forEach(function(f){if(!hocEntry.files.some(function(x){return x.path===f.path;}))hocEntry.files.push({name:f.name,path:f.path});});
+            hocEntry.metrics.hocs=hocEntry.files.length;
+        }
+        astPatterns.forEach(function(p){patterns.push(p);});
         var providers=files.filter(function(f){return f.content&&(f.content.includes('createContext')||f.content.includes('Provider')||f.content.includes('useContext'));});
         if(providers.length)patterns.push({name:'Context Provider',icon:'globe',desc:'React Context for global state. Alternative to prop drilling.',severity:'info',files:providers.map(function(f){return{name:f.name,path:f.path};}),metrics:{contexts:providers.length}});
         // VBA-specific patterns
@@ -429,19 +491,15 @@ const Parser={
             var epFiles=Object.keys(endpointFiles).map(function(p){var f=files.find(function(x){return x.path===p;});return{name:f?f.name:p,path:p,count:endpointFiles[p]};});
             patterns.push({name:'API Endpoints',icon:'route',desc:'HTTP endpoints detected across frameworks (Flask/FastAPI/Django, Express/Koa/Nest, Spring, Rails, Go).',severity:'info',files:epFiles,metrics:{endpoints:endpoints.length,files:epFiles.length},endpoints:endpoints.slice(0,500)});
         }
-        var dataclasses=files.filter(function(f){return f.content&&f.name.endsWith('.py')&&f.content.match(/@dataclass/);});
-        if(dataclasses.length)patterns.push({name:'Dataclasses',icon:'database',desc:'Python dataclasses for structured data. Reduces boilerplate for data-holding classes.',severity:'info',files:dataclasses.map(function(f){return{name:f.name,path:f.path};}),metrics:{dataclasses:dataclasses.length}});
-        var abcFiles=files.filter(function(f){return f.content&&f.name.endsWith('.py')&&(f.content.match(/\bABC\b/)||f.content.match(/@abstractmethod/)||f.content.match(/ABCMeta/));});
-        if(abcFiles.length)patterns.push({name:'Abstract Base Classes',icon:'layers',desc:'Python ABCs enforce interface contracts. Ensures subclasses implement required methods.',severity:'info',files:abcFiles.map(function(f){return{name:f.name,path:f.path};}),metrics:{abcs:abcFiles.length}});
-        var ctxManagers=files.filter(function(f){return f.content&&f.name.endsWith('.py')&&(f.content.match(/@contextmanager/)||f.content.match(/def\s+__enter__/));});
-        if(ctxManagers.length)patterns.push({name:'Context Managers',icon:'refresh',desc:'Python context managers for resource management (with statement). Ensures proper cleanup.',severity:'info',files:ctxManagers.map(function(f){return{name:f.name,path:f.path};}),metrics:{managers:ctxManagers.length}});
-        var pyMixins=files.filter(function(f){return f.content&&f.name.endsWith('.py')&&f.content.match(/class\s+\w*Mixin\w*\s*[\(:]?/);});
-        if(pyMixins.length)patterns.push({name:'Mixins',icon:'puzzle',desc:'Python mixins for reusable behavior through multiple inheritance.',severity:'info',files:pyMixins.map(function(f){return{name:f.name,path:f.path};}),metrics:{mixins:pyMixins.length}});
-        var pySignals=files.filter(function(f){return f.content&&f.name.endsWith('.py')&&(f.content.match(/Signal\s*\(/)||f.content.match(/@receiver\s*\(/)||f.content.match(/\.connect\s*\(/));});
-        if(pySignals.length)patterns.push({name:'Django Signals',icon:'radio',desc:'Django signals for decoupled event-driven communication between components.',severity:'info',files:pySignals.map(function(f){return{name:f.name,path:f.path};}),metrics:{signals:pySignals.length}});
-        var pyMiddleware=files.filter(function(f){return f.content&&f.name.endsWith('.py')&&(f.content.match(/class\s+\w*Middleware/)||f.content.match(/def\s+middleware\s*\(/)||f.name.toLowerCase().includes('middleware'));});
-        if(pyMiddleware.length)patterns.push({name:'Middleware',icon:'link',desc:'Request/response middleware for cross-cutting concerns (auth, logging, CORS).',severity:'info',files:pyMiddleware.map(function(f){return{name:f.name,path:f.path};}),metrics:{middleware:pyMiddleware.length}});
-        var godFiles=files.filter(function(f){return f.isCode!==false&&f.functions&&f.functions.length>15;});
+        // Dataclasses/ABC/Context-Managers/Mixins/Django-Signals/Middleware are
+        // AST-verified against the real Python grammar (tree-sitter) rather
+        // than matched by keyword or class name — see detectPythonAstPatterns
+        // in analysisRules.ts for the structural check each one replaced.
+        var pyAstPatterns=await detectPythonAstPatterns(files,buildTreeSitterLoaders(files));
+        pyAstPatterns.forEach(function(p){patterns.push(p);});
+        // A barrel/re-export file (mostly `export {x} from './y'`) isn't a god
+        // object no matter how many symbols it re-exports — see isReexportBarrel.
+        var godFiles=files.filter(function(f){return f.isCode!==false&&f.functions&&f.functions.length>15&&!isReexportBarrel(f);});
         if(godFiles.length)patterns.push({name:'God Object',icon:'warning',desc:'Files with too many responsibilities (15+ functions). Consider splitting into smaller modules.',severity:'warning',isAnti:true,files:godFiles.map(function(f){return{name:f.name,path:f.path,fns:f.functions.length};}),metrics:{files:godFiles.length,avgFns:Math.round(godFiles.reduce(function(s,f){return s+f.functions.length;},0)/godFiles.length)}});
         var longFiles=files.filter(function(f){return f.isCode!==false&&f.lines&&f.lines>500;});
         if(longFiles.length)patterns.push({name:'Long File',icon:'scroll',desc:'Files over 500 lines are harder to maintain. Consider breaking into smaller modules.',severity:'warning',isAnti:true,files:longFiles.map(function(f){return{name:f.name,path:f.path,lines:f.lines};}),metrics:{files:longFiles.length,avgLines:Math.round(longFiles.reduce(function(s,f){return s+f.lines;},0)/longFiles.length)}});
@@ -450,211 +508,25 @@ const Parser={
         if(vbaGodFiles.length)patterns.push({name:'VBA God Module',icon:'warning',desc:'VBA modules with 20+ procedures. Consider splitting into smaller modules.',severity:'warning',isAnti:true,files:vbaGodFiles.map(function(f){return{name:f.name,path:f.path,fns:f.functions.length,lines:f.lines};}),metrics:{files:vbaGodFiles.length,avgFns:Math.round(vbaGodFiles.reduce(function(s,f){return s+f.functions.length;},0)/vbaGodFiles.length)}});
         return patterns;
     },
-    detectDuplicates:function(files,allFns){
-        var duplicates=[];
-
-        // Common function names that are expected to be duplicated across files
-        // These are idiomatic patterns, not DRY violations
-        var commonNames=new Set([
-            // React lifecycle and handlers
-            'render','componentDidMount','componentWillUnmount','componentDidUpdate',
-            'shouldComponentUpdate','getDerivedStateFromProps','getSnapshotBeforeUpdate',
-            'handleClick','handleChange','handleSubmit','handleInput','handleKeyDown',
-            'handleKeyUp','handleKeyPress','handleBlur','handleFocus','handleScroll',
-            'handleMouseEnter','handleMouseLeave','handleDrag','handleDrop',
-            'onClick','onChange','onSubmit','onBlur','onFocus','onKeyDown',
-            // Common utility names
-            'init','setup','cleanup','destroy','reset','clear','update','refresh',
-            'validate','parse','format','transform','convert','process','execute',
-            'get','set','fetch','load','save','create','delete','remove','add',
-            'find','filter','map','reduce','sort','merge','clone','copy',
-            // Test patterns
-            'beforeEach','afterEach','beforeAll','afterAll','describe','it','test',
-            'setUp','tearDown','mock',
-            // Common class methods
-            'toString','valueOf','equals','hashCode','compare','clone',
-            'serialize','deserialize','toJSON','fromJSON',
-            // Express/API patterns
-            'index','show','store','update','destroy','create','edit',
-            // Python common patterns
-            '__init__','__str__','__repr__','__len__','__eq__','__hash__','__enter__','__exit__',
-            '__getattr__','__setattr__','__delattr__','__getitem__','__setitem__','__contains__',
-            '__iter__','__next__','__call__','__bool__','__lt__','__gt__','__le__','__ge__',
-            'upgrade','downgrade','setUp','tearDown','setUpClass','tearDownClass',
-            'main','create_app','configure','register','on_startup','on_shutdown','lifespan',
-            // Vue lifecycle
-            'mounted','created','updated','destroyed','beforeCreate','beforeMount',
-            // Angular lifecycle
-            'ngOnInit','ngOnDestroy','ngOnChanges','ngAfterViewInit',
-            // Svelte
-            'onMount','onDestroy'
-        ]);
-
-        // Group functions by name (excluding common names)
-        var fnByName={};
-        allFns.forEach(function(fn){
-            // Guard against non-string names from exotic parsers
-            if(!fn||typeof fn.name!=='string'||!fn.name)return;
-            // Skip common/idiomatic names
-            if(commonNames.has(fn.name))return;
-            // Skip very short names (likely false positives)
-            if(fn.name.length<3)return;
-            // Skip class methods (same method name in different classes is normal)
-            if(fn.isClassMethod)return;
-            // Skip Python class-scoped names (ClassName.method)
-            if(fn.name.includes('.'))return;
-            // Skip decorated functions (framework handlers have similar structures by design)
-            if(fn.decorators&&fn.decorators.length>0)return;
-
-            if(!fnByName[fn.name])fnByName[fn.name]=[];
-            fnByName[fn.name].push(fn);
+    // Token-shingle duplicate detection via @jscpd/core — see analysisRules.ts.
+    // Async because jscpd's Detector.detect() is Promise-based; every call site
+    // already runs inside an async analysis pipeline (see analysisRules.ts's
+    // header comment on why this is safe to await everywhere it's called).
+    detectDuplicates:async function(files){
+        var blocks=await detectDuplicatesViaTokens(files);
+        return blocks.map(function(b){
+            return{
+                type:'code',
+                name:b.fileA.split('/').pop()+' ↔ '+b.fileB.split('/').pop(),
+                count:2,
+                files:[
+                    {file:b.fileA,line:b.startLineA},
+                    {file:b.fileB,line:b.startLineB}
+                ],
+                similarity:100,
+                suggestion:(b.endLineA-b.startLineA)+' duplicated lines between '+b.fileA+' and '+b.fileB+' — consider extracting to a shared utility'
+            };
         });
-
-        // Find duplicate names across different files - only report if suspicious
-        Object.entries(fnByName).forEach(function(entry){
-            var name=entry[0],fns=entry[1];
-            var uniqueFiles=[...new Set(fns.map(function(f){return f.file;}))];
-
-            // Only flag if in 3+ files (2 files might be intentional)
-            if(uniqueFiles.length>=3){
-                // Check if the code is actually similar (not just same name)
-                var codeSamples=fns.filter(function(f){return f.code&&f.code.length>30;});
-                if(codeSamples.length>=2){
-                    // Compare first two code samples for similarity
-                    var sim=Parser.codeSimilarity(codeSamples[0].code,codeSamples[1].code);
-                    if(sim>0.5){  // More than 50% similar - likely a real duplicate
-                        duplicates.push({
-                            type:'name',
-                            name:name,
-                            count:uniqueFiles.length,
-                            files:fns.map(function(f){return{file:f.file,line:f.line};}),
-                            similarity:Math.round(sim*100),
-                            suggestion:'Function "'+name+'" appears in '+uniqueFiles.length+' files with '+Math.round(sim*100)+'% similarity - consider consolidating'
-                        });
-                    }
-                }
-            }
-        });
-
-        // Find similar code blocks (improved algorithm)
-        // Use structural hash that captures the essence of the code
-        var codeGroups={};
-        allFns.forEach(function(fn){
-            if(!fn.code||fn.code.length<80)return;  // Skip very short functions
-
-            // Create a structural fingerprint
-            var fingerprint=Parser.codeFingerprint(fn.code);
-            if(!fingerprint)return;
-
-            if(!codeGroups[fingerprint])codeGroups[fingerprint]=[];
-            codeGroups[fingerprint].push(fn);
-        });
-
-        Object.values(codeGroups).forEach(function(fns){
-            if(fns.length>1){
-                var uniqueFiles=[...new Set(fns.map(function(f){return f.file;}))];
-                // Must be in different files to be a real duplication issue
-                if(uniqueFiles.length>1){
-                    // Verify with actual similarity check
-                    var sim=Parser.codeSimilarity(fns[0].code,fns[1].code);
-                    if(sim>0.7){  // 70% or more similar
-                        duplicates.push({
-                            type:'code',
-                            name:fns.map(function(f){return f.name;}).join(', '),
-                            count:fns.length,
-                            files:fns.map(function(f){return{file:f.file,name:f.name,line:f.line};}),
-                            similarity:Math.round(sim*100),
-                            suggestion:'Similar code blocks ('+Math.round(sim*100)+'% match) - consider extracting to a shared utility'
-                        });
-                    }
-                }
-            }
-        });
-
-        return duplicates;
-    },
-
-    // Calculate code similarity using normalized comparison (0-1 scale)
-    codeSimilarity:function(code1,code2){
-        if(!code1||!code2)return 0;
-
-        // Normalize both code blocks
-        function normalize(code){
-            return code
-                .replace(/\/\/.*$/gm,'')           // Remove JS single-line comments
-                .replace(/#.*$/gm,'')              // Remove Python/Ruby comments
-                .replace(/\/\*[\s\S]*?\*\//g,'')   // Remove multi-line comments
-                .replace(/"""[\s\S]*?"""/g,'S')    // Remove Python docstrings (triple double)
-                .replace(/'''[\s\S]*?'''/g,'S')    // Remove Python docstrings (triple single)
-                .replace(/['"`][^'"`]*['"`]/g,'S') // Normalize strings
-                .replace(/\b\d+\.?\d*\b/g,'N')     // Normalize numbers
-                .replace(/\s+/g,' ')               // Normalize whitespace
-                .trim();
-        }
-
-        var n1=normalize(code1);
-        var n2=normalize(code2);
-
-        if(n1===n2)return 1;
-        if(n1.length===0||n2.length===0)return 0;
-
-        // Use longest common subsequence ratio
-        var lcs=Parser.lcsLength(n1,n2);
-        var maxLen=Math.max(n1.length,n2.length);
-        return lcs/maxLen;
-    },
-
-    // Longest common subsequence length (optimized for similarity)
-    lcsLength:function(s1,s2){
-        // Use simplified approach for performance
-        if(s1.length>500||s2.length>500){
-            // For long strings, use sampling
-            s1=s1.substring(0,500);
-            s2=s2.substring(0,500);
-        }
-
-        var m=s1.length,n=s2.length;
-        var prev=new Array(n+1).fill(0);
-        var curr=new Array(n+1).fill(0);
-
-        for(var i=1;i<=m;i++){
-            for(var j=1;j<=n;j++){
-                if(s1[i-1]===s2[j-1]){
-                    curr[j]=prev[j-1]+1;
-                }else{
-                    curr[j]=Math.max(prev[j],curr[j-1]);
-                }
-            }
-            var tmp=prev;prev=curr;curr=tmp;
-            curr.fill(0);
-        }
-        return prev[n];
-    },
-
-    // Create a structural fingerprint for code (for grouping similar code)
-    codeFingerprint:function(code){
-        if(!code||code.length<50)return null;
-
-        // Extract structural elements
-        var structure=code
-            .replace(/\/\/.*$/gm,'')           // Remove comments
-            .replace(/\/\*[\s\S]*?\*\//g,'')
-            .replace(/['"`][^'"`]*['"`]/g,'')  // Remove string contents
-            .replace(/\b[a-zA-Z_$][a-zA-Z0-9_$]*\b/g,'I')  // All identifiers -> I
-            .replace(/\b\d+\.?\d*\b/g,'N')     // All numbers -> N
-            .replace(/\s+/g,'');               // Remove whitespace
-
-        // Take a hash-like fingerprint based on structure length and key patterns
-        var patterns={
-            loops:(structure.match(/for|while/g)||[]).length,
-            conditions:(structure.match(/if|\?/g)||[]).length,
-            calls:(structure.match(/I\(/g)||[]).length,
-            returns:(structure.match(/return/g)||[]).length,
-            len:Math.floor(structure.length/50)*50  // Bucket by length
-        };
-
-        // Create fingerprint string
-        return 'L'+patterns.loops+'C'+patterns.conditions+'F'+patterns.calls+'R'+patterns.returns+'S'+patterns.len;
     },
     detectLayerViolations:function(files,connections){
         var violations=[];
@@ -752,17 +624,35 @@ const Parser={
         }
         return suggestions.sort(function(a,b){var p={critical:0,high:1,medium:2,low:3};return p[a.priority]-p[b.priority];});
     },
-    detectSecurity:function(files){
+    detectSecurity:async function(files){
         var issues=[];
+        // AST-verified for JS/TS: only fires on an actual assignment/property
+        // whose name looks credential-like, so it catches template literals
+        // and string concatenation the line-regex below misses, and doesn't
+        // fire on documentation text that merely mentions a credential-shaped
+        // string. The line-regex stays for languages with no JS AST available.
+        detectJsSecrets(files).forEach(function(finding){issues.push(finding);});
+        // Same idea for Python/Ruby/PHP/Java, via tree-sitter instead of
+        // acorn — catches Ruby's #{...} interpolation, PHP's string
+        // concatenation, and Python f-strings the old per-line regex missed.
+        var tsSecretFindings=await detectTreeSitterSecrets(files,buildTreeSitterLoaders(files));
+        tsSecretFindings.forEach(function(finding){issues.push(finding);});
         files.forEach(function(f){
             var scanContent=getSecurityScanContent(f);
             if(!scanContent)return;
             var lines=scanContent.split('\n');
-            lines.forEach(function(line,idx){
-                if(line.match(/(?:password|passwd|pwd|secret|api_key|apikey|token|auth)\s*[=:]\s*['"][^'"]{4,}['"]/i)&&!line.includes('process.env')&&!line.includes('config.')){
-                    issues.push({severity:'high',title:'Hardcoded Secret',file:f.name,path:f.path,line:idx+1,desc:'Credentials should never be hardcoded. Use environment variables or a secrets manager.',code:line.trim().substring(0,80)});
-                }
-            });
+            // Also skip languages detectTreeSitterSecrets now covers above —
+            // this line-regex used to be the ONLY secret check for Python/
+            // Ruby/PHP/Java (unlike JS/TS, it was never guarded against them),
+            // so leaving it active here would double-report every credential
+            // those AST queries already found.
+            if(!isJsOrTsFile(f.name)&&!TS_LANG_EXT[(f.name.match(/\.([^.]+)$/)||[])[1]?.toLowerCase()]){
+                lines.forEach(function(line,idx){
+                    if(line.match(/(?:password|passwd|pwd|secret|api_key|apikey|token|auth)\s*[=:]\s*['"][^'"]{4,}['"]/i)&&!line.includes('process.env')&&!line.includes('config.')){
+                        issues.push({severity:'high',title:'Hardcoded Secret',file:f.name,path:f.path,line:idx+1,desc:'Credentials should never be hardcoded. Use environment variables or a secrets manager.',code:line.trim().substring(0,80)});
+                    }
+                });
+            }
             if(scanContent.match(/query\s*\(\s*['"`][^'"`]*\s*\+/)||scanContent.match(/execute\s*\(\s*['"`][^'"`]*\$\{/)||scanContent.match(/\$\{.*\}.*(?:SELECT|INSERT|UPDATE|DELETE)/i)){
                 var m=scanContent.match(/.*(query|execute|SELECT|INSERT|UPDATE|DELETE).*(\+|\$\{).*/i);
                 issues.push({severity:'high',title:'SQL Injection Risk',file:f.name,path:f.path,desc:'String concatenation in SQL queries. Use parameterized queries instead.',code:m?m[0].trim().substring(0,80):''});
@@ -773,7 +663,12 @@ const Parser={
             if((hasInnerHtmlAssignment||hasDangerousHtmlRender)&&!isSafePreviewRender){
                 issues.push({severity:'high',title:'XSS Vulnerability',file:f.name,path:f.path,desc:'Direct HTML injection can lead to XSS attacks. Sanitize user input.',code:''});
             }
-            if(scanContent.includes('eval(')){
+            // Python has its own dedicated eval()/exec() checks below (with
+            // correct per-call severity); Ruby/PHP are now covered by
+            // detectTreeSitterSecrets's dangerous-call query above — this
+            // generic substring check would otherwise double-report all three.
+            var evalLang=TS_LANG_EXT[(f.name.match(/\.([^.]+)$/)||[])[1]?.toLowerCase()];
+            if(scanContent.includes('eval(')&&evalLang!=='python'&&evalLang!=='ruby'&&evalLang!=='php'){
                 var evalLine=lines.findIndex(function(l){return l.includes('eval(');});
                 issues.push({severity:'medium',title:'Dynamic Code Execution',file:f.name,path:f.path,line:evalLine+1,desc:'eval() executes arbitrary code. Avoid if possible or validate input strictly.',code:evalLine>=0?lines[evalLine].trim().substring(0,80):''});
             }
@@ -1879,9 +1774,9 @@ const Parser={
 
         // Python: use tree-sitter real parser (WASM) for accurate AST-based detection
         if(isPython){
-            if(Parser._tsParser){
+            if(Parser._tsParsers.python){
                 try{
-                    var tree=Parser._tsParser.parse(content);
+                    var tree=Parser._tsParsers.python.parser.parse(content);
                     var root=tree.rootNode;
                     var fnSet=new Set(fnNames);
 

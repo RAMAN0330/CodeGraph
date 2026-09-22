@@ -3,6 +3,7 @@ import { ShieldCheck, Users, KeyRound } from 'lucide-react';
 import { GG, GGErrorBanner } from '../dbConnectTheme';
 import KpiCard from '../ui/KpiCard';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 function severityColor(severity: 'low' | 'medium' | 'high'): string {
   if (severity === 'high') return 'var(--color-danger)';
@@ -31,21 +32,21 @@ export default function SecurityPage({ projectId, paused }: SecurityPageProps) {
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12, alignItems: 'start' }}>
         <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', borderBottom: `1px solid ${GG.line}` }}>Database Users</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 12 }}>
-            <thead><tr style={{ background: GG.bg2, textAlign: 'left' }}>
-              {['User', 'Role', 'Privilege'].map(h => <th key={h} style={{ padding: '9px 18px', color: GG.fg4, fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</th>)}
-            </tr></thead>
-            <tbody>
+          <Table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 12 }}>
+            <TableHeader><TableRow style={{ background: GG.bg2, textAlign: 'left' }}>
+              {['User', 'Role', 'Privilege'].map(h => <TableHead key={h} style={{ padding: '9px 18px', color: GG.fg4, fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</TableHead>)}
+            </TableRow></TableHeader>
+            <TableBody>
               {data.users.map(u => (
-                <tr key={u.name} style={{ borderTop: `1px solid ${GG.line}` }}>
-                  <td style={{ padding: '9px 18px', color: GG.fg2 }}>{u.name}</td>
-                  <td style={{ padding: '9px 18px', color: GG.fg3, textTransform: 'capitalize' }}>{u.role}</td>
-                  <td style={{ padding: '9px 18px', color: u.privilege === 'Full' ? 'var(--color-warning)' : GG.fg2, fontWeight: u.privilege === 'Full' ? 700 : 400 }}>{u.privilege}</td>
-                </tr>
+                <TableRow key={u.name} style={{ borderTop: `1px solid ${GG.line}` }}>
+                  <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{u.name}</TableCell>
+                  <TableCell style={{ padding: '9px 18px', color: GG.fg3, textTransform: 'capitalize' }}>{u.role}</TableCell>
+                  <TableCell style={{ padding: '9px 18px', color: u.privilege === 'Full' ? 'var(--color-warning)' : GG.fg2, fontWeight: u.privilege === 'Full' ? 700 : 400 }}>{u.privilege}</TableCell>
+                </TableRow>
               ))}
-              {data.users.length === 0 && <tr><td colSpan={3} style={{ padding: 20, textAlign: 'center', color: GG.fg4 }}>No users found.</td></tr>}
-            </tbody>
-          </table>
+              {data.users.length === 0 && <TableRow><TableCell colSpan={3} style={{ padding: 20, textAlign: 'center', color: GG.fg4 }}>No users found.</TableCell></TableRow>}
+            </TableBody>
+          </Table>
         </div>
 
         <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, padding: 18 }}>

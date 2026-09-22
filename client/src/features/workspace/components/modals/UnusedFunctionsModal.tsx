@@ -1,6 +1,8 @@
 import { ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
 import { Icon } from '../../../../shared/components/Icon';
 import { getAccentBlockStyle } from '../../../analysis/services/parser';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface DeadFunction {
   name: string;
@@ -24,11 +26,15 @@ export default function UnusedFunctionsModal({ deadFunctions, expandedFns, setEx
   const deadLines = deadFunctions.reduce((s, f) => s + f.codeLines, 0);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 650, maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none sm:max-w-none"
+        style={{ maxWidth: 650, maxHeight: '85vh' }}
+        showCloseButton={false}
+      >
         <div className="modal-header">
           <div className="modal-title"><Icon name="warning" size="m" /> Unused Functions</div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <Button variant="ghost" className="modal-close hover:bg-transparent h-auto p-0" onClick={onClose}>×</Button>
         </div>
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           <div className="unused-summary">
@@ -45,7 +51,7 @@ export default function UnusedFunctionsModal({ deadFunctions, expandedFns, setEx
               <div className="unused-summary-label">Files Affected</div>
             </div>
           </div>
-          <div style={{ ...getAccentBlockStyle('rgba(255,159,67,0.34)', 'rgba(255,159,67,0.08)', {}), fontSize: 10, color: 'var(--t3)', marginBottom: 12, padding: '8px 12px', borderRadius: 6 }}>
+          <div style={{ ...getAccentBlockStyle('rgba(217,119,6,0.34)', 'rgba(217,119,6,0.08)', {}), fontSize: 10, color: 'var(--t3)', marginBottom: 12, padding: '8px 12px', borderRadius: 6 }}>
             These functions have zero calls from other files or within their own file. They are likely dead code that can be safely removed.
           </div>
           {deadFunctions.map((fn, i) => {
@@ -67,7 +73,7 @@ export default function UnusedFunctionsModal({ deadFunctions, expandedFns, setEx
                     </div>
                   </div>
                   <div className="unused-fn-meta">
-                    <button className="view-file-btn" onClick={e => { e.stopPropagation(); onViewSource(fn.file, fn.line); }} title="View source"><Icon name="eye" size="s" /></button>
+                    <Button variant="ghost" className="view-file-btn h-auto p-0" onClick={e => { e.stopPropagation(); onViewSource(fn.file, fn.line); }} title="View source"><Icon name="eye" size="s" /></Button>
                     <span className="unused-fn-lines">{fn.codeLines} lines</span>
                     {fn.line && <span className="unused-fn-loc">L{fn.line}</span>}
                     <span className="icon icon-s" style={{ color: 'var(--t3)' }}>
@@ -85,11 +91,11 @@ export default function UnusedFunctionsModal({ deadFunctions, expandedFns, setEx
           })}
         </div>
         <div className="modal-footer" style={{ display: 'flex', gap: 8 }}>
-          <button className="top-btn" onClick={() => setExpandedFns(new Set(deadFunctions.map(fn => 'dead-' + fn.name)))}>Expand All</button>
-          <button className="top-btn" onClick={() => setExpandedFns(new Set())}>Collapse All</button>
-          <button className="top-btn primary" onClick={onClose}>Close</button>
+          <Button className="top-btn h-auto" onClick={() => setExpandedFns(new Set(deadFunctions.map(fn => 'dead-' + fn.name)))}>Expand All</Button>
+          <Button className="top-btn h-auto" onClick={() => setExpandedFns(new Set())}>Collapse All</Button>
+          <Button className="top-btn primary h-auto" onClick={onClose}>Close</Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

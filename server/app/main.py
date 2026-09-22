@@ -5,7 +5,7 @@ from typing import Optional
 import uuid
 from .tasks import analyze_repo_task, get_task_status, set_task_status
 
-app = FastAPI(title="GraphKeep Engine")
+app = FastAPI(title="Structrace Engine")
 
 app.add_middleware(
     CORSMiddleware,

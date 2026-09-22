@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { toMermaid, toPlantUML, toSVG, toShareLink } from '../services/exporters';
 import type { GraphNode, GraphEdge, FilterState } from '../services/exporters';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 interface ExportModalProps {
   nodes: GraphNode[];
@@ -45,7 +48,7 @@ export default function ExportModal({ nodes, edges, svgRef, repoUrl, filterState
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'graphkeep-graph.svg';
+    a.download = 'structrace-graph.svg';
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -65,16 +68,10 @@ export default function ExportModal({ nodes, edges, svgRef, repoUrl, filterState
   };
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9000,
-        background: 'rgba(0,0,0,0.7)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        showCloseButton={false}
+        aria-describedby={undefined}
         style={{
           background: 'var(--surface-card)',
           border: '1px solid var(--border-subtle)',
@@ -86,24 +83,30 @@ export default function ExportModal({ nodes, edges, svgRef, repoUrl, filterState
           flexDirection: 'column',
           overflow: 'hidden',
           boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          padding: 0,
+          gap: 0,
         }}
       >
+        <DialogTitle className="sr-only">Export / Share</DialogTitle>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
           <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '1rem' }}>Export / Share</span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={onClose}
             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}
           >
             ×
-          </button>
+          </Button>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', padding: '12px 20px 0', borderBottom: '1px solid var(--border-subtle)' }}>
           {tabs.map(tab => (
-            <button
+            <Button
               key={tab.id}
+              variant="ghost"
               onClick={() => { setActiveTab(tab.id); setCopied(false); }}
               style={{
                 background: activeTab === tab.id ? 'var(--surface-subtle)' : 'transparent',
@@ -118,7 +121,7 @@ export default function ExportModal({ nodes, edges, svgRef, repoUrl, filterState
               }}
             >
               {tab.label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -133,18 +136,18 @@ export default function ExportModal({ nodes, edges, svgRef, repoUrl, filterState
                   style={{ width: '100%', border: '1px solid var(--border-subtle)', borderRadius: '8px', background: 'var(--bg-canvas)', maxHeight: '300px', objectFit: 'contain' }}
                 />
               )}
-              <button
+              <Button
                 onClick={handleDownloadSVG}
                 style={{ background: 'var(--color-success)', border: 'none', color: 'white', padding: '8px 18px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}
               >
                 Download SVG
-              </button>
+              </Button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {activeTab === 'sharelink' && (
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
-                  Share this link to let others open GraphKeep with the same repository pre-loaded.
+                  Share this link to let others open Structrace with the same repository pre-loaded.
                 </p>
               )}
               {activeTab === 'mermaid' && (
@@ -159,7 +162,7 @@ export default function ExportModal({ nodes, edges, svgRef, repoUrl, filterState
                   <a href="https://www.plantuml.com/plantuml/uml/" target="_blank" rel="noreferrer" style={{ color: 'var(--teal-500)' }}>plantuml.com</a>.
                 </p>
               )}
-              <textarea
+              <Textarea
                 readOnly
                 value={activeContent[activeTab]}
                 style={{
@@ -177,10 +180,10 @@ export default function ExportModal({ nodes, edges, svgRef, repoUrl, filterState
                   boxSizing: 'border-box',
                 }}
               />
-              <button
+              <Button
                 onClick={() => handleCopy(activeContent[activeTab])}
                 style={{
-                  background: copied ? '#1a2b1a' : 'var(--surface-subtle)',
+                  background: copied ? '#e5f5e9' : 'var(--surface-subtle)',
                   border: `1px solid ${copied ? 'var(--color-success)' : 'var(--border-subtle)'}`,
                   color: copied ? 'var(--color-success)' : 'var(--text-primary)',
                   padding: '7px 16px',
@@ -193,11 +196,11 @@ export default function ExportModal({ nodes, edges, svgRef, repoUrl, filterState
                 }}
               >
                 {copied ? '✓ Copied!' : 'Copy to clipboard'}
-              </button>
+              </Button>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

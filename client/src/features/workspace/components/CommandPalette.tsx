@@ -1,5 +1,7 @@
 // client/src/components/CommandPalette.tsx
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { Search, FileCode2, Braces, Folder } from 'lucide-react';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 interface FileItem { path: string; name: string; folder: string; ext?: string; }
 interface FnItem { name: string; file: string; line?: number; }
@@ -30,13 +32,16 @@ type ResultItem =
   | { kind: 'fn'; data: FnItem }
   | { kind: 'folder'; data: string };
 
+const KIND_LABEL: Record<ResultItem['kind'], string> = { file: 'File', fn: 'Function', folder: 'Folder' };
+
+function KindIcon({ kind }: { kind: ResultItem['kind'] }) {
+  if (kind === 'fn') return <Braces size={16} strokeWidth={1.8} />;
+  if (kind === 'folder') return <Folder size={16} strokeWidth={1.8} />;
+  return <FileCode2 size={16} strokeWidth={1.8} />;
+}
+
 export default function CommandPalette({ files, functions, folders, onSelectFile, onSelectFunction, onSelectFolder, onClose }: Props) {
   const [query, setQuery] = useState('');
-  const [cursor, setCursor] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { inputRef.current?.focus(); }, []);
 
   const results: ResultItem[] = (() => {
     if (!query.trim()) return [];
@@ -65,78 +70,50 @@ export default function CommandPalette({ files, functions, folders, onSelectFile
   }, [onSelectFile, onSelectFunction, onSelectFolder, onClose]);
 
   function handleKey(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') { onClose(); return; }
-    if (e.key === 'ArrowDown') { e.preventDefault(); setCursor(c => Math.min(c + 1, results.length - 1)); }
-    if (e.key === 'ArrowUp') { e.preventDefault(); setCursor(c => Math.max(c - 1, 0)); }
-    if (e.key === 'Enter' && results[cursor]) select(results[cursor]);
+    if (e.key === 'Escape') onClose();
   }
 
-  useEffect(() => { setCursor(0); }, [query]);
-
-  const KIND_ICON: Record<string, string> = { file: '📄', fn: 'ƒ', folder: '📁' };
-  const KIND_LABEL: Record<string, string> = { file: 'File', fn: 'Function', folder: 'Folder' };
-
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '15vh' }}
-      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{ width: '480px', background: 'rgba(22,27,34,0.98)', border: '1px solid var(--border-subtle)', borderRadius: '12px', boxShadow: '0 16px 48px rgba(0,0,0,0.6)', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid var(--surface-subtle)', gap: 10 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input
-            ref={inputRef}
+    <div className="cmdk-spotlight-scrim" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <Command shouldFilter={false} className="cmdk-spotlight h-auto">
+        <div className="cmdk-spotlight-input-row">
+          <CommandInput
+            autoFocus
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onValueChange={setQuery}
             onKeyDown={handleKey}
             placeholder="Search files, functions, folders…"
-            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: '0.9rem', fontFamily: 'inherit' }}
           />
-          <kbd style={{ color: 'var(--text-muted)', fontSize: '0.72rem', border: '1px solid var(--border-subtle)', borderRadius: 4, padding: '2px 5px' }}>ESC</kbd>
+          <kbd className="cmdk-spotlight-esc">ESC</kbd>
         </div>
-        <div ref={listRef} style={{ maxHeight: '360px', overflowY: 'auto' }}>
-          {!query.trim() && (
-            <div style={{ padding: '24px', color: 'var(--text-muted)', fontSize: '0.82rem', textAlign: 'center' }}>
-              Type to search files, functions, and folders
-            </div>
-          )}
-          {query.trim() && results.length === 0 && (
-            <div style={{ padding: '24px', color: 'var(--text-muted)', fontSize: '0.82rem', textAlign: 'center' }}>
-              No results for "{query}"
-            </div>
-          )}
+        <CommandList className="cmdk-spotlight-list">
+          <CommandEmpty className="cmdk-spotlight-empty">
+            <Search size={22} strokeWidth={1.6} />
+            <span>{query.trim() ? `No results for "${query}"` : 'Type to search files, functions, and folders'}</span>
+          </CommandEmpty>
           {results.map((item, i) => {
-            const active = i === cursor;
             const label = item.kind === 'file' ? item.data.path
               : item.kind === 'fn' ? item.data.name
               : item.data;
             const sub = item.kind === 'fn' ? item.data.file : undefined;
             return (
-              <div
-                key={i}
-                onMouseEnter={() => setCursor(i)}
-                onClick={() => select(item)}
-                style={{
-                  padding: '9px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  cursor: 'pointer',
-                  background: active ? 'var(--surface-subtle)' : 'transparent',
-                  borderBottom: '1px solid var(--surface-card)',
-                }}
-              >
-                <span style={{ fontSize: 14, width: 20, textAlign: 'center', flexShrink: 0 }}>{KIND_ICON[item.kind]}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: 'var(--text-primary)', fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
-                  {sub && <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</div>}
+              <CommandItem key={i} value={`${item.kind}-${i}`} onSelect={() => select(item)} className="cmdk-spotlight-item">
+                <span className={`cmdk-spotlight-item-icon${item.kind === 'fn' ? ' is-fn' : item.kind === 'folder' ? ' is-folder' : ''}`}><KindIcon kind={item.kind} /></span>
+                <div className="cmdk-spotlight-item-copy">
+                  <div className="cmdk-spotlight-item-label">{label}</div>
+                  {sub && <div className="cmdk-spotlight-item-sub">{sub}</div>}
                 </div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', flexShrink: 0 }}>{KIND_LABEL[item.kind]}</span>
-              </div>
+                <span className="cmdk-spotlight-item-kind">{KIND_LABEL[item.kind]}</span>
+              </CommandItem>
             );
           })}
+        </CommandList>
+        <div className="cmdk-spotlight-footer">
+          <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> Navigate</span>
+          <span><kbd>&crarr;</kbd> Open</span>
+          <span><kbd>esc</kbd> Close</span>
         </div>
-      </div>
+      </Command>
     </div>
   );
 }

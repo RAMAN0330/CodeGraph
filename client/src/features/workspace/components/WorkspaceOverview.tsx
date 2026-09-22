@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
+import AnalysisLoader, { type AnalysisStage } from '../../../shared/components/AnalysisLoader';
+import OwnershipRiskPanel from './OwnershipRiskPanel';
+import { Button } from '@/components/ui/button';
 
 interface Suggestion { title: string; desc: string; priority: 'critical' | 'high' | 'medium' | string }
 interface Pattern { name: string; isAnti?: boolean; severity?: string; files: any[] }
@@ -35,40 +38,69 @@ function Delta({ value }: { value: number }) {
   return <em className={`ov-delta ${value > 0 ? 'good' : 'bad'}`}>{value > 0 ? '+' : ''}{value}</em>;
 }
 
-export default function WorkspaceOverview({
-  repoInfo, data, health, loading, progress, error,
+const CODEBASE_STAGES: AnalysisStage[] = [
+  { id: 'read', label: 'Read repository' },
+  { id: 'parse', label: 'Parse sources' },
+  { id: 'graph', label: 'Map dependencies' },
+  { id: 'patterns', label: 'Detect patterns' },
+  { id: 'quality', label: 'Score quality' },
+  { id: 'assemble', label: 'Assemble workspace' },
+];
+
+// The engine reports progress as free text; these are its actual phase strings.
+function stageIndexFor(progress: string) {
+  const text = progress.toLowerCase();
+  if (text.startsWith('finalizing')) return 5;
+  if (text.startsWith('analyzing code quality')) return 4;
+  if (text.startsWith('detecting patterns')) return 3;
+  if (text.startsWith('building dependency graph') || text.startsWith('analyzing dependencies') || text.startsWith('resolving markdown')) return 2;
+  if (text.startsWith('analyzing on server') || /^analyzing \d/.test(text)) return 1;
+  return 0;
+}
+
+function analysisFacts(progress: string) {
+  const parsed = progress.match(/^Analyzing (\d[\d,]*)\/(\d[\d,]*)/);
+  if (parsed) return [`${parsed[2]} files`, `${parsed[1]} parsed`];
+  const scanned = progress.match(/(\d[\d,]*) found/);
+  if (scanned) return [`${scanned[1]} files found`];
+  return [];
+}
+
+export default function WorkspaceOverview(props: Props) {
+  const { repoInfo, data, loading, progress, error } = props;
+  // Real JSX, not a direct OverviewContent(props) call — OverviewContent uses
+  // hooks (useMemo), which require an active React dispatcher; that only
+  // exists while React itself is rendering. A bare function call has no
+  // dispatcher and throws "Invalid hook call" the instant it runs, which is
+  // exactly what happened when this was tried (verified against the actual
+  // failure, not assumed). tests/workspace-ui.test.mjs's naive prop-walker
+  // (textOf/elements) needing a real renderer is a test-tooling gap, not a
+  // reason to make this component's own composition less correct.
+  if (data) return <OverviewContent {...props} />;
+
+  const text = progress ?? '';
+  return (
+    <AnalysisLoader
+      kind="codebase"
+      subject={repoInfo ? `${repoInfo.owner}/${repoInfo.repo}` : 'your repository'}
+      facts={analysisFacts(text)}
+      stages={CODEBASE_STAGES}
+      activeIndex={loading ? stageIndexFor(text) : 0}
+      detail={loading ? text || 'Reading the repository tree…' : 'Restoring the repository you selected…'}
+      error={error}
+      onRetry={() => window.location.reload()}
+      onWorkspace={() => window.location.assign('/workspaces')}
+      onProject={() => window.location.assign('/workspaces')}
+    />
+  );
+}
+
+function OverviewContent({
+  repoInfo, data, health,
   vulns, vulnLoading, dbSchemaDetected,
   previousSnapshot, architecture,
   onOpen,
 }: Props) {
-  if (!data) {
-    return (
-      <main className="workspace-overview workspace-overview-empty">
-        <div className={`overview-empty-mark${loading ? ' analyzing' : ''}`}>G</div>
-        <p className="overview-eyebrow">{error ? 'Analysis interrupted' : loading ? 'Building your workspace' : 'Preparing workspace'}</p>
-        <h1>
-          {error
-            ? 'We could not finish the analysis'
-            : repoInfo
-              ? `Analyzing ${repoInfo.owner}/${repoInfo.repo}`
-              : 'Loading your selected repository'}
-        </h1>
-        <p>{error ? error : progress || 'Fetching repository files and mapping dependencies. Your overview will open automatically when it is ready.'}</p>
-        {loading ? (
-          <div className="overview-analysis-progress" role="status" aria-live="polite">
-            <span><i /></span><small>Analysis runs automatically. No second selection is required.</small>
-          </div>
-        ) : error ? (
-          <button onClick={() => window.location.reload()}>Retry analysis <ArrowIcon /></button>
-        ) : (
-          <div className="overview-analysis-progress waiting" role="status">
-            <span><i /></span><small>Restoring the repository selected on the previous page…</small>
-          </div>
-        )}
-      </main>
-    );
-  }
-
   const stats = data.stats ?? {};
   const patterns: Pattern[] = data.patterns ?? [];
   const antiPatterns = patterns.filter(p => p.isAnti || p.severity === 'warning');
@@ -130,7 +162,7 @@ export default function WorkspaceOverview({
             <h2>Grade {health.grade} {previousSnapshot && <Delta value={health.score - previousSnapshot.healthScore} />}</h2>
             <span>{riskTotal === 0 ? 'No high-priority risks detected.' : `${riskTotal} priority item${riskTotal === 1 ? '' : 's'} deserve attention.`}</span>
           </div>
-          <button onClick={() => onOpen(riskTotal ? 'security' : 'debt')}>Review quality <ArrowIcon /></button>
+          <Button variant="ghost" onClick={() => onOpen(riskTotal ? 'security' : 'debt')}>Review quality <ArrowIcon /></Button>
         </article>
 
         <div className="overview-metrics ov-metrics-6 ov-area-metrics">
@@ -178,12 +210,12 @@ export default function WorkspaceOverview({
             const percent = Math.round(language.percent ?? language.percentage ?? language.pct ?? language.value ?? 0);
             return (
               <div className="overview-language" key={name}>
-                <div><span><i style={{ background: ['#61afef', '#c678dd', '#98c379', '#e5c07b', '#56b6c2'][index] }} />{name}</span><b>{percent}%</b></div>
+                <div><span><i style={{ background: ['var(--teal-500)', 'var(--chart-purple)', 'var(--color-success)', 'var(--color-warning)', 'var(--chart-cyan)'][index] }} />{name}</span><b>{percent}%</b></div>
                 <div className="overview-language-track"><i style={{ width: `${Math.max(3, Math.min(100, percent))}%` }} /></div>
               </div>
             );
           }) : <p className="overview-panel-empty">Language information is not available.</p>}
-          {dbSchemaDetected && <button className="overview-db-callout" onClick={() => onOpen('database')}><span>Database schema detected</span><ArrowIcon /></button>}
+          {dbSchemaDetected && <Button variant="ghost" className="overview-db-callout" onClick={() => onOpen('database')}><span>Database schema detected</span><ArrowIcon /></Button>}
         </article>
 
         <article className="overview-panel ov-area-complexity">
@@ -191,15 +223,17 @@ export default function WorkspaceOverview({
           {complexityHotspots.length ? (
             <div className="ov-hotspot-list">
               {complexityHotspots.map((f: any) => (
-                <button key={f.path} className="ov-hotspot-row" onClick={() => onOpen('explorer')}>
+                <Button variant="ghost" key={f.path} className="ov-hotspot-row" onClick={() => onOpen('explorer')}>
                   <span>{f.path}</span>
                   <div className="ov-hotspot-track"><i style={{ width: `${Math.round((f.complexity.score / maxComplexity) * 100)}%` }} /></div>
                   <b>{f.complexity.score}</b>
-                </button>
+                </Button>
               ))}
             </div>
           ) : <p className="overview-panel-empty">No high-complexity files detected.</p>}
         </article>
+
+        <OwnershipRiskPanel repoInfo={repoInfo} files={data.files ?? []} />
       </div>
     </main>
   );

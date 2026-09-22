@@ -5,6 +5,10 @@ import {
   Search, Shapes, ShieldCheck, Sparkles, Workflow,
 } from 'lucide-react';
 import { patternReferenceFor } from '../../../analysis/data/patternReference';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface PatternFile {
   name: string;
@@ -94,20 +98,20 @@ export default function PatternsSection({ data, onSelectFile, onViewSource }: Pr
   ];
 
   const tabsNode = (
-    <div className="pat-tabs" role="tablist" aria-label="Filter patterns">
-      {tabs.map(tab => (
-        <button
-          key={tab.id}
-          role="tab"
-          aria-selected={category === tab.id}
-          className={`pat-tab pat-tab-${tab.id}${category === tab.id ? ' active' : ''}`}
-          onClick={() => setCategory(tab.id)}
-        >
-          {tab.label}
-          <span>{tab.count}</span>
-        </button>
-      ))}
-    </div>
+    <Tabs value={category} onValueChange={value => setCategory(value as Category)}>
+      <TabsList className="pat-tabs" aria-label="Filter patterns">
+        {tabs.map(tab => (
+          <TabsTrigger
+            key={tab.id}
+            value={tab.id}
+            className={`pat-tab pat-tab-${tab.id}${category === tab.id ? ' active' : ''}`}
+          >
+            {tab.label}
+            <span>{tab.count}</span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 
   return (
@@ -136,9 +140,10 @@ export default function PatternsSection({ data, onSelectFile, onViewSource }: Pr
                 const Glyph = iconFor(pattern);
                 const anti = isAntiPattern(pattern);
                 return (
-                  <button
+                  <Button
                     key={pattern.name}
-                    className={`pat-row${anti ? ' anti' : ''}${selectedName === pattern.name ? ' selected' : ''}`}
+                    variant="ghost"
+                    className={`pat-row h-auto${anti ? ' anti' : ''}${selectedName === pattern.name ? ' selected' : ''}`}
                     onClick={() => setSelectedName(pattern.name)}
                     aria-current={selectedName === pattern.name}
                   >
@@ -148,9 +153,9 @@ export default function PatternsSection({ data, onSelectFile, onViewSource }: Pr
                       <span className="pat-row-desc">{pattern.desc}</span>
                       <span className="pat-row-meta">{pattern.files.length} file{pattern.files.length !== 1 ? 's' : ''}</span>
                     </span>
-                    {anti && <span className="pat-badge">Anti-pattern</span>}
+                    {anti && <Badge className="pat-badge">Anti-pattern</Badge>}
                     <ChevronRight className="pat-row-chevron" size={16} strokeWidth={1.8} />
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -188,7 +193,7 @@ function PatternsHeader({
         {tabs}
         <div className="pat-search">
           <Search size={15} strokeWidth={1.8} />
-          <input
+          <Input
             value={query}
             onChange={e => onQuery(e.target.value)}
             placeholder="Search patterns…"
@@ -221,8 +226,8 @@ function PatternDetail({
           <h2>{pattern.name}</h2>
           <p>{pattern.desc}</p>
         </div>
-        {anti && <span className="pat-badge">Anti-pattern</span>}
-        <button className="pat-detail-close" onClick={onClose} aria-label="Close details">×</button>
+        {anti && <Badge className="pat-badge">Anti-pattern</Badge>}
+        <Button variant="ghost" className="pat-detail-close" onClick={onClose} aria-label="Close details">×</Button>
       </header>
 
       {metrics.length > 0 && (
@@ -253,18 +258,18 @@ function PatternDetail({
         <div className="pat-files">
           {pattern.files.map((file, i) => (
             <div key={`${file.path}-${i}`} className="pat-file">
-              <button className="pat-file-main" onClick={() => onSelectFile?.(file.path)}>
+              <Button variant="ghost" className="pat-file-main h-auto" onClick={() => onSelectFile?.(file.path)}>
                 <strong>{file.name}</strong>
                 <code>{file.path}</code>
-              </button>
+              </Button>
               <span className="pat-file-meta">
                 {file.fns != null && <em>{file.fns} fns</em>}
                 {file.lines != null && <em>{file.lines} lines</em>}
               </span>
               {onViewSource && (
-                <button className="pat-file-view" onClick={() => onViewSource(file.path)} title="View source">
+                <Button variant="ghost" className="pat-file-view" onClick={() => onViewSource(file.path)} title="View source">
                   <Eye size={13} strokeWidth={1.9} />
-                </button>
+                </Button>
               )}
             </div>
           ))}

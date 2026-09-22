@@ -29,7 +29,7 @@ export function TopbarSearch({ value, onChange, placeholder, className }: Props)
         onChange={event => onChange(event.target.value)}
         placeholder={value ? placeholder : placeholder.slice(0, length)}
         style={{ paddingLeft: '2.25rem' }}
-        className="h-9 w-full text-[13px] transition-colors focus-visible:border-[#61afef] focus-visible:bg-[#2c313c]"
+        className="h-9 w-full text-[13px] transition-colors focus-visible:border-[#4F46E5] focus-visible:bg-[#F1F5F9]"
       />
     </label>
   );

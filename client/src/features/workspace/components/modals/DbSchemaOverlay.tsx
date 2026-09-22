@@ -2,6 +2,9 @@ import React from 'react';
 import { Database } from 'lucide-react';
 import { Icon } from '../../../../shared/components/Icon';
 import { dbSchemaToFlowSchema } from '../../../database/services/dbParser';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const ERDiagramGraph = React.lazy(() => import('../../../database/components/ERDiagramGraph'));
 
@@ -37,8 +40,11 @@ export default function DbSchemaOverlay({
   const shownSchema = filteredDbSchema || dbSchema;
 
   return (
-    <div className="db-schema-overlay" onClick={onClose}>
-      <div className="db-schema-modal" onClick={e => e.stopPropagation()}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="db-schema-modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none sm:max-w-none"
+        showCloseButton={false}
+      >
         <div className="db-schema-header">
           <div className="db-schema-title">
             <Icon name="database" size="l" />
@@ -52,12 +58,12 @@ export default function DbSchemaOverlay({
               </div>
             )}
           </div>
-          <button className="db-schema-close" onClick={onClose}>×</button>
+          <Button variant="ghost" className="db-schema-close" onClick={onClose}>×</Button>
         </div>
 
         {dbSchema && (
           <div className="db-schema-toolbar">
-            <input className="db-schema-search" placeholder="Search tables or columns..." value={dbSearchQuery} onChange={e => { onSearchChange(e.target.value); onSelectTable(null); }} autoFocus />
+            <Input className="db-schema-search" placeholder="Search tables or columns..." value={dbSearchQuery} onChange={e => { onSearchChange(e.target.value); onSelectTable(null); }} autoFocus />
             {dbAppOptions.length > 0 && (
               <select className="db-schema-search" value={dbAppFilter} onChange={e => { onAppFilterChange(e.target.value); onSelectTable(null); }} style={{ maxWidth: 160 }}>
                 <option value="all">All apps</option>
@@ -65,8 +71,8 @@ export default function DbSchemaOverlay({
               </select>
             )}
             <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', alignItems: 'center' }}>
-              <button onClick={() => onViewModeChange('table')} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 4, border: '1px solid var(--border)', background: dbViewMode === 'table' ? 'var(--accent)' : 'transparent', color: dbViewMode === 'table' ? 'white' : 'var(--t2)', cursor: 'pointer' }}>⊞ Table</button>
-              <button onClick={() => onViewModeChange('flow')} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 4, border: '1px solid var(--border)', background: dbViewMode === 'flow' ? 'var(--accent)' : 'transparent', color: dbViewMode === 'flow' ? 'white' : 'var(--t2)', cursor: 'pointer' }}>◈ Flow</button>
+              <Button variant="ghost" onClick={() => onViewModeChange('table')} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 4, border: '1px solid var(--border)', background: dbViewMode === 'table' ? 'var(--accent)' : 'transparent', color: dbViewMode === 'table' ? 'white' : 'var(--t2)', cursor: 'pointer', height: 'auto' }}>⊞ Table</Button>
+              <Button variant="ghost" onClick={() => onViewModeChange('flow')} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 4, border: '1px solid var(--border)', background: dbViewMode === 'flow' ? 'var(--accent)' : 'transparent', color: dbViewMode === 'flow' ? 'white' : 'var(--t2)', cursor: 'pointer', height: 'auto' }}>◈ Flow</Button>
               <span style={{ fontSize: 10, color: 'var(--t3)', marginLeft: 8 }}>{dbSchema.files.length} schema file{dbSchema.files.length !== 1 ? 's' : ''} analyzed</span>
             </div>
           </div>
@@ -136,7 +142,7 @@ export default function DbSchemaOverlay({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

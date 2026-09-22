@@ -3,6 +3,9 @@ import { X } from 'lucide-react';
 import { GG, GGErrorBanner, ggInput } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import type { TopQueryRow } from '../../types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 type Filter = 'all' | 'slow' | 'frequent';
 
@@ -55,43 +58,43 @@ export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', paddingBottom: 24 }}>
       <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <input style={{ ...ggInput, maxWidth: 320 }} placeholder="Search queries…" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input style={{ ...ggInput, maxWidth: 320 }} placeholder="Search queries…" value={search} onChange={e => setSearch(e.target.value)} />
           <div style={{ display: 'flex', gap: 4 }}>
             {(['all', 'slow', 'frequent'] as Filter[]).map(f => (
-              <button key={f} onClick={() => setFilter(f)} style={{
+              <Button key={f} variant="ghost" onClick={() => setFilter(f)} style={{
                 padding: '6px 12px', borderRadius: 7, border: `1px solid ${filter === f ? GG.accent + '55' : GG.lineStrong}`,
                 background: filter === f ? `${GG.accent}18` : 'transparent', color: filter === f ? GG.accent : GG.fg3,
                 fontFamily: GG.mono, fontSize: 11, fontWeight: 700, textTransform: 'capitalize', cursor: 'pointer',
-              }}>{f}</button>
+              }}>{f}</Button>
             ))}
           </div>
         </div>
 
         <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: GG.bg2, textAlign: 'left' }}>
+          <Table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 12 }}>
+            <TableHeader>
+              <TableRow style={{ background: GG.bg2, textAlign: 'left' }}>
                 {['Query', 'Calls', 'Avg', 'Total', 'Rows', 'Impact'].map(h => (
-                  <th key={h} style={{ padding: '9px 14px', color: GG.fg4, fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</th>
+                  <TableHead key={h} style={{ padding: '9px 14px', color: GG.fg4, fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtered.map(q => (
-                <tr key={q.fingerprint} onClick={() => setSelected(q)} style={{ cursor: 'pointer', borderTop: `1px solid ${GG.line}` }}>
-                  <td style={{ padding: '9px 14px', color: GG.fg2, maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</td>
-                  <td style={{ padding: '9px 14px', color: GG.fg2 }}>{q.calls.toLocaleString()}</td>
-                  <td style={{ padding: '9px 14px', color: GG.fg2 }}>{q.avgMs.toFixed(0)}ms</td>
-                  <td style={{ padding: '9px 14px', color: GG.fg2 }}>{(q.totalMs / 1000).toFixed(1)}s</td>
-                  <td style={{ padding: '9px 14px', color: GG.fg2 }}>{q.rows === null ? '—' : q.rows.toLocaleString()}</td>
-                  <td style={{ padding: '9px 14px', color: impactColor(q.impact), fontWeight: 700, textTransform: 'capitalize' }}>{q.impact}</td>
-                </tr>
+                <TableRow key={q.fingerprint} onClick={() => setSelected(q)} style={{ cursor: 'pointer', borderTop: `1px solid ${GG.line}` }}>
+                  <TableCell style={{ padding: '9px 14px', color: GG.fg2, maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</TableCell>
+                  <TableCell style={{ padding: '9px 14px', color: GG.fg2 }}>{q.calls.toLocaleString()}</TableCell>
+                  <TableCell style={{ padding: '9px 14px', color: GG.fg2 }}>{q.avgMs.toFixed(0)}ms</TableCell>
+                  <TableCell style={{ padding: '9px 14px', color: GG.fg2 }}>{(q.totalMs / 1000).toFixed(1)}s</TableCell>
+                  <TableCell style={{ padding: '9px 14px', color: GG.fg2 }}>{q.rows === null ? '—' : q.rows.toLocaleString()}</TableCell>
+                  <TableCell style={{ padding: '9px 14px', color: impactColor(q.impact), fontWeight: 700, textTransform: 'capitalize' }}>{q.impact}</TableCell>
+                </TableRow>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} style={{ padding: 20, textAlign: 'center', color: GG.fg4 }}>No queries match this filter.</td></tr>
+                <TableRow><TableCell colSpan={6} style={{ padding: 20, textAlign: 'center', color: GG.fg4 }}>No queries match this filter.</TableCell></TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 
@@ -99,7 +102,7 @@ export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
         <div style={{ width: '100%', background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, padding: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
             <div style={{ fontFamily: GG.mono, fontSize: 13, fontWeight: 700, color: GG.fg }}>Query Details</div>
-            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 0, color: GG.fg3, cursor: 'pointer' }}><X size={16} /></button>
+            <Button variant="ghost" onClick={() => setSelected(null)} style={{ background: 'none', border: 0, color: GG.fg3, cursor: 'pointer' }}><X size={16} /></Button>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 24 }}>

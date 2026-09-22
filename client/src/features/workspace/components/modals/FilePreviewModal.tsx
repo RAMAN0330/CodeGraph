@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../../../shared/components/Icon';
 import { getFilePreviewIconName, highlightSyntax } from '../../../analysis/services/parser';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const LANGUAGE_LABELS: Record<string, string> = {
   js: 'JavaScript', jsx: 'JavaScript (JSX)', mjs: 'JavaScript', cjs: 'JavaScript',
@@ -67,8 +69,12 @@ export default function FilePreviewModal({ filePreview, onClose }: Props) {
   }
 
   return (
-    <div className="file-preview-overlay" onClick={onClose}>
-      <div className="file-preview-modal" onClick={e => e.stopPropagation()}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="file-preview-modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none sm:max-w-none"
+        style={{ position: 'fixed' }}
+        showCloseButton={false}
+      >
         <div className="file-preview-header">
           <div className="file-preview-title">
             <span className="file-preview-icon"><Icon name={getFilePreviewIconName(filePreview.filename)} size="l" /></span>
@@ -87,12 +93,12 @@ export default function FilePreviewModal({ filePreview, onClose }: Props) {
             )}
             {filePreview.line && <span className="file-preview-badge file-preview-badge-line">Line {filePreview.line}</span>}
             {!filePreview.loading && !filePreview.error && filePreview.content && (
-              <button className="file-preview-copy" onClick={handleCopy} title="Copy file contents">
+              <Button variant="ghost" className="file-preview-copy" onClick={handleCopy} title="Copy file contents">
                 <Icon name={copied ? 'check' : 'copy'} size="s" />
                 <span>{copied ? 'Copied' : 'Copy'}</span>
-              </button>
+              </Button>
             )}
-            <button className="file-preview-close" onClick={onClose} title="Close">×</button>
+            <Button variant="ghost" className="file-preview-close" onClick={onClose} title="Close">×</Button>
           </div>
         </div>
         <div className="file-preview-content" ref={contentRef}>
@@ -121,7 +127,7 @@ export default function FilePreviewModal({ filePreview, onClose }: Props) {
             </pre>
           ) : null}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

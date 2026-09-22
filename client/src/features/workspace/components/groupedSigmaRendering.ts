@@ -1,6 +1,6 @@
 import type { NodeLabelDrawingFunction } from 'sigma/rendering';
 
-export const LABEL_COLOR = '#d8dee9';
+export const LABEL_COLOR = '#1a1d24';
 
 export const drawGroupedNodeLabel: NodeLabelDrawingFunction = (context, data, settings) => {
   if (!data.label) return;
@@ -8,7 +8,7 @@ export const drawGroupedNodeLabel: NodeLabelDrawingFunction = (context, data, se
   context.textBaseline = 'middle';
   const x = data.x + data.size + 4;
   const width = context.measureText(data.label).width;
-  context.fillStyle = '#21252b';
+  context.fillStyle = '#ffffff';
   context.fillRect(x - 3, data.y - settings.labelSize / 2 - 3, width + 6, settings.labelSize + 6);
   context.fillStyle = LABEL_COLOR;
   context.fillText(data.label, x, data.y);

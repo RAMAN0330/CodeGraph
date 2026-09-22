@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "node scripts/copy-tree-sitter-wasm.mjs"
   },
   "dependencies": {
+    "@jscpd/core": "^4.2.5",
+    "@jscpd/tokenizer": "^4.2.6",
     "@mermaid-js/layout-elk": "^0.2.2",
     "@types/diff": "^7.0.2",
     "@xyflow/react": "^12.10.2",
@@ -17,6 +20,8 @@
     "axios": "^1.15.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "cn": "^0.3.0",
     "d3": "^7.9.0",
     "d3-sankey": "^0.12.3",
     "diff": "^9.0.0",
@@ -28,13 +33,16 @@
     "lucide-react": "^1.14.0",
     "lz-string": "^1.5.0",
     "mermaid": "^11.16.1",
+    "radix-ui": "^1.6.7",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.18.2",
     "react-virtuoso": "^4.18.6",
     "reactflow": "^11.11.4",
     "sigma": "^3.0.3",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "0.25.10"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -47,6 +55,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
+    "dependency-cruiser": "^18.2.0",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",

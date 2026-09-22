@@ -26,6 +26,123 @@
         ],
         "createdAt": "2026-09-05T19:39:39.905Z",
         "reason": "pre-existing icon-to-pill hover-expand buttons (workspace-create-button, project-create-pill); small contained width transition on a tiny element, not page layout thrash, and not code touched by this session's theme-color change"
+      },
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:01:49.266Z",
+        "reason": "pre-existing .landing-grid hairline overlay, unchanged by the Unfolding Map redesign; matches the site-wide dot/line-grid canvas motif already ignored for OrganizationPages.css and AnalysisLoader.css, and the hero now hosts an actual SVG dependency-graph canvas, not decoration"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#000",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:04.879Z",
+        "reason": "mask-image gradient stop in .landing-grid (pre-existing, unchanged); mask luminance value, not a rendered UI color"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0,0,0,.55)",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:04.931Z",
+        "reason": "mask-image gradient stop in .landing-grid (pre-existing, unchanged); mask luminance value, not a rendered UI color"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "9px",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:05.271Z",
+        "reason": "pre-existing .landing-brand-mark/.unfold-stage-icon chip radius, unchanged by this redesign; used the same way elsewhere in the app before DESIGN.md's rounded scale was extracted"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "7px",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:05.410Z",
+        "reason": "pre-existing .landing-sign-in radius, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".84rem",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:05.464Z",
+        "reason": "pre-existing nav-link/secondary-link size, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".88rem",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:05.512Z",
+        "reason": "pre-existing .landing-primary button size, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "1.08rem",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:05.553Z",
+        "reason": "pre-existing .landing-lede size, unchanged by this redesign (was briefly drifted to 1.06rem during the rebuild, restored to the original value)"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "2.25rem",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:05.598Z",
+        "reason": "pre-existing .landing-close h2 clamp endpoint, unchanged by this redesign"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "9.5px",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:05.640Z",
+        "reason": "model decision: new SVG graph-node monospace micro-label, intentionally below the documented type ramp for legible text at this node scale"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "10px",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:05.679Z",
+        "reason": "model decision: new SVG root-node monospace label, intentionally below the documented type ramp for legible text at this node scale"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": ".78rem",
+        "files": [
+          "client/src/features/landing/pages/LandingPage.css"
+        ],
+        "createdAt": "2026-09-08T19:10:05.718Z",
+        "reason": "model decision: new risk-signal chip copy; matches the app's existing informal micro-copy sizing convention (e.g. .67rem monospace labels, .84rem nav links) rather than the formal display/headline/body ramp"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "*",
+        "files": [
+          "client/src/features/analysis/services/parser.ts"
+        ],
+        "createdAt": "2026-09-10T17:17:30.833Z",
+        "reason": "model decision: pre-existing getDialogTone() helper, untouched by any edit this session, predates the Structrace design system; raw rgba() dialog tints unrelated to the test-failure/analysis-engine work in progress"
       }
     ]
   }

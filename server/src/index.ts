@@ -110,7 +110,7 @@ if (githubAuthEnabled) {
       scope: ['user', 'repo'],
       state: true as unknown as string,
       passReqToCallback: true,
-      customHeaders: { 'User-Agent': 'GraphKeep' },
+      customHeaders: { 'User-Agent': 'Structrace' },
     } as any,
     (async (req: any, accessToken: string, _refreshToken: string, profile: any, done: Function) => {
       if (!req.user) return done(null, false);

@@ -1,6 +1,6 @@
 <div align="center">
 
-# GraphKeep
+# Structrace
 
 ### Turn any repository into an explorable engineering workspace
 
@@ -39,9 +39,9 @@ Architecture graphs, Git intelligence, database visualization, and security anal
 
 ## Overview
 
-**GraphKeep** is a full-stack platform for software engineers and engineering leads who need to make sense of an unfamiliar or rapidly changing codebase.
+**Structrace** is a full-stack platform for software engineers and engineering leads who need to make sense of an unfamiliar or rapidly changing codebase.
 
-You connect a GitHub account, select a repository, and GraphKeep builds a persistent workspace around it: a navigable architecture graph, a file-level dependency explorer, contributor and ownership history, database schema visualization, and a security and quality assessment — all backed by an asynchronous analysis pipeline that keeps large repositories responsive.
+You connect a GitHub account, select a repository, and Structrace builds a persistent workspace around it: a navigable architecture graph, a file-level dependency explorer, contributor and ownership history, database schema visualization, and a security and quality assessment — all backed by an asynchronous analysis pipeline that keeps large repositories responsive.
 
 ### Design Principles
 
@@ -208,7 +208,7 @@ Database credentials attached to a project are encrypted at rest using `DB_CREDE
 
 ## System Architecture
 
-GraphKeep is a four-tier system: a React client, a Go edge gateway, a Node.js application API, and a Python analysis engine, backed by PostgreSQL and Redis.
+Structrace is a four-tier system: a React client, a Go edge gateway, a Node.js application API, and a Python analysis engine, backed by PostgreSQL and Redis.
 
 ```mermaid
 flowchart TD
@@ -607,6 +607,17 @@ cd server-go && go test ./...
 
 Static analysis runs through **CodeQL** on push, pull request, and a weekly schedule.
 
+## Change-impact analysis
+
+`scripts/impact.mjs` answers "if I change this file, what else is affected, and which tests actually cover it?" for `client/src`. It builds a real import graph with `dependency-cruiser` (not this app's own analysis engine — that graph is call-based, not import-based) and cross-checks the result against `tests/*.test.mjs`, including the `vite.ssrLoadModule('/src/...')` string-literal pattern those tests use instead of static imports.
+
+```bash
+npm run impact -- features/workspace/legacy/LegacyWorkspaceEngine.tsx
+npm run impact -- --json features/workspace/legacy/LegacyWorkspaceEngine.tsx   # machine-readable, e.g. for a pre-commit/CI check
+```
+
+Output: direct dependencies, direct importers, transitive dependents grouped by hop count, and any test that loads the file itself or something in its blast radius. Paths are relative to `client/src`. If a path doesn't resolve, it suggests near matches.
+
 ---
 
 ## Contributing
@@ -633,6 +644,6 @@ Released under the **MIT License**.
 
 <div align="center">
 
-**GraphKeep** — Make codebase structure legible at a glance.
+**Structrace** — Make codebase structure legible at a glance.
 
 </div>

@@ -1,5 +1,8 @@
 import { Icon } from '../../../../shared/components/Icon';
 import { DEFAULT_EXCLUDE_CHIPS, parseExcludePatterns } from '../../../analysis/services/parser';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Props {
   draft: string;
@@ -11,13 +14,17 @@ interface Props {
 
 export default function ExcludePatternModal({ draft, onDraftChange, onClose, onSave, launchFolderAfterSave }: Props) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="modal p-0 gap-0 border-0 rounded-none shadow-none bg-transparent max-w-none sm:max-w-none"
+        style={{ maxWidth: 540 }}
+        showCloseButton={false}
+      >
         <div className="modal-header">
           <div className="modal-title"><Icon name="ban" size="m" /> Exclude Patterns</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div className="exclude-count">{parseExcludePatterns(draft).length} custom</div>
-            <button className="modal-close" onClick={onClose}>×</button>
+            <Button variant="ghost" className="modal-close hover:bg-transparent h-auto p-0" onClick={onClose}>×</Button>
           </div>
         </div>
         <div className="modal-body">
@@ -37,7 +44,7 @@ export default function ExcludePatternModal({ draft, onDraftChange, onClose, onS
           </div>
           <div className="form-group">
             <label className="form-label">Custom Patterns</label>
-            <textarea
+            <Textarea
               className="form-input exclude-textarea"
               aria-label="Custom exclude patterns"
               placeholder={'attachments\nuploads/**\n**/cache/**\n*.png\n*.log'}
@@ -49,11 +56,11 @@ export default function ExcludePatternModal({ draft, onDraftChange, onClose, onS
           </div>
         </div>
         <div className="modal-footer">
-          {draft && <button className="top-btn" onClick={() => onDraftChange('')} style={{ marginRight: 'auto' }}>Clear Custom</button>}
-          <button className="top-btn" onClick={onClose}>Cancel</button>
-          <button className="top-btn primary" onClick={onSave}>{launchFolderAfterSave ? 'Save & Continue' : 'Save'}</button>
+          {draft && <Button className="top-btn h-auto" onClick={() => onDraftChange('')} style={{ marginRight: 'auto' }}>Clear Custom</Button>}
+          <Button className="top-btn h-auto" onClick={onClose}>Cancel</Button>
+          <Button className="top-btn primary h-auto" onClick={onSave}>{launchFolderAfterSave ? 'Save & Continue' : 'Save'}</Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

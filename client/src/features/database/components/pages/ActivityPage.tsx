@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { GG, GGErrorBanner } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import type { ActivityEvent } from '../../types';
+import { Button } from '@/components/ui/button';
 
 const KIND_LABEL: Record<ActivityEvent['kind'], string> = {
   slow_query: 'Slow Query', connection_opened: 'Connection opened', connection_closed: 'Connection closed',
@@ -33,11 +34,11 @@ export default function ActivityPage({ projectId, paused }: ActivityPageProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
       <div style={{ display: 'flex', gap: 4 }}>
         {FILTERS.map(f => (
-          <button key={f.id} onClick={() => setFilter(f.id)} style={{
+          <Button key={f.id} variant="ghost" onClick={() => setFilter(f.id)} style={{
             padding: '6px 12px', borderRadius: 7, border: `1px solid ${filter === f.id ? GG.accent + '55' : GG.lineStrong}`,
             background: filter === f.id ? `${GG.accent}18` : 'transparent', color: filter === f.id ? GG.accent : GG.fg3,
             fontFamily: GG.mono, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-          }}>{f.label}</button>
+          }}>{f.label}</Button>
         ))}
       </div>
       <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, overflow: 'hidden' }}>

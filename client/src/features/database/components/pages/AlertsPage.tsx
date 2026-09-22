@@ -2,6 +2,9 @@ import { useCallback, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { GG, GGErrorBanner, ggInput, ggLabel } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Tab = 'active' | 'resolved' | 'rules';
 
@@ -50,11 +53,11 @@ export default function AlertsPage({ projectId, paused }: AlertsPageProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', paddingBottom: 24 }}>
       <div style={{ display: 'flex', gap: 4 }}>
         {(['active', 'resolved', 'rules'] as Tab[]).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
+          <Button key={t} variant="ghost" onClick={() => setTab(t)} style={{
             padding: '7px 14px', borderRadius: 7, border: `1px solid ${tab === t ? GG.accent + '55' : GG.lineStrong}`,
             background: tab === t ? `${GG.accent}18` : 'transparent', color: tab === t ? GG.accent : GG.fg3,
             fontFamily: GG.mono, fontSize: 11.5, fontWeight: 700, textTransform: 'capitalize', cursor: 'pointer',
-          }}>{t}</button>
+          }}>{t}</Button>
         ))}
       </div>
 
@@ -97,16 +100,16 @@ export default function AlertsPage({ projectId, paused }: AlertsPageProps) {
               </select>
             </div>
             <div>
-              <label style={ggLabel}>Threshold</label>
-              <input style={{ ...ggInput, width: 100 }} value={threshold} onChange={e => setThreshold(e.target.value)} />
+              <Label htmlFor="alert-rule-threshold" style={ggLabel}>Threshold</Label>
+              <Input id="alert-rule-threshold" style={{ ...ggInput, width: 100 }} value={threshold} onChange={e => setThreshold(e.target.value)} />
             </div>
             <div>
-              <label style={ggLabel}>For (minutes)</label>
-              <input style={{ ...ggInput, width: 90 }} value={forMinutes} onChange={e => setForMinutes(e.target.value)} />
+              <Label htmlFor="alert-rule-for-minutes" style={ggLabel}>For (minutes)</Label>
+              <Input id="alert-rule-for-minutes" style={{ ...ggInput, width: 90 }} value={forMinutes} onChange={e => setForMinutes(e.target.value)} />
             </div>
-            <button type="submit" disabled={saving} style={{ height: 38, padding: '0 16px', background: GG.accent, border: 'none', borderRadius: 8, color: '#181a1f', fontFamily: GG.mono, fontSize: 12, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Button type="submit" disabled={saving} style={{ height: 38, padding: '0 16px', background: GG.accent, border: 'none', borderRadius: 8, color: '#ffffff', fontFamily: GG.mono, fontSize: 12, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Plus size={14} /> Add rule
-            </button>
+            </Button>
           </form>
           {formError && <GGErrorBanner msg={formError} />}
           {rulesError && <GGErrorBanner msg={rulesError} />}
@@ -119,7 +122,7 @@ export default function AlertsPage({ projectId, paused }: AlertsPageProps) {
                 <span style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg2 }}>
                   {METRIC_OPTIONS.find(m => m.id === rule.metric)?.label ?? rule.metric} {rule.condition === 'gt' ? '>' : '<'} {rule.threshold} for {rule.forMinutes}m
                 </span>
-                <button onClick={() => removeRule(rule.id)} style={{ background: 'none', border: 0, color: GG.fg4, cursor: 'pointer' }}><Trash2 size={14} /></button>
+                <Button variant="ghost" onClick={() => removeRule(rule.id)} style={{ background: 'none', border: 0, color: GG.fg4, cursor: 'pointer' }}><Trash2 size={14} /></Button>
               </div>
             ))}
           </div>

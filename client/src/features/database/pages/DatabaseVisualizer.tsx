@@ -10,9 +10,28 @@ import { appConfig } from '../../../app/config';
 import { organizationStore } from '../../organization/services/organizationStore';
 import { TopbarAccount } from '../../organization/components/TopbarAccount';
 import { GG, ggInput, ggLabel, MiniSchemaPreview, GGErrorBanner } from '../components/dbConnectTheme';
+import AnalysisLoader, { type AnalysisStage } from '../../../shared/components/AnalysisLoader';
 import '../../organization/pages/OrganizationPages.css';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 const API = appConfig.apiUrl;
+
+const DATABASE_STAGES: AnalysisStage[] = [
+  { id: 'restore', label: 'Restore project' },
+  { id: 'connect', label: 'Open connection' },
+  { id: 'schema', label: 'Read schema' },
+  { id: 'diagram', label: 'Build diagram' },
+];
+
+const DB_STAGE_DETAIL = [
+  'Reading the saved project record…',
+  'Authenticating with your stored credentials…',
+  'Listing tables, columns and keys…',
+  'Resolving relations for the diagram…',
+];
 
 interface SchemaColumn { name: string; type: string; nullable: boolean; isPrimary: boolean; }
 interface SchemaFK { column: string; referencedTable: string; referencedColumn: string; }
@@ -93,14 +112,20 @@ export default function DatabaseVisualizer() {
   const [savingConnection, setSavingConnection] = useState(false);
   const [connectionMessage, setConnectionMessage] = useState('');
 
+  const [dbStage, setDbStage] = useState(0);
+
   useEffect(() => {
     if (!projectId) return;
     const id = Number(projectId);
     setLoading(true);
     setError(null);
-    Promise.all([organizationStore.fetchProjectSchema(id), organizationStore.load()])
+    setDbStage(0);
+    const projectLoad = organizationStore.load();
+    projectLoad.then(() => setDbStage(stage => Math.max(stage, 1)));
+    Promise.all([organizationStore.fetchProjectSchema(id), projectLoad])
       .then(([schemaRes, state]) => {
         if (!schemaRes.success) throw new Error(schemaRes.error || 'Could not load schema.');
+        setDbStage(2);
         setSchema(schemaRes.schema);
         const project = state.projects.find(p => p.id === id);
         if (project) {
@@ -413,39 +438,43 @@ export default function DatabaseVisualizer() {
       <header className="organization-topbar" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
         <div className="organization-brand">
           <span className="organization-brand-mark"><GitBranch size={20} /></span>
-          <button
+          <Button
+            variant="ghost"
             className="picker-back"
             onClick={() => navigate(projectId && projectWorkspaceId ? `/workspaces/${projectWorkspaceId}/projects` : '/workspace')}
           >
             {projectId ? 'Projects' : 'Workspace'}
-          </button>
+          </Button>
           <span className="organization-brand-divider">/</span>
           <strong>{projectId ? (projectName || 'Database') : 'Database visualizer'}</strong>
         </div>
         <div className="topbar-actions">
           {schema && migrationApps.length > 0 && (
-            <button
+            <Button
+              variant="ghost"
               onClick={() => { setMigrationApp(selectedApp !== 'all' ? selectedApp : migrationApps[0] || 'all'); setShowMigrationEditor(true); }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg2, fontSize: 12, fontFamily: GG.mono, cursor: 'pointer' }}
             >
               <FileCode size={14} /> Migration
-            </button>
+            </Button>
           )}
           {schema && projectId && (
-            <button
+            <Button
+              variant="ghost"
               onClick={() => { setConnectionMessage(''); setPassword(''); setEditingConnection(true); }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg2, fontSize: 12, fontFamily: GG.mono, cursor: 'pointer' }}
             >
               <Settings2 size={14} /> Edit connection
-            </button>
+            </Button>
           )}
           {schema && !projectId && (
-            <button
+            <Button
+              variant="ghost"
               onClick={() => { setSchema(null); setError(null); setSqlFileName(''); resetRepo(); }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg2, fontSize: 12, fontFamily: GG.mono, cursor: 'pointer' }}
             >
               <LayoutDashboard size={14} /> New Connection
-            </button>
+            </Button>
           )}
           <TopbarAccount />
         </div>
@@ -472,35 +501,19 @@ export default function DatabaseVisualizer() {
 
       {/* ── Saved project: standard full-screen loading / error state ── */}
       {projectId && !schema ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, padding: 32, textAlign: 'center' }}>
-          {loading ? (
-            <>
-              <span style={{ width: 52, height: 52, display: 'grid', placeItems: 'center', borderRadius: 14, border: `1px solid ${GG.lineStrong}`, background: `${GG.accent}0d` }}>
-                <Loader size={22} color={GG.accent} style={{ animation: 'spin 1s linear infinite' }} />
-              </span>
-              <div>
-                <h1 style={{ margin: '0 0 6px', fontFamily: GG.sans, fontSize: 17, fontWeight: 700, color: GG.fg }}>Loading {projectName || 'database'}</h1>
-                <p style={{ margin: 0, fontFamily: GG.sans, fontSize: 13, color: GG.fg3 }}>Connecting with your saved credentials…</p>
-              </div>
-            </>
-          ) : (
-            <>
-              <span style={{ width: 52, height: 52, display: 'grid', placeItems: 'center', borderRadius: 14, border: '1px solid rgba(224,108,117,.35)', background: 'rgba(224,108,117,.08)' }}>
-                <Settings2 size={22} color="var(--color-danger)" />
-              </span>
-              <div>
-                <h1 style={{ margin: '0 0 6px', fontFamily: GG.sans, fontSize: 17, fontWeight: 700, color: GG.fg }}>Could not connect</h1>
-                <p style={{ margin: '0 0 18px', fontFamily: GG.sans, fontSize: 13, color: GG.fg3, maxWidth: 380 }}>{error || 'Could not load this database project.'}</p>
-              </div>
-              <button
-                onClick={() => { setConnectionMessage(''); setPassword(''); setEditingConnection(true); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 16px', background: GG.accent, border: 'none', borderRadius: 8, color: '#181a1f', fontFamily: GG.sans, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-              >
-                <Settings2 size={14} /> Edit connection
-              </button>
-            </>
-          )}
-        </div>
+        <AnalysisLoader
+          kind="database"
+          subject={projectName || 'this database'}
+          facts={[dbType === 'mysql' ? 'MySQL' : 'PostgreSQL', database ? `${database} on ${host}` : `on ${host}`]}
+          stages={DATABASE_STAGES}
+          activeIndex={dbStage}
+          detail={DB_STAGE_DETAIL[dbStage]}
+          error={loading ? null : error || 'Could not load this database project.'}
+          retryLabel="Edit connection"
+          onRetry={() => { setConnectionMessage(''); setPassword(''); setEditingConnection(true); }}
+          onWorkspace={() => navigate('/workspaces')}
+          onProject={projectWorkspaceId ? () => navigate(`/workspaces/${projectWorkspaceId}/projects`) : undefined}
+        />
       ) : !schema ? (
         <div style={{ flex: 1, padding: '0 32px 32px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box' as const }}>
           <div style={{
@@ -522,8 +535,9 @@ export default function DatabaseVisualizer() {
                 {SOURCES.map(src => {
                   const active = activeSourceId === src.id;
                   return (
-                    <button
+                    <Button
                       key={src.id}
+                      variant="ghost"
                       onClick={() => {
                         setActiveSourceId(src.id);
                         setConnectType(src.connectType);
@@ -548,7 +562,7 @@ export default function DatabaseVisualizer() {
                         <div style={{ fontFamily: GG.sans, fontSize: 13, color: active ? GG.accent : GG.fg2, fontWeight: active ? 600 : 400 }}>{src.label}</div>
                       </div>
                       {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: GG.accent, flexShrink: 0 }} />}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -587,7 +601,7 @@ export default function DatabaseVisualizer() {
                   {/* DB type pills */}
                   <div style={{ display: 'flex', gap: 8 }}>
                     {(['postgres', 'mysql'] as const).map(t => (
-                      <button key={t} onClick={() => { setDbType(t); setPort(t === 'postgres' ? '5432' : '3306'); }} style={{
+                      <Button key={t} variant="ghost" onClick={() => { setDbType(t); setPort(t === 'postgres' ? '5432' : '3306'); }} style={{
                         flex: 1, padding: '7px 0',
                         background: dbType === t ? `${GG.info}18` : GG.bg1,
                         border: `1px solid ${dbType === t ? GG.info + '55' : GG.lineStrong}`,
@@ -596,34 +610,34 @@ export default function DatabaseVisualizer() {
                         transition: 'all 0.15s',
                       }}>
                         {t === 'postgres' ? '🐘 PostgreSQL' : '🐬 MySQL'}
-                      </button>
+                      </Button>
                     ))}
                   </div>
 
                   <div style={{ display: 'flex', gap: 12 }}>
                     <div style={{ flex: 2 }}>
-                      <label style={ggLabel}>Host</label>
-                      <input style={ggInput} value={host} onChange={e => setHost(e.target.value)} placeholder="localhost" />
+                      <Label htmlFor="dbviz-host" style={ggLabel}>Host</Label>
+                      <Input id="dbviz-host" style={ggInput} value={host} onChange={e => setHost(e.target.value)} placeholder="localhost" />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={ggLabel}>Port</label>
-                      <input style={ggInput} value={port} onChange={e => setPort(e.target.value)} placeholder={dbType === 'postgres' ? '5432' : '3306'} />
+                      <Label htmlFor="dbviz-port" style={ggLabel}>Port</Label>
+                      <Input id="dbviz-port" style={ggInput} value={port} onChange={e => setPort(e.target.value)} placeholder={dbType === 'postgres' ? '5432' : '3306'} />
                     </div>
                   </div>
 
                   <div>
-                    <label style={ggLabel}>Database</label>
-                    <input style={ggInput} value={database} onChange={e => setDatabase(e.target.value)} placeholder="my_database" />
+                    <Label htmlFor="dbviz-database" style={ggLabel}>Database</Label>
+                    <Input id="dbviz-database" style={ggInput} value={database} onChange={e => setDatabase(e.target.value)} placeholder="my_database" />
                   </div>
 
                   <div style={{ display: 'flex', gap: 12 }}>
                     <div style={{ flex: 1 }}>
-                      <label style={ggLabel}>Username</label>
-                      <input style={ggInput} value={user} onChange={e => setUser(e.target.value)} placeholder={dbType === 'postgres' ? 'postgres' : 'root'} />
+                      <Label htmlFor="dbviz-user" style={ggLabel}>Username</Label>
+                      <Input id="dbviz-user" style={ggInput} value={user} onChange={e => setUser(e.target.value)} placeholder={dbType === 'postgres' ? 'postgres' : 'root'} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={ggLabel}>Password</label>
-                      <input type="password" style={ggInput} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
+                      <Label htmlFor="dbviz-password" style={ggLabel}>Password</Label>
+                      <Input id="dbviz-password" type="password" style={ggInput} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
                     </div>
                   </div>
 
@@ -648,7 +662,7 @@ export default function DatabaseVisualizer() {
                   {error && <GGErrorBanner msg={error} />}
 
                   <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                    <button
+                    <Button
                       onClick={connect}
                       disabled={loading || !database}
                       style={{
@@ -663,8 +677,9 @@ export default function DatabaseVisualizer() {
                       }}
                     >
                       {loading ? <><Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> connecting…</> : <><Play size={14} /> connect & analyze ↵</>}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="ghost"
                       onClick={() => { /* test only */ connect(); }}
                       disabled={loading || !database}
                       style={{
@@ -677,7 +692,7 @@ export default function DatabaseVisualizer() {
                       }}
                     >
                       test connection
-                    </button>
+                    </Button>
                   </div>
                 </motion.div>
               )}
@@ -708,7 +723,7 @@ export default function DatabaseVisualizer() {
                         or click to browse — supports PostgreSQL & MySQL dumps
                       </p>
                     </div>
-                    <input ref={fileInputRef} type="file" accept=".sql,.txt" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) parseSqlFile(f); }} />
+                    <Input ref={fileInputRef} type="file" accept=".sql,.txt" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) parseSqlFile(f); }} />
                   </div>
                   {error && <GGErrorBanner msg={error} />}
                   {loading && (
@@ -730,15 +745,15 @@ export default function DatabaseVisualizer() {
                         files, then pick which apps to visualize.
                       </p>
                       <div>
-                        <label style={ggLabel}>GitHub Repository URL</label>
-                        <input style={ggInput} value={repoUrl} onChange={e => setRepoUrl(e.target.value)} placeholder="owner/repo or https://github.com/owner/repo" />
+                        <Label htmlFor="dbviz-repo-url" style={ggLabel}>GitHub Repository URL</Label>
+                        <Input id="dbviz-repo-url" style={ggInput} value={repoUrl} onChange={e => setRepoUrl(e.target.value)} placeholder="owner/repo or https://github.com/owner/repo" />
                       </div>
                       <div>
-                        <label style={ggLabel}>
+                        <Label htmlFor="dbviz-repo-token" style={ggLabel}>
                           Personal Access Token{' '}
                           <span style={{ color: GG.fg4, textTransform: 'none', letterSpacing: 0 }}>(optional, for private repos)</span>
-                        </label>
-                        <input type="password" style={ggInput} value={repoToken} onChange={e => setRepoToken(e.target.value)} placeholder="ghp_..." />
+                        </Label>
+                        <Input id="dbviz-repo-token" type="password" style={ggInput} value={repoToken} onChange={e => setRepoToken(e.target.value)} placeholder="ghp_..." />
                       </div>
                       {repoStatus && (
                         <div style={{ color: GG.fg3, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, fontFamily: GG.mono }}>
@@ -747,7 +762,7 @@ export default function DatabaseVisualizer() {
                       )}
                       {error && <GGErrorBanner msg={error} />}
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <button
+                        <Button
                           onClick={scanGitHubRepo}
                           disabled={loading || !repoUrl.trim()}
                           style={{
@@ -761,8 +776,9 @@ export default function DatabaseVisualizer() {
                           }}
                         >
                           {loading ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> scanning…</> : <><GitBranch size={14} /> Scan GitHub Repo</>}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
                           onClick={scanLocalFolder}
                           disabled={loading}
                           style={{
@@ -775,7 +791,7 @@ export default function DatabaseVisualizer() {
                           }}
                         >
                           <FolderOpen size={14} /> Local Folder
-                        </button>
+                        </Button>
                       </div>
                     </>
                   )}
@@ -786,13 +802,13 @@ export default function DatabaseVisualizer() {
                         <span style={{ fontSize: 12, color: GG.fg3, fontFamily: GG.mono }}>
                           {appFolders.length} app{appFolders.length !== 1 ? 's' : ''} found — select which to visualize
                         </span>
-                        <button onClick={resetRepo} style={{ background: 'none', border: 'none', color: GG.fg3, cursor: 'pointer', fontSize: 12, fontFamily: GG.mono }}>← back</button>
+                        <Button variant="ghost" onClick={resetRepo} style={{ background: 'none', border: 'none', color: GG.fg3, cursor: 'pointer', fontSize: 12, fontFamily: GG.mono }}>← back</Button>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
                         {appFolders.map(app => {
                           const sel = selectedApps.has(app.path);
                           return (
-                            <button key={app.path} onClick={() => toggleApp(app.path)} style={{
+                            <Button key={app.path} variant="ghost" onClick={() => toggleApp(app.path)} style={{
                               display: 'flex', alignItems: 'center', gap: 10,
                               padding: '9px 12px',
                               background: sel ? `${GG.magenta}14` : GG.bg1,
@@ -812,13 +828,13 @@ export default function DatabaseVisualizer() {
                                 <div style={{ color: GG.fg4, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: GG.mono }}>{app.path}</div>
                               </div>
                               <span style={{ color: GG.fg4, fontSize: 11, flexShrink: 0, fontFamily: GG.mono }}>{app.filePaths.length}f</span>
-                            </button>
+                            </Button>
                           );
                         })}
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button onClick={() => setSelectedApps(new Set(appFolders.map(f => f.path)))} style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg3, fontSize: 11, fontFamily: GG.mono, cursor: 'pointer' }}>all</button>
-                        <button onClick={() => setSelectedApps(new Set())} style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg3, fontSize: 11, fontFamily: GG.mono, cursor: 'pointer' }}>none</button>
+                        <Button variant="ghost" onClick={() => setSelectedApps(new Set(appFolders.map(f => f.path)))} style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg3, fontSize: 11, fontFamily: GG.mono, cursor: 'pointer' }}>all</Button>
+                        <Button variant="ghost" onClick={() => setSelectedApps(new Set())} style={{ padding: '4px 10px', background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 6, color: GG.fg3, fontSize: 11, fontFamily: GG.mono, cursor: 'pointer' }}>none</Button>
                       </div>
                       {repoStatus && (
                         <div style={{ color: GG.fg3, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, fontFamily: GG.mono }}>
@@ -826,7 +842,7 @@ export default function DatabaseVisualizer() {
                         </div>
                       )}
                       {error && <GGErrorBanner msg={error} />}
-                      <button
+                      <Button
                         onClick={parseSelectedApps}
                         disabled={loading || selectedApps.size === 0}
                         style={{
@@ -840,7 +856,7 @@ export default function DatabaseVisualizer() {
                         }}
                       >
                         {loading ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> parsing…</> : <><ChevronRight size={14} /> Visualize {selectedApps.size} app{selectedApps.size !== 1 ? 's' : ''}</>}
-                      </button>
+                      </Button>
                     </>
                   )}
                 </motion.div>
@@ -940,7 +956,7 @@ export default function DatabaseVisualizer() {
           {/* Toolbar */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: '0 0 260px' }}>
-              <input
+              <Input
                 value={graphSearch}
                 onChange={e => { setGraphSearch(e.target.value); setFocusedTable(null); }}
                 placeholder="search tables or columns…"
@@ -962,8 +978,9 @@ export default function DatabaseVisualizer() {
             </span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {(visibleSchema?.tables || schema.tables).slice(0, 6).map(t => (
-                <button
+                <Button
                   key={t.name}
+                  variant="ghost"
                   onClick={() => setFocusedTable(prev => prev === t.name ? null : t.name)}
                   style={{
                     padding: '4px 10px',
@@ -975,7 +992,7 @@ export default function DatabaseVisualizer() {
                   }}
                 >
                   {t.name}
-                </button>
+                </Button>
               ))}
               {(visibleSchema?.tables.length || 0) > 6 && (
                 <span style={{ padding: '4px 10px', color: GG.fg4, fontSize: 11, fontFamily: GG.mono }}>
@@ -989,7 +1006,7 @@ export default function DatabaseVisualizer() {
           <div style={{ flex: 1, background: GG.panel, borderRadius: 12, border: `1px solid ${GG.lineStrong}`, overflow: 'hidden', position: 'relative', minHeight: 600, height: 'calc(100vh - 220px)' }}>
             {/* Search bar above diagram */}
             <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 10, display: 'flex', gap: 8 }}>
-              <input
+              <Input
                 value={graphSearch}
                 onChange={e => { setGraphSearch(e.target.value); setFocusedTable(null); }}
                 placeholder="search schema…"
@@ -1039,12 +1056,12 @@ export default function DatabaseVisualizer() {
                 <div style={{ color: GG.fg, fontWeight: 700, fontSize: 14, fontFamily: GG.mono }}>Edit connection</div>
                 <div style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.sans }}>Saved encrypted — re-enter the password to change or verify it.</div>
               </div>
-              <button onClick={() => setEditingConnection(false)} style={{ background: 'none', border: 'none', color: GG.fg3, cursor: 'pointer' }}><X size={18} /></button>
+              <Button variant="ghost" onClick={() => setEditingConnection(false)} style={{ background: 'none', border: 'none', color: GG.fg3, cursor: 'pointer' }}><X size={18} /></Button>
             </div>
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', gap: 8 }}>
                 {(['postgres', 'mysql'] as const).map(t => (
-                  <button key={t} onClick={() => { setDbType(t); }} style={{
+                  <Button key={t} variant="ghost" onClick={() => { setDbType(t); }} style={{
                     flex: 1, padding: '7px 0',
                     background: dbType === t ? `${GG.info}18` : GG.bg1,
                     border: `1px solid ${dbType === t ? GG.info + '55' : GG.lineStrong}`,
@@ -1052,37 +1069,37 @@ export default function DatabaseVisualizer() {
                     fontFamily: GG.mono, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   }}>
                     {t === 'postgres' ? '🐘 PostgreSQL' : '🐬 MySQL'}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 2 }}>
-                  <label style={ggLabel}>Host</label>
-                  <input style={ggInput} value={host} onChange={e => setHost(e.target.value)} />
+                  <Label htmlFor="dbviz-edit-host" style={ggLabel}>Host</Label>
+                  <Input id="dbviz-edit-host" style={ggInput} value={host} onChange={e => setHost(e.target.value)} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={ggLabel}>Port</label>
-                  <input style={ggInput} value={port} onChange={e => setPort(e.target.value)} />
+                  <Label htmlFor="dbviz-edit-port" style={ggLabel}>Port</Label>
+                  <Input id="dbviz-edit-port" style={ggInput} value={port} onChange={e => setPort(e.target.value)} />
                 </div>
               </div>
               <div>
-                <label style={ggLabel}>Database</label>
-                <input style={ggInput} value={database} onChange={e => setDatabase(e.target.value)} />
+                <Label htmlFor="dbviz-edit-database" style={ggLabel}>Database</Label>
+                <Input id="dbviz-edit-database" style={ggInput} value={database} onChange={e => setDatabase(e.target.value)} />
               </div>
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <label style={ggLabel}>Username</label>
-                  <input style={ggInput} value={user} onChange={e => setUser(e.target.value)} />
+                  <Label htmlFor="dbviz-edit-user" style={ggLabel}>Username</Label>
+                  <Input id="dbviz-edit-user" style={ggInput} value={user} onChange={e => setUser(e.target.value)} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={ggLabel}>Password</label>
-                  <input type="password" style={ggInput} value={password} onChange={e => setPassword(e.target.value)} placeholder="Re-enter to change" />
+                  <Label htmlFor="dbviz-edit-password" style={ggLabel}>Password</Label>
+                  <Input id="dbviz-edit-password" type="password" style={ggInput} value={password} onChange={e => setPassword(e.target.value)} placeholder="Re-enter to change" />
                 </div>
               </div>
               <Toggle label="SSL" value={sslEnabled} onChange={setSslEnabled} />
               {connectionMessage && <GGErrorBanner msg={connectionMessage} />}
               <div style={{ display: 'flex', gap: 10 }}>
-                <button
+                <Button
                   onClick={() => void saveConnectionAndReconnect()}
                   disabled={savingConnection || !host.trim() || !database.trim() || !user.trim() || !password}
                   style={{
@@ -1096,14 +1113,15 @@ export default function DatabaseVisualizer() {
                   }}
                 >
                   {savingConnection ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> saving…</> : <><Check size={14} /> Save & reconnect</>}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => setEditingConnection(false)}
                   disabled={savingConnection}
                   style={{ padding: '0 16px', height: 38, background: 'transparent', border: `1px solid ${GG.lineStrong}`, borderRadius: 8, color: GG.fg3, fontFamily: GG.mono, fontSize: 12, cursor: 'pointer' }}
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1126,11 +1144,12 @@ export default function DatabaseVisualizer() {
                 <div style={{ color: GG.fg, fontWeight: 700, fontSize: 14, fontFamily: GG.mono }}>Django migration editor</div>
                 <div style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.sans }}>Drafted from the parsed model schema. Review it before running it in your Django project.</div>
               </div>
-              <button onClick={() => setShowMigrationEditor(false)} style={{ background: 'none', border: 'none', color: GG.fg3, cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+              <Button variant="ghost" onClick={() => setShowMigrationEditor(false)} style={{ background: 'none', border: 'none', color: GG.fg3, cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</Button>
             </div>
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${GG.lineStrong}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.mono }}>App</label>
+              <Label htmlFor="dbviz-migration-app" style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.mono }}>App</Label>
               <select
+                id="dbviz-migration-app"
                 value={migrationApp}
                 onChange={e => setMigrationApp(e.target.value)}
                 style={{ ...ggInput, width: 180, height: 32, fontSize: 12 }}
@@ -1138,8 +1157,9 @@ export default function DatabaseVisualizer() {
                 <option value="all">All parsed apps</option>
                 {migrationApps.map(app => <option key={app} value={app}>{app}</option>)}
               </select>
-              <label style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.mono }}>Name</label>
-              <input
+              <Label htmlFor="dbviz-migration-name" style={{ color: GG.fg3, fontSize: 12, fontFamily: GG.mono }}>Name</Label>
+              <Input
+                id="dbviz-migration-name"
                 value={migrationName}
                 onChange={e => setMigrationName(e.target.value.replace(/[^\w]/g, '_'))}
                 style={{ ...ggInput, width: 240, height: 32, fontSize: 12 }}
@@ -1148,7 +1168,7 @@ export default function DatabaseVisualizer() {
                 python manage.py makemigrations{migrationApp !== 'all' ? ` ${migrationApp}` : ''}
               </code>
             </div>
-            <textarea
+            <Textarea
               value={migrationDraft}
               onChange={e => setMigrationDraft(e.target.value)}
               spellCheck={false}
@@ -1174,11 +1194,13 @@ export default function DatabaseVisualizer() {
 // ── Toggle component ─────────────────────────────────────────────────────────
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button
+    <Button
+      variant="ghost"
       onClick={() => onChange(!value)}
       style={{
         display: 'flex', alignItems: 'center', gap: 8,
         background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+        height: 'auto',
       }}
     >
       <div style={{
@@ -1195,7 +1217,7 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
         }} />
       </div>
       <span style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg3 }}>{label}</span>
-    </button>
+    </Button>
   );
 }
 
@@ -1257,7 +1279,7 @@ ${fields}
         ),`;
   }).join('\n');
 
-  return `# Generated by GraphKeep migration editor.
+  return `# Generated by Structrace migration editor.
 # Suggested file name: ${migrationName}.py
 # Scope: ${apps}
 

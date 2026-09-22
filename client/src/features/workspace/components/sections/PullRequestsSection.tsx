@@ -1,4 +1,6 @@
 import { GitPullRequest } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface Props {
   prUrl: string;
@@ -13,14 +15,14 @@ export default function PullRequestsSection({ prUrl, onPrUrlChange, onLoadPr }: 
         <span className="pr-icon"><GitPullRequest size={22} strokeWidth={1.7} /></span>
         <h1>PR Review</h1>
         <p>Paste a GitHub pull request URL to review its change risk against this repository's analysis.</p>
-        <input
+        <Input
           type="text"
           placeholder="https://github.com/owner/repo/pull/123"
           value={prUrl}
           onChange={e => onPrUrlChange(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && prUrl) onLoadPr(); }}
         />
-        <button onClick={onLoadPr} disabled={!prUrl}>Load PR</button>
+        <Button onClick={onLoadPr} disabled={!prUrl}>Load PR</Button>
       </div>
     </div>
   );
