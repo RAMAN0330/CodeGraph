@@ -30,7 +30,7 @@
   overflow: hidden;
   background-color: var(--bg-canvas);
   color: var(--text-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-sans);
 }
 
 .db-content {

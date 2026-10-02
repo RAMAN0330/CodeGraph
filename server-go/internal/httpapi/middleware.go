@@ -39,7 +39,7 @@ func chain(handler http.Handler, middleware ...middleware) http.Handler {
 	return handler
 }
 
-func rateLimit(requestsPerSecond int) middleware {
+func rateLimit(requestsPerSecond int, trustProxyHeader bool) middleware {
 	type visitor struct {
 		count  int
 		window time.Time
@@ -53,11 +53,16 @@ func rateLimit(requestsPerSecond int) middleware {
 				return
 			}
 			now := time.Now()
-			key, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				key = r.RemoteAddr
-			}
+			key := clientKey(r, trustProxyHeader)
 			mu.Lock()
+			// Drop expired windows so the map can't grow without bound.
+			if len(visitors) > 10000 {
+				for ip, v := range visitors {
+					if now.Sub(v.window) >= time.Second {
+						delete(visitors, ip)
+					}
+				}
+			}
 			current := visitors[key]
 			if now.Sub(current.window) >= time.Second {
 				current = visitor{window: now}
@@ -74,6 +79,19 @@ func rateLimit(requestsPerSecond int) middleware {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func clientKey(r *http.Request, trustProxyHeader bool) string {
+	if trustProxyHeader {
+		if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+			return realIP
+		}
+	}
+	key, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return key
 }
 
 func recoverer(next http.Handler) http.Handler {
@@ -102,7 +120,7 @@ func cors(origin string) middleware {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)
 				return

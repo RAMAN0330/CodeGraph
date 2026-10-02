@@ -35,6 +35,10 @@ import { recordAnalysisSnapshot } from '../services/analysisHistory';
 import { buildArchitectureGraph } from '../services/architectureGraph';
 import { adaptGraphifyGraph } from '../../analysis/services/graphifyAdapter';
 import CommandPalette from '../components/CommandPalette';
+import { WORKSPACE_MODULES } from '../config/workspaceModules';
+
+// Every workspace view, flattened for the command palette's "Go to" group.
+const PALETTE_SECTIONS = WORKSPACE_MODULES.flatMap(function(module){ return module.tools.map(function(tool){ return { id: tool.id, label: tool.label, description: tool.description, group: module.label }; }); });
 import { decodeShareLink } from '../../export/services/exporters';
 import { extractManifestDependencies } from '../../security/services/manifestParser';
 import { scanDependencies } from '../../security/services/osv';
@@ -361,6 +365,7 @@ export default function LegacyWorkspaceEngine(){
         if (!targetUrl) return;
         fetch(`${API}/api/analyze`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: targetUrl, token, branch: branchOverride || currentBranch || 'main' })
         }).then(res => res.json()).then(resp => {
@@ -1270,6 +1275,12 @@ export default function LegacyWorkspaceEngine(){
           files: ((data as any).files)||[],
           functions: ((data as any).functions)||[],
           folders: ((data as any).folders)||[],
+          sections: PALETTE_SECTIONS,
+          scopeKey: repoInfo ? repoInfo.owner+'/'+repoInfo.repo : 'local',
+          onSelectSection: function(sectionId: string){
+            setActiveSection(sectionId);
+            setShowPalette(false);
+          },
           onSelectFile: function(file: any){
             setActiveSection('explorer');
             openExplorerFile(file.path);
@@ -1282,6 +1293,7 @@ export default function LegacyWorkspaceEngine(){
           },
           onSelectFolder: function(folder: any){
             setActiveSection('explorer');
+            setFolderFilter(folder);
             setShowPalette(false);
           },
           onClose: function(){ setShowPalette(false); },

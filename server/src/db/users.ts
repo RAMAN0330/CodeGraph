@@ -1,4 +1,5 @@
 import { pool } from './pool';
+import { encryptSecret, revealSecret } from '../services/credentialCipher';
 
 export type UserRow = {
   id: number;
@@ -43,14 +44,19 @@ export function toPublicUser(row: UserRow): PublicUser {
   };
 }
 
+function withRevealedToken(row: UserRow | undefined): UserRow | null {
+  if (!row) return null;
+  return { ...row, github_token: revealSecret(row.github_token) };
+}
+
 export async function findUserByUsername(username: string): Promise<UserRow | null> {
   const result = await pool.query<UserRow>(`${USER_SELECT} WHERE u.username = $1`, [username]);
-  return result.rows[0] ?? null;
+  return withRevealedToken(result.rows[0]);
 }
 
 export async function findUserById(id: number): Promise<UserRow | null> {
   const result = await pool.query<UserRow>(`${USER_SELECT} WHERE u.id = $1`, [id]);
-  return result.rows[0] ?? null;
+  return withRevealedToken(result.rows[0]);
 }
 
 export async function createOrganizationWithAdmin(organizationName: string, username: string, passwordHash: string): Promise<UserRow> {
@@ -85,7 +91,7 @@ export async function createOrganizationWithAdmin(organizationName: string, user
 export async function setGithubConnection(userId: number, github: { login: string; avatarUrl: string; token: string }): Promise<UserRow> {
   await pool.query(
     'UPDATE users SET github_login = $1, github_avatar_url = $2, github_token = $3 WHERE id = $4',
-    [github.login, github.avatarUrl, github.token, userId],
+    [github.login, github.avatarUrl, encryptSecret(github.token), userId],
   );
   const updated = await findUserById(userId);
   if (!updated) throw new Error('User not found after updating GitHub connection.');

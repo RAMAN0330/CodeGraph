@@ -12,6 +12,9 @@ type Config struct {
 	MaxBodyBytes                                    int64
 	RateLimitPerSecond                              int
 	MaxConcurrentRequests                           int
+	// TrustProxyHeader keys rate limiting on X-Real-IP (set by the nginx
+	// front end) instead of the TCP peer, which behind nginx is always nginx.
+	TrustProxyHeader bool
 }
 
 func Load() Config {
@@ -22,6 +25,7 @@ func Load() Config {
 		LegacyAPIURL:          value("LEGACY_API_URL", "http://localhost:5001"),
 		RateLimitPerSecond:    integer("RATE_LIMIT_RPS", 50),
 		MaxConcurrentRequests: integer("MAX_CONCURRENT_REQUESTS", 256),
+		TrustProxyHeader:      value("TRUST_PROXY_HEADER", "") == "true",
 		ReadTimeout:           15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 }

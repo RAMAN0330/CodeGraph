@@ -45,12 +45,12 @@ Allowed node kinds are `ui`, `api`, `service`, `data`, `infrastructure`, `test`,
 
 ## Rendering
 
-- Compile the validated architecture graph to Mermaid flowchart syntax with ELK layout.
-- Escape all identifiers and text before compilation.
-- Render Mermaid in strict security mode and sanitize the generated SVG.
-- Draw groups as subgraphs and components as typed nodes.
-- Clicking a component opens its primary repository path through the existing file inspector.
-- Hovering a component shows its description and supporting paths.
+- Render the validated architecture graph directly as React SVG (`architectureLayout.ts` + `ArchitectureDiagram.tsx`); no generated markup is injected, so React escapes all text.
+- Groups are stacked swimlanes; a component's column is its dependency depth, so the request path reads left to right while stepping down the lanes.
+- Connectors are orthogonal and routed only through empty gutters and channels between cards, so no connector passes under a component.
+- Cards are colored and iconed by kind, with a legend and per-kind counts.
+- Clicking a component traces it (direct neighbours, downstream, or upstream reach) and dims everything else; double-click or Enter opens its details. Clicking a legend entry highlights that kind.
+- `Copy Mermaid` still exports the Mermaid flowchart compiled from the same graph.
 
 ## Page Layout
 

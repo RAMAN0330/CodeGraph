@@ -89,3 +89,75 @@ test('compiles safe Mermaid rather than raw labels', async () => {
   assert.doesNotMatch(mermaid, /alert\(1\)/i);
   assert.match(mermaid, /App/);
 });
+
+// An axis-aligned segment crosses a card when it overlaps the card's interior.
+function segmentHitsCard([x1, y1], [x2, y2], card) {
+  const inset = 1;
+  const left = card.x + inset, right = card.x + card.w - inset, top = card.y + inset, bottom = card.y + card.h - inset;
+  return Math.max(x1, x2) > left && Math.min(x1, x2) < right && Math.max(y1, y2) > top && Math.min(y1, y2) < bottom;
+}
+
+function assertCleanLayout(graph, layout) {
+  assert.equal(layout.nodes.length, graph.nodes.length);
+  assert.equal(new Set(layout.nodes.map(item => item.node.id)).size, graph.nodes.length);
+  for (const [i, a] of layout.nodes.entries()) {
+    for (const b of layout.nodes.slice(i + 1)) {
+      const apart = a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+      assert.ok(apart, `${a.node.id} overlaps ${b.node.id}`);
+    }
+    const lane = layout.lanes.find(item => item.id === a.node.groupId);
+    assert.ok(a.x >= lane.x && a.x + a.w <= lane.x + lane.w && a.y >= lane.y && a.y + a.h <= lane.y + lane.h, `${a.node.id} sits outside its lane`);
+  }
+  assert.equal(layout.edges.length, graph.edges.length);
+  const byId = new Map(layout.nodes.map(item => [item.node.id, item]));
+  for (const route of layout.edges) {
+    const { points } = route;
+    const source = byId.get(route.edge.source);
+    const target = byId.get(route.edge.target);
+    assert.equal(points[0][0], source.x + source.w, 'leaves from the source card');
+    assert.equal(points.at(-1)[0], target.x, 'arrives at the target card');
+    for (let i = 1; i < points.length; i++) {
+      const [a, b] = [points[i - 1], points[i]];
+      assert.ok(a[0] === b[0] || a[1] === b[1], `${route.edge.id} has a diagonal segment`);
+      for (const card of layout.nodes) assert.ok(!segmentHitsCard(a, b, card), `${route.edge.id} passes under ${card.node.id}`);
+    }
+  }
+}
+
+test('lays out lanes and routes every connector around the cards', async () => {
+  const { buildArchitectureGraph } = await vite.ssrLoadModule('/src/features/workspace/services/architectureGraph.ts');
+  const { layoutArchitecture } = await vite.ssrLoadModule('/src/features/workspace/services/architectureLayout.ts');
+  const graph = buildArchitectureGraph(files, [
+    { source: 'src/ui/App.tsx', target: 'src/api/routes.ts' },
+    { from: 'src/api/routes.ts', to: 'src/services/auth.ts' },
+    { from: 'src/services/auth.ts', to: 'src/db/models.ts' },
+    { from: 'src/db/models.ts', to: 'src/ui/App.tsx' },
+  ]);
+  const layout = layoutArchitecture(graph);
+  assertCleanLayout(graph, layout);
+  assert.deepEqual(layout.lanes.map(lane => lane.id), graph.groups.map(group => group.id));
+  const col = id => layout.nodes.find(item => item.node.id === id).col;
+  for (const edge of graph.edges.slice(0, 3)) assert.ok(col(edge.target) > col(edge.source), 'the request path reads left to right');
+  assert.deepEqual(layoutArchitecture(graph), layout, 'layout is deterministic');
+});
+
+test('keeps a dense, cyclic graph readable at the component bounds', async () => {
+  const { buildArchitectureGraph } = await vite.ssrLoadModule('/src/features/workspace/services/architectureGraph.ts');
+  const { layoutArchitecture } = await vite.ssrLoadModule('/src/features/workspace/services/architectureLayout.ts');
+  const layers = ['components', 'routes', 'services', 'models', 'config', 'tests'];
+  const manyFiles = Array.from({ length: 90 }, (_, i) => ({ path: `src/feature${i}/index.ts`, name: 'index.ts', layer: layers[i % layers.length] }));
+  const manyConnections = manyFiles.flatMap((file, i) => [1, 3, 11, 29, 47].map(step => ({ source: file.path, target: manyFiles[(i + step) % 90].path })));
+  const graph = buildArchitectureGraph(manyFiles, manyConnections);
+  assert.equal(graph.nodes.length, 60);
+  assert.equal(graph.edges.length, 120);
+  assertCleanLayout(graph, layoutArchitecture(graph));
+});
+
+test('traces downstream and upstream reach through cycles', async () => {
+  const { reachable } = await vite.ssrLoadModule('/src/features/workspace/services/architectureLayout.ts');
+  const graph = { edges: [
+    { source: 'a', target: 'b' }, { source: 'b', target: 'c' }, { source: 'c', target: 'a' }, { source: 'd', target: 'b' },
+  ] };
+  assert.deepEqual([...reachable(graph, 'b', 'downstream')].sort(), ['a', 'c']);
+  assert.deepEqual([...reachable(graph, 'b', 'upstream')].sort(), ['a', 'c', 'd']);
+});

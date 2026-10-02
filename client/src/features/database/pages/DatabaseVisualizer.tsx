@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, Play, LayoutDashboard, Loader, FolderOpen, GitBranch, ChevronRight, Check, FileCode, Wand2, Settings2, X } from 'lucide-react';
+import { Upload, Play, LayoutDashboard, Loader, FolderOpen, GitBranch, ChevronRight, Check, FileCode, Wand2, Settings2, X, Database as DatabaseIcon, FileCode2, FolderGit2, Table2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ERDiagramGraph from '../components/ERDiagramGraph';
 import DatabaseDashboard from './DatabaseDashboard';
@@ -46,15 +46,18 @@ function dbTablesToSchema(tables: ReturnType<typeof parseDjangoModels>): SchemaT
 }
 
 // ── Source tile definitions ──────────────────────────────────────────────────
+// `available: false` sources are shown as upcoming rather than wired to a
+// driver that can't actually read them (they previously fell through to the
+// PostgreSQL client).
 const SOURCES = [
-  { id: 'postgres',  label: 'PostgreSQL',  icon: '🐘', connectType: 'credentials' as const, dbType: 'postgres'  as const },
-  { id: 'mysql',     label: 'MySQL',       icon: '🐬', connectType: 'credentials' as const, dbType: 'mysql'     as const },
-  { id: 'sqlite',    label: 'SQLite',      icon: '🗃',  connectType: 'file'        as const, dbType: null },
-  { id: 'mongo',     label: 'MongoDB',     icon: '🍃', connectType: 'credentials' as const, dbType: 'postgres'  as const },
-  { id: 'sqldump',   label: 'SQL Dump',    icon: '📄', connectType: 'file'        as const, dbType: null },
-  { id: 'repo',      label: 'From Repo',   icon: '🗂',  connectType: 'repo'        as const, dbType: null },
-  { id: 'csv',       label: 'CSV',         icon: '📊', connectType: 'file'        as const, dbType: null },
-  { id: 'snowflake', label: 'Snowflake',   icon: '❄️', connectType: 'credentials' as const, dbType: 'postgres'  as const },
+  { id: 'postgres',  label: 'PostgreSQL',  icon: DatabaseIcon, connectType: 'credentials' as const, dbType: 'postgres'  as const, available: true },
+  { id: 'mysql',     label: 'MySQL',       icon: DatabaseIcon, connectType: 'credentials' as const, dbType: 'mysql'     as const, available: true },
+  { id: 'sqldump',   label: 'SQL Dump',    icon: FileCode2,    connectType: 'file'        as const, dbType: null, available: true },
+  { id: 'repo',      label: 'From Repo',   icon: FolderGit2,   connectType: 'repo'        as const, dbType: null, available: true },
+  { id: 'sqlite',    label: 'SQLite',      icon: DatabaseIcon, connectType: 'file'        as const, dbType: null, available: false },
+  { id: 'mongo',     label: 'MongoDB',     icon: DatabaseIcon, connectType: 'credentials' as const, dbType: null, available: false },
+  { id: 'csv',       label: 'CSV',         icon: Table2,       connectType: 'file'        as const, dbType: null, available: false },
+  { id: 'snowflake', label: 'Snowflake',   icon: DatabaseIcon, connectType: 'credentials' as const, dbType: null, available: false },
 ];
 
 export default function DatabaseVisualizer() {
@@ -213,9 +216,12 @@ export default function DatabaseVisualizer() {
       const endpoint = dbType === 'postgres' ? '/api/db/connect/postgres' : '/api/db/connect/mysql';
       const res = await fetch(API + endpoint, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ host, port, database, user, password }),
       });
+      if (res.status === 401) throw new Error('Sign in to connect a live database. SQL files and pasted schemas work without an account.');
+      if (res.status === 429) throw new Error('Too many connection attempts. Wait a minute and try again.');
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Connection failed');
       setSchema(data.schema);
@@ -513,6 +519,7 @@ export default function DatabaseVisualizer() {
           onRetry={() => { setConnectionMessage(''); setPassword(''); setEditingConnection(true); }}
           onWorkspace={() => navigate('/workspaces')}
           onProject={projectWorkspaceId ? () => navigate(`/workspaces/${projectWorkspaceId}/projects`) : undefined}
+          onBack={() => navigate(projectWorkspaceId ? `/workspaces/${projectWorkspaceId}/projects` : '/workspaces')}
         />
       ) : !schema ? (
         <div style={{ flex: 1, padding: '0 32px 32px', maxWidth: 1400, width: '100%', margin: '0 auto', boxSizing: 'border-box' as const }}>
@@ -538,6 +545,8 @@ export default function DatabaseVisualizer() {
                     <Button
                       key={src.id}
                       variant="ghost"
+                      disabled={!src.available}
+                      aria-pressed={active}
                       onClick={() => {
                         setActiveSourceId(src.id);
                         setConnectType(src.connectType);
@@ -552,16 +561,18 @@ export default function DatabaseVisualizer() {
                         background: active ? `${GG.accent}18` : 'transparent',
                         border: `1px solid ${active ? GG.accent + '44' : 'transparent'}`,
                         borderRadius: 8,
-                        cursor: 'pointer',
+                        cursor: src.available ? 'pointer' : 'not-allowed',
+                        opacity: src.available ? 1 : 0.5,
                         textAlign: 'left',
                         transition: 'all 0.15s',
                       }}
                     >
-                      <span style={{ fontSize: 16, lineHeight: 1 }}>{src.icon}</span>
+                      <src.icon size={15} color={active ? GG.accent : GG.fg3} style={{ flexShrink: 0 }} aria-hidden="true" />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontFamily: GG.sans, fontSize: 13, color: active ? GG.accent : GG.fg2, fontWeight: active ? 600 : 400 }}>{src.label}</div>
                       </div>
                       {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: GG.accent, flexShrink: 0 }} />}
+                      {!src.available && <span style={{ fontFamily: GG.mono, fontSize: 9, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Soon</span>}
                     </Button>
                   );
                 })}
@@ -582,9 +593,7 @@ export default function DatabaseVisualizer() {
             <div style={{ background: GG.bg2, padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
               {/* Form header */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 20 }}>
-                  {SOURCES.find(s => s.id === activeSourceId)?.icon ?? '🔌'}
-                </span>
+                {(() => { const Icon = SOURCES.find(s => s.id === activeSourceId)?.icon ?? DatabaseIcon; return <Icon size={20} color={GG.accent} aria-hidden="true" />; })()}
                 <div>
                   <div style={{ fontFamily: GG.mono, fontSize: 14, color: GG.fg, fontWeight: 700 }}>
                     connect to {SOURCES.find(s => s.id === activeSourceId)?.label?.toLowerCase() ?? connectType}

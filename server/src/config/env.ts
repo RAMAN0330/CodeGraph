@@ -22,6 +22,10 @@ export const env = Object.freeze({
   openaiApiKey: process.env.OPENAI_API_KEY ?? '',
   openaiModel: process.env.OPENAI_MODEL ?? 'gpt-5-mini',
   repoCacheTtlMs: integer(process.env.REPO_CACHE_TTL_MS, 6 * 60 * 60 * 1000),
+  // Number of reverse proxies in front of this process (nginx + Go gateway in
+  // the compose stacks). Determines which X-Forwarded-For entry is the client
+  // IP that rate limits key on; too low makes every user share one limit.
+  trustProxyHops: integer(process.env.TRUST_PROXY_HOPS, 1),
 });
 
 export function validateEnvironment(): void {

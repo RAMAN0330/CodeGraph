@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'framer-motion';
 import {
@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Minus, Network, Plus, PlugZap, ShieldCheck, Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { parseRepositoryInput, savePendingRepository } from '../../organization/services/pendingRepository';
 import './LandingPage.css';
 
 function StructraceMark() {
@@ -193,11 +194,88 @@ function SecurityPanel() {
   );
 }
 
-const METRICS = [
-  { value: '6', label: 'files traced in one pass' },
-  { value: '5', label: 'signals joined in one graph' },
-  { value: '2', label: 'database engines connected' },
+// ---- Overview: one repository traced into every signal the workspace joins ----
+// Each annotation is a door into its module, so the hero graph is also the
+// fastest way to explore the rail below it.
+type TraceSignal = { id: string; module: ModuleId; label: string; detail: string; x: number; y: number; tone: 'cyan' | 'purple' | 'amber' | 'red' };
+const TRACE_ROOT = { x: 86, y: 118 };
+const TRACE_DIRS = [
+  { id: 'auth/', x: 300, y: 50 }, { id: 'api/', x: 300, y: 118 }, { id: 'billing/', x: 300, y: 186 },
 ];
+const TRACE_FILES = [
+  { id: 'session.ts', dir: 'auth/', x: 520, y: 50 }, { id: 'router.ts', dir: 'api/', x: 520, y: 118 }, { id: 'invoice.ts', dir: 'billing/', x: 520, y: 186 },
+];
+const TRACE_SIGNALS: TraceSignal[] = [
+  { id: 'deps', module: 'architecture', label: '14 imports', detail: 'auth/ → api/', x: 790, y: 34, tone: 'cyan' },
+  { id: 'owner', module: 'insights', label: 'Platform team', detail: 'owns 41%', x: 790, y: 84, tone: 'purple' },
+  { id: 'risk', module: 'security', label: '1 risk', detail: 'router.ts', x: 790, y: 134, tone: 'red' },
+  { id: 'schema', module: 'database', label: 'users table', detail: 'read by invoice.ts', x: 790, y: 184, tone: 'amber' },
+];
+const TRACE_SIGNAL_FILE: Record<string, string> = { deps: 'session.ts', owner: 'session.ts', risk: 'router.ts', schema: 'invoice.ts' };
+
+function HeroTrace({ onOpen }: { onOpen: (module: ModuleId) => void }) {
+  const reduceMotion = useReducedMotion();
+  const fileFor = (id: string) => TRACE_FILES.find(file => file.id === id)!;
+  const dirFor = (id: string) => TRACE_DIRS.find(dir => dir.id === id)!;
+  const curve = (x1: number, y1: number, x2: number, y2: number) => `M${x1} ${y1} C${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`;
+  return (
+    <div className="hero-trace">
+      <motion.svg
+        viewBox="0 0 1000 236" className="hero-trace-svg" role="group" aria-label="acme/api traced into dependencies, ownership, risk and schema"
+        variants={containerVariants} initial={reduceMotion ? 'visible' : 'hidden'} animate="visible"
+      >
+        <g aria-hidden="true">
+          {TRACE_DIRS.map(dir => <motion.path key={dir.id} d={curve(TRACE_ROOT.x + 62, TRACE_ROOT.y, dir.x - 50, dir.y)} className="trace-edge" variants={drawVariants} />)}
+          {TRACE_FILES.map(file => <motion.path key={file.id} d={curve(dirFor(file.dir).x + 50, file.y, file.x - 58, file.y)} className="trace-edge" variants={drawVariants} />)}
+          {TRACE_SIGNALS.map(signal => {
+            const file = fileFor(TRACE_SIGNAL_FILE[signal.id]);
+            return <motion.path key={signal.id} d={curve(file.x + 58, file.y, signal.x - 92, signal.y)} className={`trace-edge trace-edge-${signal.tone}`} variants={drawVariants} />;
+          })}
+          <motion.g variants={popVariants} style={{ transformBox: 'fill-box' }}>
+            <rect x={TRACE_ROOT.x - 62} y={TRACE_ROOT.y - 17} width={124} height={34} rx={8} className="trace-root" />
+            <text x={TRACE_ROOT.x} y={TRACE_ROOT.y + 4.5} textAnchor="middle" className="trace-root-label">acme/api</text>
+          </motion.g>
+          {TRACE_DIRS.map(dir => (
+            <motion.g key={dir.id} variants={popVariants} style={{ transformBox: 'fill-box' }}>
+              <rect x={dir.x - 50} y={dir.y - 14} width={100} height={28} rx={6} className="trace-dir" />
+              <text x={dir.x} y={dir.y + 4} textAnchor="middle" className="trace-dir-label">{dir.id}</text>
+            </motion.g>
+          ))}
+          {TRACE_FILES.map(file => (
+            <motion.g key={file.id} variants={popVariants} style={{ transformBox: 'fill-box' }}>
+              <rect x={file.x - 58} y={file.y - 14} width={116} height={28} rx={6} className={file.id === 'router.ts' ? 'trace-file trace-file-risk' : 'trace-file'} />
+              <text x={file.x} y={file.y + 4} textAnchor="middle" className="trace-file-label">{file.id}</text>
+            </motion.g>
+          ))}
+        </g>
+        {TRACE_SIGNALS.map(signal => (
+          <motion.g
+            key={signal.id} variants={popVariants} style={{ transformBox: 'fill-box' }}
+            className={`trace-signal trace-signal-${signal.tone}`} role="button" tabIndex={0}
+            aria-label={`${signal.label}, ${signal.detail}. Open ${signal.module}`}
+            onClick={() => onOpen(signal.module)}
+            onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpen(signal.module); } }}
+          >
+            <rect x={signal.x - 92} y={signal.y - 19} width={196} height={38} rx={8} />
+            <circle cx={signal.x - 74} cy={signal.y} r={4} />
+            <text x={signal.x - 62} y={signal.y - 2} className="trace-signal-label">{signal.label}</text>
+            <text x={signal.x - 62} y={signal.y + 11} className="trace-signal-detail">{signal.detail}</text>
+          </motion.g>
+        ))}
+      </motion.svg>
+      <ul className="hero-trace-list" aria-label="Signals in acme/api">
+        {TRACE_SIGNALS.map(signal => (
+          <li key={signal.id}>
+            <button type="button" className={`trace-chip trace-signal-${signal.tone}`} onClick={() => onOpen(signal.module)}>
+              <i aria-hidden="true" /><strong>{signal.label}</strong><span>{signal.detail}</span><ArrowRight size={13} aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="hero-trace-caption">Example repository. Select a signal to open its module.</p>
+    </div>
+  );
+}
 
 const COMPARISON = [
   { row: 'Understanding structure', without: 'grep and manual file-hopping', with: 'one navigable dependency graph' },
@@ -226,15 +304,60 @@ const MODULES: ExplorerModule[] = [
   { id: 'security', icon: ShieldCheck, label: 'Security', description: 'Risk, surfaced', file: 'security/scan.ts', accent: 'red' },
 ];
 
+function ConnectForm({ onSubmit }: { onSubmit: (repository: string) => void }) {
+  const [value, setValue] = useState('');
+  const [error, setError] = useState('');
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!value.trim()) { onSubmit(''); return; }
+    const repository = parseRepositoryInput(value);
+    if (!repository) { setError('Use owner/repository or a github.com link.'); return; }
+    onSubmit(repository);
+  };
+  return (
+    <form className="connect-body" onSubmit={submit} noValidate>
+      <label className="connect-input">
+        <GitBranch size={15} aria-hidden="true" />
+        <span className="sr-only">GitHub repository</span>
+        <input
+          value={value}
+          onChange={event => { setValue(event.target.value); setError(''); }}
+          placeholder="github.com/acme/api"
+          autoComplete="off" spellCheck={false} inputMode="url"
+          aria-invalid={!!error} aria-describedby={error ? 'connect-error' : undefined}
+        />
+      </label>
+      <Button type="submit" className="landing-primary">Analyze <ArrowRight size={16} /></Button>
+      {error && <p id="connect-error" className="connect-error" role="alert">{error}</p>}
+    </form>
+  );
+}
+
 export default function LandingPage() {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const [active, setActive] = useState<ModuleId>('overview');
 
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const start = () => navigate('/login');
+  const startWithRepository = (repository: string) => {
+    if (repository) savePendingRepository(repository);
+    navigate('/login');
+  };
   const activeModule = MODULES.find(m => m.id === active)!;
+  // Roving focus for the capability tabs (WAI-ARIA tabs pattern).
+  const onRailKeyDown = (event: React.KeyboardEvent, index: number) => {
+    const last = MODULES.length - 1;
+    const next = event.key === 'ArrowDown' || event.key === 'ArrowRight' ? (index === last ? 0 : index + 1)
+      : event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? (index === 0 ? last : index - 1)
+      : event.key === 'Home' ? 0 : event.key === 'End' ? last : -1;
+    if (next < 0) return;
+    event.preventDefault();
+    setActive(MODULES[next].id);
+    tabRefs.current[next]?.focus();
+  };
 
-  return <main className="landing-page">
+  return <main className="landing-page" id="top">
     <nav className="landing-nav" aria-label="Main navigation">
       <a className="landing-brand" href="#top"><span className="landing-brand-mark"><StructraceMark /></span><span>Structrace</span></a>
       <div className="landing-nav-links"><a href="#explore">How it works</a><a href="#close">Get started</a></div>
@@ -243,17 +366,21 @@ export default function LandingPage() {
 
     <section className="landing-explorer" id="explore">
       <div className="explorer-rail" role="tablist" aria-label="Structrace capabilities">
-        {MODULES.map(m => {
+        {MODULES.map((m, index) => {
           const isActive = m.id === active;
           return (
             <div className={`explorer-rail-item${isActive ? ' active' : ''}${m.accent ? ` accent-${m.accent}` : ''}`} key={m.id}>
               <Button
+                ref={element => { tabRefs.current[index] = element; }}
                 variant="ghost"
                 className="explorer-rail-button"
                 role="tab"
+                id={`explorer-tab-${m.id}`}
                 aria-selected={isActive}
-                aria-expanded={isActive}
+                aria-controls="explorer-panel"
+                tabIndex={isActive ? 0 : -1}
                 onClick={() => setActive(m.id)}
+                onKeyDown={event => onRailKeyDown(event, index)}
               >
                 <span className="explorer-rail-icon"><m.icon size={16} strokeWidth={1.8} /></span>
                 <span className="explorer-rail-copy"><strong>{m.label}</strong><small>{m.description}</small></span>
@@ -264,7 +391,7 @@ export default function LandingPage() {
         })}
       </div>
 
-      <div className="explorer-pane">
+      <div className="explorer-pane" role="tabpanel" id="explorer-panel" aria-labelledby={`explorer-tab-${active}`}>
         <div className="graph-frame-topbar">
           <span className="preview-dot" />
           <span>{activeModule.file}</span>
@@ -284,11 +411,7 @@ export default function LandingPage() {
                   <h1>Structrace turns a repository into a <em>graph you can trust.</em></h1>
                   <p className="landing-lede">One analysis surfaces files, dependencies, ownership, schema, and risk together. This is that graph, not a mockup of it.</p>
                   <div className="landing-actions"><Button className="landing-primary" onClick={start}>Get started <ArrowRight size={17} /></Button><a className="landing-secondary" href="#compare">See the evidence</a></div>
-                  <div className="explorer-overview-metrics">
-                    {METRICS.map(m => (
-                      <div key={m.label} className="metric"><b>{m.value}</b><span>{m.label}</span></div>
-                    ))}
-                  </div>
+                  <HeroTrace onOpen={setActive} />
                 </div>
               ) : (
                 <div className="explorer-module-body">
@@ -347,7 +470,7 @@ export default function LandingPage() {
       >
         <span className="evidence-panel-icon"><PlugZap size={20} /></span>
         <h2>One field to start.</h2>
-        <p>Paste a repository. Structrace signs in with GitHub, indexes it once, and opens the workspace above.</p>
+        <p>Paste a repository. After you sign in, it is waiting in your first project, ready to analyze.</p>
       </motion.div>
       <motion.div
         className="connect-frame"
@@ -357,10 +480,7 @@ export default function LandingPage() {
         transition={{ duration: .5, ease: 'easeOut' }}
       >
         <div className="graph-frame-topbar"><span className="preview-dot" /><span>connect a repository</span></div>
-        <div className="connect-body">
-          <div className="connect-input"><GitBranch size={15} /><span>github.com/acme/api</span></div>
-          <Button className="landing-primary" onClick={start}>Analyze <ArrowRight size={16} /></Button>
-        </div>
+        <ConnectForm onSubmit={startWithRepository} />
       </motion.div>
     </section>
 
@@ -376,7 +496,7 @@ export default function LandingPage() {
     <section className="landing-close" id="close">
       <Sparkles size={24} />
       <h2>Bring your codebase into focus.</h2>
-      <p className="landing-close-lede"><AlertTriangle size={14} /> One signal found in <code>api/router.ts</code>: the kind of thing Structrace surfaces before it ships.</p>
+      <p className="landing-close-lede"><AlertTriangle size={14} aria-hidden="true" /><span>One signal found in <code>api/router.ts</code>: the kind of thing Structrace surfaces before it ships.</span></p>
       <Button className="landing-primary" onClick={start}>Get started <ArrowRight size={17} /></Button>
     </section>
 

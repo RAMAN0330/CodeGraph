@@ -4,6 +4,7 @@ import { ArrowRight, Database, FolderKanban, GitBranch, LogOut, Network, Refresh
 import { appConfig } from '../../../app/config';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { peekPendingRepository } from '../../organization/services/pendingRepository';
 import './WelcomePage.css';
 
 const GH_PATH = 'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z';
@@ -35,6 +36,7 @@ export default function WelcomePage() {
   const [disconnecting, setDisconnecting] = useState(false);
   const connectFailed = searchParams.get('connect') === 'failed';
   const connectUnavailable = searchParams.get('connect') === 'unavailable';
+  const pendingRepository = peekPendingRepository();
 
   const refresh = () => fetch(`${appConfig.apiUrl}/auth/me`, { credentials: 'include', cache: 'no-store' })
     .then(response => response.ok ? response.json() : null)
@@ -72,9 +74,12 @@ export default function WelcomePage() {
       </header>
 
       <section className="welcome-hero">
-        <span className="welcome-kicker"><Sparkles size={13} /> {user.organizationName}</span>
         <h1>Welcome, {user.username}.</h1>
-        <p>Connect GitHub to start analyzing repositories, or explore what Structrace can do below.</p>
+        <p>
+          {user.github
+            ? <>Signed in to {user.organizationName} with GitHub connected. Pick a workspace to start analyzing.</>
+            : <>Signed in to {user.organizationName}. Connect GitHub so Structrace can read your repositories.</>}
+        </p>
       </section>
 
       {connectFailed && <Alert variant="destructive" className="welcome-notice welcome-notice-error"><AlertDescription className="text-inherit">GitHub connection did not complete. Please try again.</AlertDescription></Alert>}
@@ -82,7 +87,9 @@ export default function WelcomePage() {
 
       {user.github ? (
         <section className="welcome-connection-card">
-          <img className="welcome-avatar" src={user.github.avatarUrl} alt="" />
+          {user.github.avatarUrl
+            ? <img className="welcome-avatar" src={user.github.avatarUrl} alt="" />
+            : <span className="welcome-avatar welcome-avatar-fallback" aria-hidden="true"><GithubIcon size={22} /></span>}
           <div className="welcome-connection-copy">
             <strong>GitHub connected</strong>
             <span>Connected as @{user.github.login}</span>
@@ -103,22 +110,26 @@ export default function WelcomePage() {
         </section>
       )}
 
-      <section className="welcome-offers">
-        <h2>What you'll get on Structrace</h2>
-        <div className="welcome-offers-grid">
-          {platformOffers.map(({ icon: Icon, title, copy }) => (
-            <article key={title} className="welcome-offer-card">
-              <span className="welcome-offer-icon"><Icon size={19} /></span>
-              <strong>{title}</strong>
-              <p>{copy}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      <div className="welcome-next">
+        <Button className="welcome-continue" onClick={() => navigate('/workspaces')}>
+          {pendingRepository ? <>Continue with {pendingRepository}</> : <>Continue to your workspaces</>} <ArrowRight size={17} />
+        </Button>
+        <p>{pendingRepository
+          ? 'Choose or create a workspace, and the repository you entered will be waiting in its new project form.'
+          : user.github ? 'Workspaces group your projects. Each project analyzes one repository or database.' : 'You can connect GitHub later. Public repositories and database projects work without it.'}</p>
+      </div>
 
-      <Button className="welcome-continue" onClick={() => navigate('/workspaces')}>
-        Continue to your workspaces <ArrowRight size={17} />
-      </Button>
+      <section className="welcome-offers" aria-labelledby="welcome-offers-title">
+        <h2 id="welcome-offers-title">Inside every workspace</h2>
+        <ul className="welcome-offers-grid">
+          {platformOffers.map(({ icon: Icon, title, copy }) => (
+            <li key={title} className="welcome-offer-card">
+              <span className="welcome-offer-icon"><Icon size={18} /></span>
+              <span><strong>{title}</strong><p>{copy}</p></span>
+            </li>
+          ))}
+        </ul>
+      </section>
     </main>
   );
 }

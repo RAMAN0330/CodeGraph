@@ -143,6 +143,186 @@
         ],
         "createdAt": "2026-09-10T17:17:30.833Z",
         "reason": "model decision: pre-existing getDialogTone() helper, untouched by any edit this session, predates the Structrace design system; raw rgba() dialog tints unrelated to the test-failure/analysis-engine work in progress"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#0d4a54",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.070Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#14532a",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.124Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#1d4488",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.186Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#1d7a3c",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.261Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#2f6fd1",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.314Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#4c2470",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.363Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#5c3d06",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.412Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#701e46",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.462Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#7a1a24",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.517Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#92600a",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.583Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#b8306f",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.638Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#c22b3a",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.711Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#e3f6f8",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.869Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#e5f5e9",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:53.946Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#e6effa",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:54.008Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#f1e9fa",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:54.064Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#faf1dc",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:54.114Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#fbe6e6",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:54.170Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#fbe9f3",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:54.221Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#141820",
+        "files": [
+          "client/src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:30:54.283Z",
+        "reason": "Claude: existing architecture node-kind palette from client/src/index.css .architecture-kind-* (and the existing rgb(20,24,32) shadow), mirrored as SVG attributes so PNG export keeps it"
       }
     ]
   }

@@ -24,6 +24,7 @@ import { getAnalysis } from './db/analysisStore';
 import { createAlertRule, deleteAlertRule, listAlertRules } from './db/metricsSnapshots';
 import { buildActivity, buildOverview, buildPerformance, buildQueries, buildReplication, buildSecurity, buildStorage } from './services/telemetry/orchestrate';
 import { enqueueAnalysisJob, getAnalysisJobState, startAnalysisWorker, stopAnalysisWorker } from './queue/analysisQueue';
+import { canReadRepository, isValidRepoSegment, parseGithubCloneUrl, sanitizeToken } from './services/repoAccess';
 
 declare global {
   namespace Express {
@@ -43,7 +44,7 @@ const redisClient = env.redisUrl ? createClient({ url: env.redisUrl }) : null;
 redisClient?.on('error', error => console.error('Redis session error:', error));
 
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', env.trustProxyHops);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
   origin: env.clientOrigin,
@@ -54,6 +55,15 @@ app.use(express.json({ limit: '10mb' }));
 const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Outbound-connection and paid-API endpoints: bounded per client so a session
+// can't be used to sweep internal hosts or burn the OpenAI budget.
+const outboundRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -141,6 +151,12 @@ passport.deserializeUser(async (id: number, done) => {
 function requireAuth(req: any, res: any, next: any) {
   if (!req.isAuthenticated?.()) return res.status(401).json({ error: 'Not authenticated' });
   next();
+}
+
+// Prefer an explicit (validated) token from the request body, falling back to
+// the GitHub connection stored on the signed-in user.
+function requestGithubToken(req: any): string | undefined {
+  return sanitizeToken(req.body?.token) ?? sanitizeToken(req.user?.github_token);
 }
 
 app.get('/health/live', (_req, res) => res.json({ status: 'ok' }));
@@ -270,7 +286,7 @@ async function introspectMysql(conn: { host: string; port: string | number; data
 }
 
 // --- PostgreSQL ---
-app.post('/api/db/connect/postgres', async (req, res) => {
+app.post('/api/db/connect/postgres', requireAuth, outboundRateLimit, async (req, res) => {
   try {
     const schema = await introspectPostgres(req.body);
     res.json({ success: true, schema });
@@ -280,7 +296,7 @@ app.post('/api/db/connect/postgres', async (req, res) => {
 });
 
 // --- MySQL ---
-app.post('/api/db/connect/mysql', async (req, res) => {
+app.post('/api/db/connect/mysql', requireAuth, outboundRateLimit, async (req, res) => {
   try {
     const schema = await introspectMysql(req.body);
     res.json({ success: true, schema });
@@ -306,9 +322,12 @@ function splitSqlDefinitions(body: string): string[] {
   return definitions.filter(Boolean);
 }
 
+const MAX_SQL_DUMP_CHARS = 5 * 1024 * 1024;
+
 app.post('/api/db/parse-sql', (req, res) => {
   const { sql } = req.body as { sql: string };
-  if (!sql) return res.status(400).json({ success: false, error: 'No SQL provided' });
+  if (!sql || typeof sql !== 'string') return res.status(400).json({ success: false, error: 'No SQL provided' });
+  if (sql.length > MAX_SQL_DUMP_CHARS) return res.status(413).json({ success: false, error: 'SQL file is too large to parse (limit 5 MB).' });
   try {
     const tables: SchemaTable[] = [];
     // Match CREATE TABLE blocks
@@ -352,15 +371,19 @@ app.post('/api/db/parse-sql', (req, res) => {
 // Cached in Postgres (see repo_tree_cache). A fresh row is served with zero
 // network calls; a stale one is refreshed with a conditional (ETag) request,
 // which costs nothing against the rate limit when GitHub replies 304.
-app.post('/api/github/repo', async (req, res) => {
-  const { owner, repo, token, branch } = req.body;
-  if (!owner || !repo) return res.status(400).json({ success: false, error: 'owner and repo are required' });
+app.post('/api/github/repo', requireAuth, async (req: any, res: any) => {
+  const { owner, repo, branch } = req.body ?? {};
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) return res.status(400).json({ success: false, error: 'owner and repo are required' });
   const cacheBranch = typeof branch === 'string' && branch ? branch : 'HEAD';
   try {
-    const safeToken = token && /^[A-Za-z0-9_\-.]+$/.test(String(token)) ? String(token) : undefined;
+    const token = requestGithubToken(req);
     const cached = await getCachedTree(owner, repo, cacheBranch);
+    // The cache is shared across users: prove read access before serving it.
+    if (cached && !(await canReadRepository(owner, repo, token))) {
+      return res.status(404).json({ success: false, error: 'Repository not found or not accessible.' });
+    }
     if (cached && cached.fresh) return res.json({ success: true, tree: cached.tree, cached: true });
-    const result = await fetchRepositoryTree(owner, repo, safeToken, cacheBranch, cached?.etag);
+    const result = await fetchRepositoryTree(owner, repo, token, cacheBranch, cached?.etag);
     if (result.notModified && cached) {
       await touchTreeCache(owner, repo, cacheBranch);
       return res.json({ success: true, tree: cached.tree, cached: true });
@@ -377,22 +400,30 @@ app.post('/api/github/repo', async (req, res) => {
 // repo_file_blob_cache — a sha's content can never change, so a re-analysis
 // only ever fetches files whose sha actually changed. Without a sha, falls
 // back to the path+branch/TTL cache (repo_file_cache).
-app.post('/api/github/file', async (req, res) => {
-  const { owner, repo, path, branch, token, sha } = req.body;
-  if (!owner || !repo || !path) return res.status(400).json({ success: false, error: 'owner, repo, and path are required' });
+app.post('/api/github/file', requireAuth, async (req: any, res: any) => {
+  const { owner, repo, path, branch, sha } = req.body ?? {};
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo) || typeof path !== 'string' || !path) {
+    return res.status(400).json({ success: false, error: 'owner, repo, and path are required' });
+  }
   try {
-    const safeToken = token && /^[A-Za-z0-9_\-.]+$/.test(String(token)) ? String(token) : undefined;
+    const token = requestGithubToken(req);
     if (sha) {
-      const cachedBlob = await getCachedBlob(owner, repo, sha);
-      if (cachedBlob !== null) return res.json({ success: true, content: cachedBlob, cached: true });
-      const content = await fetchBlobContent(owner, repo, sha, safeToken);
-      if (content !== null) await saveBlobCache(owner, repo, sha, content);
+      const cachedBlob = await getCachedBlob(owner, repo, String(sha));
+      if (cachedBlob !== null) {
+        if (!(await canReadRepository(owner, repo, token))) return res.status(404).json({ success: false, error: 'Repository not found or not accessible.' });
+        return res.json({ success: true, content: cachedBlob, cached: true });
+      }
+      const content = await fetchBlobContent(owner, repo, String(sha), token);
+      if (content !== null) await saveBlobCache(owner, repo, String(sha), content);
       return res.json({ success: true, content, cached: false });
     }
     const cacheBranch = typeof branch === 'string' && branch ? branch : '';
     const cachedContent = await getCachedFile(owner, repo, cacheBranch, path);
-    if (cachedContent !== null) return res.json({ success: true, content: cachedContent, cached: true });
-    const content = await fetchFileContent(owner, repo, path, cacheBranch || undefined, safeToken);
+    if (cachedContent !== null) {
+      if (!(await canReadRepository(owner, repo, token))) return res.status(404).json({ success: false, error: 'Repository not found or not accessible.' });
+      return res.json({ success: true, content: cachedContent, cached: true });
+    }
+    const content = await fetchFileContent(owner, repo, path, cacheBranch || undefined, token);
     if (content !== null) await saveFileCache(owner, repo, cacheBranch, path, content);
     res.json({ success: true, content, cached: false });
   } catch (error: any) {
@@ -401,7 +432,7 @@ app.post('/api/github/file', async (req, res) => {
 });
 
 // Optional text-only enrichment for the deterministic client architecture graph.
-app.post('/api/architecture/enrich', async (req, res) => {
+app.post('/api/architecture/enrich', requireAuth, outboundRateLimit, async (req: any, res: any) => {
   if (!env.openaiApiKey) return res.status(503).json({ error: 'AI explanation is not configured. The validated architecture remains available.' });
   const graph = req.body?.graph;
   if (!graph || graph.version !== 1 || !Array.isArray(graph.groups) || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
@@ -550,6 +581,15 @@ app.get('/api/github/repos', requireAuth, async (req: any, res: any) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Cheap "can this user read owner/repo?" check used when creating a project
+// for a repository that isn't in the user's own repository list (e.g. a
+// public repo they don't own). Memoized per user/repo in repoAccess.
+app.get('/api/github/access/:owner/:repo', requireAuth, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) return res.status(400).json({ error: 'Use owner/repository.' });
+  res.json({ accessible: await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)) });
 });
 
 // Hand the connected GitHub token to the client so it can authenticate its own
@@ -815,10 +855,25 @@ app.post('/api/analysis/:owner/:repo/refresh', requireAuth, async (req: any, res
   }
 });
 
-// Proxy → FastAPI on port 8000
+// Proxy → FastAPI on port 8000. The analysis service clones whatever URL it
+// is handed, so only authenticated users may start a job, and only for a
+// github.com repository they can actually read.
 const proxyToFastAPI = createJsonProxy(env.fastApiUrl);
-app.all('/api/analyze', proxyToFastAPI);
-app.all('/api/tasks/:taskId', proxyToFastAPI);
+app.post('/api/analyze', requireAuth, outboundRateLimit, async (req: any, res: any) => {
+  const target = parseGithubCloneUrl(req.body?.url);
+  if (!target) return res.status(400).json({ error: 'Only https://github.com/<owner>/<repo> URLs can be analyzed.' });
+  const token = requestGithubToken(req);
+  if (!(await canReadRepository(target.owner, target.repo, token))) {
+    return res.status(404).json({ error: 'Repository not found or not accessible.' });
+  }
+  const branch = typeof req.body?.branch === 'string' && /^[A-Za-z0-9_./-]{1,200}$/.test(req.body.branch) && !req.body.branch.startsWith('-') ? req.body.branch : undefined;
+  req.body = { url: target.url, token, branch };
+  return proxyToFastAPI(req, res);
+});
+app.get('/api/tasks/:taskId', requireAuth, (req: any, res: any) => {
+  if (!/^[0-9a-f-]{36}$/i.test(req.params.taskId)) return res.status(400).json({ error: 'Invalid task id.' });
+  return proxyToFastAPI(req, res);
+});
 
 async function start(): Promise<void> {
   if (redisClient && !redisClient.isOpen) await redisClient.connect();

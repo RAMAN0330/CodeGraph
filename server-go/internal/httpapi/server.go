@@ -1,10 +1,13 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"regexp"
 	"time"
 
 	"codeflow/server/internal/config"
@@ -24,8 +27,11 @@ func New(cfg config.Config) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", api.live)
 	mux.HandleFunc("GET /health/ready", api.ready)
-	mux.Handle("POST /api/analyze", api.analysis)
-	mux.Handle("GET /api/tasks/{taskId}", api.analysis)
+	// Analysis jobs clone arbitrary repositories, so they go through the
+	// legacy API, which enforces the session, validates the GitHub URL and
+	// checks repository access before proxying on to the analysis service.
+	mux.Handle("POST /api/analyze", api.legacy)
+	mux.Handle("GET /api/tasks/{taskId}", api.legacy)
 	mux.Handle("/auth/", api.legacy)
 	mux.Handle("/api/db/", api.legacy)
 	mux.Handle("/api/architecture/", api.legacy)
@@ -37,11 +43,41 @@ func New(cfg config.Config) http.Handler {
 	// Repo tree/file fetches are cached in Postgres by the legacy API
 	// (repo_tree_cache / repo_file_cache) rather than in-memory here, so the
 	// cache is shared and durable across all gateway replicas.
-	mux.Handle("POST /api/github/repo", api.legacy)
-	mux.Handle("POST /api/github/file", api.legacy)
+	mux.Handle("POST /api/github/repo", validateRepositoryBody(api.legacy))
+	mux.Handle("POST /api/github/file", validateRepositoryBody(api.legacy))
 	mux.Handle("GET /api/github/repos", api.legacy)
+	mux.Handle("GET /api/github/access/{owner}/{repo}", api.legacy)
 	mux.Handle("GET /api/github/token", api.legacy)
-	return chain(http.MaxBytesHandler(mux, cfg.MaxBodyBytes), recoverer, requestLog, concurrencyLimit(cfg.MaxConcurrentRequests), rateLimit(cfg.RateLimitPerSecond), cors(cfg.ClientOrigin))
+	return chain(http.MaxBytesHandler(mux, cfg.MaxBodyBytes), recoverer, requestLog, concurrencyLimit(cfg.MaxConcurrentRequests), rateLimit(cfg.RateLimitPerSecond, cfg.TrustProxyHeader), cors(cfg.ClientOrigin))
+}
+
+var repositorySegment = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,100}$`)
+
+// validateRepositoryBody rejects malformed owner/repo pairs at the edge, then
+// replays the (size-bounded) body to the upstream handler.
+func validateRepositoryBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
+		var payload struct {
+			Owner string `json:"owner"`
+			Repo  string `json:"repo"`
+		}
+		if json.Unmarshal(body, &payload) != nil || !validSegment(payload.Owner) || !validSegment(payload.Repo) {
+			writeError(w, http.StatusUnprocessableEntity, "owner and repo must be valid GitHub names")
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		r.ContentLength = int64(len(body))
+		next.ServeHTTP(w, r)
+	})
+}
+
+func validSegment(value string) bool {
+	return repositorySegment.MatchString(value) && value != "." && value != ".."
 }
 
 func newReverseProxy(target *url.URL) *httputil.ReverseProxy {

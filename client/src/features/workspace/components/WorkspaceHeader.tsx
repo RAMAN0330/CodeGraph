@@ -146,9 +146,9 @@ export default function WorkspaceHeader({
           <span><strong>structrace</strong><small>workspace</small></span>
         </Button>
         <nav className="workspace-breadcrumb" aria-label="Breadcrumb">
-          <Button variant="ghost" onClick={() => navigate('/workspaces')}>Workspace</Button>
+          <Button variant="ghost" onClick={() => navigate('/workspaces')}>Workspaces</Button>
           <span className="workspace-breadcrumb-sep">/</span>
-          <Button variant="ghost" onClick={() => navigate(projectLink)}>Project</Button>
+          <Button variant="ghost" onClick={() => navigate(projectLink)} title="Back to this repository's project">{repoInfo ? `${repoInfo.owner}/${repoInfo.repo}` : 'Project'}</Button>
           <span className="workspace-breadcrumb-sep">/</span>
           <span className="workspace-breadcrumb-current">{activeModule.label}</span>
         </nav>

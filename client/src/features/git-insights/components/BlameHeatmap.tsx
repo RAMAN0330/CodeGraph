@@ -53,7 +53,7 @@ export default function BlameHeatmap({ owner, repo, token, filePath }: BlameHeat
   return (
     <div style={{
       marginBottom: 12,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontFamily: 'var(--font-sans)',
     }}>
       {/* Heatmap strip */}
       <div style={{

@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowRight, FolderKanban, GitBranch } from 'lucide-react';
 import AnalysisLoader, { type AnalysisStage } from '../../../shared/components/AnalysisLoader';
 import OwnershipRiskPanel from './OwnershipRiskPanel';
 import { Button } from '@/components/ui/button';
+import { parseRepositoryInput } from '../../organization/services/pendingRepository';
+import { describeAnalysisError } from '../services/analysisErrors';
 
 interface Suggestion { title: string; desc: string; priority: 'critical' | 'high' | 'medium' | string }
 interface Pattern { name: string; isAnti?: boolean; severity?: string; files: any[] }
@@ -66,6 +68,37 @@ function analysisFacts(progress: string) {
   return [];
 }
 
+function NoRepositorySelected() {
+  const [value, setValue] = useState('');
+  const [invalid, setInvalid] = useState(false);
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const repository = parseRepositoryInput(value);
+    if (!repository) { setInvalid(true); return; }
+    window.location.assign(`/workspace?repo=${encodeURIComponent(repository)}`);
+  };
+  return (
+    <main className="workspace-no-repo">
+      <span className="workspace-no-repo-mark"><GitBranch size={26} /></span>
+      <h1>No repository selected</h1>
+      <p>Open a project to analyze its repository, or enter one directly.</p>
+      <form className="workspace-no-repo-form" onSubmit={submit} noValidate>
+        <label htmlFor="workspace-no-repo-input" className="sr-only">GitHub repository</label>
+        <input id="workspace-no-repo-input" value={value} onChange={event => { setValue(event.target.value); setInvalid(false); }} placeholder="owner/repository" autoComplete="off" spellCheck={false} aria-invalid={invalid} aria-describedby={invalid ? 'workspace-no-repo-error' : undefined} />
+        <Button type="submit" className="workspace-no-repo-primary">Analyze <ArrowRight size={15} /></Button>
+      </form>
+      {invalid && <p id="workspace-no-repo-error" className="workspace-no-repo-error" role="alert">Use owner/repository or a github.com link.</p>}
+      <Button variant="link" className="workspace-no-repo-link" onClick={() => window.location.assign('/workspaces')}><FolderKanban size={15} /> Go to your projects</Button>
+    </main>
+  );
+}
+
+function hasRepositoryRequest() {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.has('repo') || params.has('share');
+}
+
 export default function WorkspaceOverview(props: Props) {
   const { repoInfo, data, loading, progress, error } = props;
   // Real JSX, not a direct OverviewContent(props) call — OverviewContent uses
@@ -78,7 +111,11 @@ export default function WorkspaceOverview(props: Props) {
   // reason to make this component's own composition less correct.
   if (data) return <OverviewContent {...props} />;
 
+  // Nothing to analyze: say so instead of showing an analysis that never starts.
+  if (!loading && !error && !repoInfo && !hasRepositoryRequest()) return <NoRepositorySelected />;
+
   const text = progress ?? '';
+  const failure = error ? describeAnalysisError(error) : null;
   return (
     <AnalysisLoader
       kind="codebase"
@@ -87,8 +124,10 @@ export default function WorkspaceOverview(props: Props) {
       stages={CODEBASE_STAGES}
       activeIndex={loading ? stageIndexFor(text) : 0}
       detail={loading ? text || 'Reading the repository tree…' : 'Restoring the repository you selected…'}
-      error={error}
+      error={failure?.message ?? null}
+      hint={failure?.hint}
       onRetry={() => window.location.reload()}
+      onBack={() => window.location.assign('/workspaces')}
       onWorkspace={() => window.location.assign('/workspaces')}
       onProject={() => window.location.assign('/workspaces')}
     />

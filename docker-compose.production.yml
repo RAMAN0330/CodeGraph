@@ -14,6 +14,8 @@ services:
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
       FASTAPI_URL: http://analysis:8000
       LEGACY_API_URL: http://legacy-api:5001
+      # nginx sets X-Real-IP; without this every user shares one rate-limit bucket.
+      TRUST_PROXY_HEADER: "true"
       RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-50}
       MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-256}
     depends_on:
@@ -29,10 +31,15 @@ services:
     build: { context: ., dockerfile: server/Dockerfile.node }
     environment:
       PORT: "5001"
+      # nginx -> gateway -> legacy-api: two proxy hops before the client IP.
+      TRUST_PROXY_HOPS: "2"
+      FASTAPI_URL: http://analysis:8000
       NODE_ENV: production
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
       REDIS_URL: redis://redis:6379/0
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      DB_CREDENTIALS_SECRET: ${DB_CREDENTIALS_SECRET:?DB_CREDENTIALS_SECRET is required}
+      DATABASE_URL: postgres://${POSTGRES_USER:-codegraph}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-codegraph}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-http://localhost:8080/auth/github/callback}
@@ -40,6 +47,7 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
     depends_on:
       redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
     healthcheck: { test: ["CMD", "wget", "-q", "--spider", "http://localhost:5001/health/live"], interval: 10s, timeout: 3s, retries: 3 }
     restart: unless-stopped
     deploy: { replicas: 2 }
@@ -62,6 +70,16 @@ services:
     restart: unless-stopped
     deploy: { replicas: 4 }
 
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-codegraph}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-codegraph}
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-codegraph}"], interval: 5s, timeout: 3s, retries: 10 }
+    restart: unless-stopped
+
   redis:
     image: redis:7.4-alpine
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
@@ -70,4 +88,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres-data:
   redis-data:

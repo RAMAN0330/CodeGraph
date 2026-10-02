@@ -329,6 +329,186 @@
         "value": "1.25rem",
         "createdAt": "2026-09-22T15:50:44.019Z",
         "reason": "compact sub-heading size for the Create Project dialog's panel steps (gg.h2); intentionally smaller than the page-level Headline scale, which would overwhelm a small dialog panel"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#e3f6f8",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:35:25.147Z",
+        "reason": "Claude: existing architecture node-kind fills from client/src/index.css .architecture-kind-* (lines 1289-1295), mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#e5f5e9",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:35:25.204Z",
+        "reason": "Claude: existing architecture node-kind fills from client/src/index.css .architecture-kind-* (lines 1289-1295), mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#f1e9fa",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:35:25.268Z",
+        "reason": "Claude: existing architecture node-kind fills from client/src/index.css .architecture-kind-* (lines 1289-1295), mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#faf1dc",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:35:25.319Z",
+        "reason": "Claude: existing architecture node-kind fills from client/src/index.css .architecture-kind-* (lines 1289-1295), mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#fbe9f3",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:35:25.373Z",
+        "reason": "Claude: existing architecture node-kind fills from client/src/index.css .architecture-kind-* (lines 1289-1295), mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#fbe6e6",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:35:25.422Z",
+        "reason": "Claude: existing architecture node-kind fills from client/src/index.css .architecture-kind-* (lines 1289-1295), mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#e6effa",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:35:25.474Z",
+        "reason": "Claude: existing architecture node-kind fills from client/src/index.css .architecture-kind-* (lines 1289-1295), mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#0d4a54",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:06.887Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#14532a",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:06.937Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#1d4488",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:06.982Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#1d7a3c",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.029Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#2f6fd1",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.081Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#4c2470",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.129Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#5c3d06",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.192Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#701e46",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.288Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#7a1a24",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.333Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#92600a",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.379Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#b8306f",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.425Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#c22b3a",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.468Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#141820",
+        "files": [
+          "src/features/workspace/components/ArchitectureDiagram.tsx"
+        ],
+        "createdAt": "2026-10-02T17:46:07.513Z",
+        "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
       }
     ]
   }

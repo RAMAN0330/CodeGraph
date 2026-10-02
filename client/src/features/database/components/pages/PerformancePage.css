@@ -24,7 +24,7 @@
   padding-bottom: 13px;
 }
 .perf-head__label {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-sans);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: .16em;
@@ -42,7 +42,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -85,7 +85,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-sans);
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: .13em;
@@ -94,7 +94,7 @@
 }
 .perf-cell__value {
   margin-top: 7px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-sans);
   font-size: 23px;
   font-weight: 700;
   line-height: 1.05;
@@ -167,7 +167,7 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-sans);
   font-size: 11.5px;
   color: var(--text-secondary);
 }
@@ -175,7 +175,7 @@
 /* ── Notice line (used where a reading is unavailable) ── */
 .perf-note {
   margin: 0;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-sans);
   font-size: 11.5px;
   line-height: 1.6;
   color: var(--text-secondary);

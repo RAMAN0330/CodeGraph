@@ -199,7 +199,7 @@
   overflow: hidden;
   color: var(--text-primary);
   background: var(--bg-canvas);
-  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  font-family: var(--font-sans);
 }
 
 .route-loading-glow {

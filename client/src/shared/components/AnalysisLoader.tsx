@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Database, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check, Database, RotateCcw } from 'lucide-react';
 import './AnalysisLoader.css';
 
 export interface AnalysisStage {
@@ -15,7 +15,12 @@ interface AnalysisLoaderProps {
   activeIndex: number;
   detail?: string;
   error?: string | null;
+  /** Plain-language recovery guidance shown under a failure. */
+  hint?: string;
   onRetry?: () => void;
+  /** Secondary escape hatch on failure, e.g. back to the project list. */
+  backLabel?: string;
+  onBack?: () => void;
   retryLabel?: string;
   onWorkspace?: () => void;
   onProject?: () => void;
@@ -99,8 +104,8 @@ function formatElapsed(seconds: number) {
 }
 
 export default function AnalysisLoader({
-  kind, subject, facts = [], stages, activeIndex, detail, error,
-  onRetry, retryLabel = 'Retry analysis', onWorkspace, onProject,
+  kind, subject, facts = [], stages, activeIndex, detail, error, hint,
+  onRetry, retryLabel = 'Retry analysis', backLabel = 'Back to projects', onBack, onWorkspace, onProject,
 }: AnalysisLoaderProps) {
   const [elapsed, setElapsed] = useState(0);
 
@@ -127,9 +132,9 @@ export default function AnalysisLoader({
             <small>{kind === 'database' ? 'database' : 'workspace'}</small>
           </span>
           <nav className="analysis-breadcrumb" aria-label="Breadcrumb">
-            <button type="button" onClick={onWorkspace} disabled={!onWorkspace}>Workspace</button>
+            <button type="button" onClick={onWorkspace} disabled={!onWorkspace}>Workspaces</button>
             <span className="analysis-breadcrumb-sep">/</span>
-            <button type="button" onClick={onProject} disabled={!onProject}>Project</button>
+            <button type="button" onClick={onProject} disabled={!onProject}>{subject}</button>
             <span className="analysis-breadcrumb-sep">/</span>
             <span className="analysis-breadcrumb-current">Analysis</span>
           </nav>
@@ -171,7 +176,9 @@ export default function AnalysisLoader({
             })}
           </ol>
 
-          {kind === 'database' ? <DatabaseGhost /> : <CodebaseGhost />}
+          <div className={error ? 'analysis-ghost-wrap is-failed' : 'analysis-ghost-wrap'}>
+            {kind === 'database' ? <DatabaseGhost /> : <CodebaseGhost />}
+          </div>
         </div>
 
         <div className="analysis-footer">
@@ -183,10 +190,20 @@ export default function AnalysisLoader({
               ? `Stopped at ${current?.label ?? 'analysis'} · step ${failedIndex + 1} of ${stages.length}`
               : `${current?.label ?? 'Starting'} · step ${Math.max(activeIndex, 0) + 1} of ${stages.length}`}
           </p>
-          {error && onRetry && (
-            <button type="button" className="analysis-retry" onClick={onRetry}>
-              <RotateCcw size={14} strokeWidth={2} /> {retryLabel}
-            </button>
+          {error && hint && <p className="analysis-hint">{hint}</p>}
+          {error && (onRetry || onBack) && (
+            <div className="analysis-recovery">
+              {onRetry && (
+                <button type="button" className="analysis-retry analysis-retry-primary" onClick={onRetry}>
+                  <RotateCcw size={14} strokeWidth={2} /> {retryLabel}
+                </button>
+              )}
+              {onBack && (
+                <button type="button" className="analysis-retry" onClick={onBack}>
+                  <ArrowLeft size={14} strokeWidth={2} /> {backLabel}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </main>

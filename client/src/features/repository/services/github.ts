@@ -177,6 +177,7 @@ var GitHub: any = {
         var self = this;
         return fetch(appConfig.apiUrl + '/api/github/file', {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ owner: o, repo: r, path: p, branch: branch, token: this.token || undefined, sha: sha || undefined })
         }).then(function (res) {
@@ -258,6 +259,7 @@ var GitHub: any = {
     fetchTreeCached(o: string, r: string, branch: string) {
         return fetch(appConfig.apiUrl + '/api/github/repo', {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ owner: o, repo: r, branch: branch, token: this.token || undefined })
         }).then(function (res) {

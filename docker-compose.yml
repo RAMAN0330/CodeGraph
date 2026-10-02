@@ -14,6 +14,8 @@ services:
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
       FASTAPI_URL: http://analysis:8000
       LEGACY_API_URL: http://legacy-api:5001
+      # nginx sets X-Real-IP; without this every user shares one rate-limit bucket.
+      TRUST_PROXY_HEADER: "true"
       RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-50}
       MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-256}
     depends_on:
@@ -29,6 +31,9 @@ services:
     env_file: ./server/.env
     environment:
       PORT: "5001"
+      # nginx -> gateway -> legacy-api: two proxy hops before the client IP.
+      TRUST_PROXY_HOPS: "2"
+      FASTAPI_URL: http://analysis:8000
       NODE_ENV: ${NODE_ENV:-development}
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
       REDIS_URL: redis://redis:6379/0

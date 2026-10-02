@@ -111,9 +111,7 @@ The product's `connections` array (built in `server/src/analysis/runAnalysis.ts`
 ### What already exists and *is* reusable once the graph is built
 
 - `client/src/features/workspace/services/architectureGraph.ts` — `buildArchitectureGraph(files, connections)` is a pure function with no I/O; it takes generic `{path}`/`{source,target}` shapes and classifies files into layers by path regex. It doesn't care where the edges came from, so dependency-cruiser's output can be fed into it directly if a visual "architecture of this repo" view is ever wanted.
-- `client/src/features/workspace/services/codeFlowLayout.ts` — `buildCodeFlowLayout(nodes, links)`, with DFS-based cycle detection (`findBackEdges`) and left-to-right layering, also pure and reusable if the impact tool ever grows a visual mode.
-
-Neither is required for the CLI itself — they're available if a graphical version is wanted later.
+It isn't required for the CLI itself — it's available if a graphical version is wanted later.
 
 ### The test-coverage wrinkle
 

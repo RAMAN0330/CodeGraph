@@ -52,7 +52,8 @@ export function fetchUserRepositories(token: string) {
 }
 
 async function fetchRawFile(owner: string, repo: string, branch: string, path: string, token?: string): Promise<string | null> {
-  const response = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`, {
+  const segments = path.split('/').filter(segment => segment && segment !== '.' && segment !== '..').map(encodeURIComponent).join('/');
+  const response = await fetch(`https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${branch.split('/').map(encodeURIComponent).join('/')}/${segments}`, {
     headers: token ? { Authorization: `token ${token}` } : undefined,
   });
   return response.ok ? response.text() : null;

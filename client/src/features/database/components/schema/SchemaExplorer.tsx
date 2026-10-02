@@ -92,7 +92,7 @@ export default function SchemaExplorer({ schema }: SchemaExplorerProps) {
           {level === 'graph' && (
             <div style={{ display: 'grid', gridTemplateColumns: `230px minmax(0, 1fr) ${activeTable ? '320px' : ''}`, gap: 14, height: '100%', minHeight: 560 }}>
               <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 10, padding: 14, overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
-                <Button variant="ghost" onClick={() => setLevel('domain')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 0, color: GG.fg4, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 600, cursor: 'pointer', marginBottom: 12, padding: 0 }}>
+                <Button variant="ghost" onClick={() => setLevel('domain')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 0, color: GG.fg4, fontFamily: GG.sans, fontSize: 11, fontWeight: 600, cursor: 'pointer', marginBottom: 12, padding: 0 }}>
                   <Maximize2 size={11} /> Domain map
                 </Button>
                 <ObjectsPanel tablesBySchema={tablesBySchema} selectedTable={selectedTable} onSelectTable={selectTable} compact />

@@ -3,9 +3,8 @@ import * as d3 from 'd3';
 import { ChevronDown } from 'lucide-react';
 import { Icon } from '../../../shared/components/Icon';
 import { COLORS, LAYER_COLORS, renderTooltipHtml } from '../../analysis/services/parser';
-import CodeCanvas from './CodeCanvas';
 
-type VizType = 'dendro' | 'bundle' | 'code';
+type VizType = 'dendro' | 'bundle';
 type ColorMode = 'folder' | 'layer' | 'churn';
 
 interface Props {
@@ -325,11 +324,9 @@ export default function RepositoryGraphCanvas({ data, loading, progress, folderF
           <div className="viz-selector">
             <button className={'viz-selector-btn' + (vizType === 'dendro' ? ' active' : '')} onClick={() => setVizType('dendro')}>{iconLabel('tree', 'Tree')}</button>
             <button className={'viz-selector-btn' + (vizType === 'bundle' ? ' active' : '')} onClick={() => setVizType('bundle')}>{iconLabel('target', 'Bundle')}</button>
-            <button className={'viz-selector-btn' + (vizType === 'code' ? ' active' : '')} onClick={() => setVizType('code')}>{iconLabel('code', 'Code')}</button>
           </div>
           {vizType === 'dendro' && <div ref={dendroRef} className="dendro-container" style={{ width: '100%', height: '100%', position: 'relative' }} />}
           {vizType === 'bundle' && <div ref={bundleRef} className="bundle-container" />}
-          {vizType === 'code' && <CodeCanvas data={data} folderFilter={folderFilter} colorMap={colorMap} selected={selected} onSelectFile={onSelectFile} />}
           <div className="canvas-info">
               <div className="info-chip"><strong>{folderFilter ? data.files.filter((f: any) => f.folder === folderFilter || f.folder.startsWith(folderFilter + '/')).length : data.files.length}</strong> files</div>
               <div className="info-chip"><strong>{data.connections.length}</strong> links</div>

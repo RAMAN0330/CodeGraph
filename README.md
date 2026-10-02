@@ -403,8 +403,13 @@ The application is served at **http://localhost:8080**.
 | `OPENAI_API_KEY` | — | Optional. Enables architecture explanations. |
 | `OPENAI_MODEL` | `gpt-5-mini` | Model used for enrichment |
 | `REPO_CACHE_TTL_MS` | `21600000` | Repository cache lifetime (6 hours) |
+| `TRUST_PROXY_HOPS` | `1` | Reverse proxies in front of the API. Set to `2` behind nginx + the Go gateway (the compose files do) so rate limits key on the real client IP. |
 
 > **Production safeguard:** the API refuses to start if `SESSION_SECRET` or `DB_CREDENTIALS_SECRET` still hold their development defaults, or if `DATABASE_URL` or `REDIS_URL` is missing.
+
+`DB_CREDENTIALS_SECRET` also encrypts stored GitHub OAuth tokens. Rows written before encryption still read back; rotating the secret makes stored tokens unreadable, so affected users simply reconnect GitHub. `docker-compose.production.yml` now requires `DB_CREDENTIALS_SECRET` and `POSTGRES_PASSWORD` and starts its own PostgreSQL service.
+
+The Go gateway reads `TRUST_PROXY_HEADER=true` (set in both compose files) to rate-limit on nginx's `X-Real-IP` rather than the nginx container address.
 
 ### Edge Gateway — `server-go/`
 
@@ -604,6 +609,14 @@ Gateway tests:
 ```bash
 cd server-go && go test ./...
 ```
+
+Python analysis-service tests:
+
+```bash
+cd server && .venv/bin/python -m unittest discover -s tests
+```
+
+`tests/server-security.test.mjs` covers the API's access-control fixes (authenticated outbound routes, repository access checks before serving shared caches, clone-URL validation, token encryption). `tests/ux-flows.test.mjs` covers the landing → project repository hand-off, analysis-error guidance, and the workspace's no-repository state. Audit findings, coverage status and known pre-existing test failures are tracked in [`docs/audit/`](docs/audit/).
 
 Static analysis runs through **CodeQL** on push, pull request, and a weekly schedule.
 

@@ -19,8 +19,8 @@ export const GG = {
   info: 'var(--teal-600)',
   magenta: 'var(--chart-purple)',
   cyan: 'var(--chart-cyan)',
-  mono: "'JetBrains Mono', monospace" as const,
-  sans: "'JetBrains Mono', monospace" as const,
+  mono: 'var(--font-mono)' as const,
+  sans: 'var(--font-sans)' as const,
 };
 
 export const ggInput: React.CSSProperties = {

@@ -1,3 +1,6 @@
+/* Explicit layer order so the base reset below always yields to utilities
+   and to the (unlayered) page stylesheets. */
+@layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
@@ -25,4 +28,12 @@
   --primary-foreground: #ffffff;
   --muted-foreground: var(--text-secondary);
   --destructive: var(--color-danger);
+}
+
+/* No Tailwind preflight is loaded. Without this, form controls fall back to the
+   browser's control font (Arial) and shadcn Buttons keep the UA's grey
+   border/background wherever a page class doesn't restyle them. */
+@layer base {
+  button, input, select, textarea { font-family: inherit; }
+  [data-slot="button"] { border: 0 solid; background-color: transparent; color: inherit; }
 }

@@ -36,7 +36,7 @@ export default function ObjectsPanel({ tablesBySchema, selectedTable, onSelectTa
 
   return (
     <div style={{ minWidth: 0 }}>
-      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700, marginBottom: 8, padding: '0 4px' }}>Schema Objects</div>
+      <div style={{ fontFamily: GG.sans, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700, marginBottom: 8, padding: '0 4px' }}>Schema Objects</div>
       {Array.from(tablesBySchema.entries()).map(([schemaName, tables]) => {
         const isOpen = expanded.has(schemaName);
         return (

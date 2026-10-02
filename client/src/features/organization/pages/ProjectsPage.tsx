@@ -11,6 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { organizationStore, type DbConnectionInput, type OrganizationState, type Project, type ProjectType } from '../services/organizationStore';
 import { TopbarSearch } from '../components/TopbarSearch';
 import { TopbarAccount } from '../components/TopbarAccount';
+import { relativeTime } from '../services/relativeTime';
+import { clearPendingRepository, peekPendingRepository } from '../services/pendingRepository';
 import { GG, ggInput, ggLabel, MiniSchemaPreview, GGErrorBanner } from '../../database/components/dbConnectTheme';
 import './OrganizationPages.css';
 
@@ -39,7 +41,7 @@ const gg = {
     cursor: 'not-allowed', textAlign: 'left', font: 'inherit', width: '100%', opacity: 0.45,
   }),
   actionButton: (disabled: boolean): React.CSSProperties => ({
-    height: 40, border: disabled ? `1px solid ${GG.lineStrong}` : 'none', borderRadius: 8, fontFamily: GG.mono, fontSize: 13, fontWeight: 700,
+    height: 40, padding: '0 16px', border: disabled ? `1px solid ${GG.lineStrong}` : '1px solid transparent', borderRadius: 8, fontFamily: GG.mono, fontSize: 13, fontWeight: 700,
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
     background: disabled ? GG.bg1 : GG.accent, color: disabled ? GG.fg2 : '#ffffff', cursor: disabled ? 'not-allowed' : 'pointer',
   }),
@@ -58,23 +60,10 @@ function projectSubtitle(project: Project): string {
   return project.repositoryFullName || '—';
 }
 
-function relativeTime(iso: string) {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const diffMinutes = Math.round(diffMs / 60000);
-  if (diffMinutes < 1) return 'Just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.round(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d ago`;
-  const diffMonths = Math.round(diffDays / 30);
-  if (diffMonths < 12) return `${diffMonths}mo ago`;
-  return `${Math.round(diffMonths / 12)}y ago`;
-}
-
 export default function ProjectsPage() {
   const navigate = useNavigate(); const { workspaceId = '' } = useParams(); const dialog = useRef<HTMLDialogElement>(null); const deleteDialog = useRef<HTMLDialogElement>(null); const reduceMotion = useReducedMotion();
   const numericWorkspaceId = Number(workspaceId);
+  const [pendingRepository, setPendingRepository] = useState<string | null>(() => peekPendingRepository());
   const [state, setState] = useState<OrganizationState>({ workspaces: [], projects: [] }); const [query, setQuery] = useState(''); const [name, setName] = useState(''); const [instructions, setInstructions] = useState(''); const [repositoryFullName, setRepositoryFullName] = useState(''); const [repositories, setRepositories] = useState<Repository[]>([]); const [verified, setVerified] = useState(false); const [message, setMessage] = useState('');
   const [projectTypeStep, setProjectTypeStep] = useState<ProjectType | null>(null);
   const [dbType, setDbType] = useState<'postgres' | 'mysql'>('postgres'); const [dbHost, setDbHost] = useState('localhost'); const [dbPort, setDbPort] = useState('5432'); const [dbDatabase, setDbDatabase] = useState(''); const [dbUser, setDbUser] = useState(''); const [dbPassword, setDbPassword] = useState(''); const [dbSsl, setDbSsl] = useState(false);
@@ -88,13 +77,32 @@ export default function ProjectsPage() {
   useEffect(() => { refresh(); }, []);
   useEffect(() => { if (state.workspaces.length && !workspace) navigate('/workspaces', { replace: true }); }, [navigate, workspace, state.workspaces.length]);
   useEffect(() => { if (selected && selected.id !== selectedProjectId) setSelectedProjectId(selected.id); }, [selected, selectedProjectId]);
-  const openDialog = async () => {
-    setMessage(''); setVerified(false); setProjectTypeStep(null); setName(''); setInstructions(''); setRepositoryFullName('');
+  const openDialog = async (prefillRepository?: string) => {
+    setMessage(''); setVerified(false); setProjectTypeStep(prefillRepository ? 'codebase' : null); setName(prefillRepository ? prefillRepository.split('/')[1] : ''); setInstructions(''); setRepositoryFullName(prefillRepository ?? '');
     setDbType('postgres'); setDbHost('localhost'); setDbPort('5432'); setDbDatabase(''); setDbUser(''); setDbPassword(''); setDbSsl(false); setDbTesting(false); setDbVerified(false); setDbMessage('');
     dialog.current?.showModal();
     try { const response = await fetch(`${appConfig.apiUrl}/api/github/repos`, { credentials: 'include' }); const data = response.ok ? await response.json() : { repos: [] }; setRepositories(data.repos ?? []); } catch { setRepositories([]); }
   };
-  const verifyRepository = () => { const candidate = repositoryFullName.trim(); if (!repositoryPattern.test(candidate)) { setMessage('Enter the repository as owner/repository.'); setVerified(false); return; } if (repositories.length && !repositories.some(repo => repo.full_name.toLowerCase() === candidate.toLowerCase())) { setMessage('That repository is not available from your GitHub connection.'); setVerified(false); return; } setMessage(`Verified ${candidate}`); setVerified(true); };
+  const [verifying, setVerifying] = useState(false);
+  // Repositories from the user's own list verify instantly; anything else (a
+  // public repo they don't own) is checked against GitHub by the server.
+  const verifyRepository = async () => {
+    const candidate = repositoryFullName.trim();
+    if (!repositoryPattern.test(candidate)) { setMessage('Enter the repository as owner/repository.'); setVerified(false); return; }
+    if (repositories.some(repo => repo.full_name.toLowerCase() === candidate.toLowerCase())) { setMessage(`Verified ${candidate}`); setVerified(true); return; }
+    setVerifying(true); setMessage('');
+    try {
+      const [owner, repo] = candidate.split('/');
+      const response = await fetch(`${appConfig.apiUrl}/api/github/access/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, { credentials: 'include' });
+      const data = response.ok ? await response.json() : { accessible: false };
+      if (data.accessible) { setMessage(`Verified ${candidate}`); setVerified(true); }
+      else { setMessage('Structrace can’t read that repository. Check the name, or connect a GitHub account that has access to it.'); setVerified(false); }
+    } catch {
+      setMessage('Could not reach GitHub to verify the repository. Try again.'); setVerified(false);
+    } finally {
+      setVerifying(false);
+    }
+  };
   const buildDbConnection = (): DbConnectionInput => ({ dbType, host: dbHost.trim(), port: dbPort.trim(), database: dbDatabase.trim(), user: dbUser.trim(), password: dbPassword, ssl: dbSsl });
   const testDbConnection = async () => {
     setDbTesting(true); setDbMessage(''); setDbVerified(false);
@@ -120,7 +128,7 @@ export default function ProjectsPage() {
     }
     if (!verified) { setMessage('Verify a repository before creating this project.'); return; }
     organizationStore.createProject({ workspaceId: numericWorkspaceId, name, instructions, projectType: 'codebase', repositoryFullName })
-      .then(project => { refresh(); setSelectedProjectId(project.id); dialog.current?.close(); setName(''); setInstructions(''); setRepositoryFullName(''); })
+      .then(project => { refresh(); setSelectedProjectId(project.id); dialog.current?.close(); setName(''); setInstructions(''); setRepositoryFullName(''); if (pendingRepository) { clearPendingRepository(); setPendingRepository(null); } })
       .catch(cause => setMessage(cause instanceof Error ? cause.message : 'Could not create project.'));
   };
   const openProject = (project: Project) => project.projectType === 'database' ? navigate(`/db?projectId=${project.id}`) : navigate(`/workspace?repo=${encodeURIComponent(project.repositoryFullName ?? '')}&run=1`);
@@ -144,16 +152,17 @@ export default function ProjectsPage() {
     event.preventDefault();
     if (!selected) return;
     organizationStore.inviteMember(selected.id, inviteEmail)
-      .then(() => { refresh(); setInviteEmail(''); setInviteMessage('Invited.'); setInviteError(false); })
+      .then(() => { refresh(); setInviteMessage(`Added ${inviteEmail.trim()} to the member list.`); setInviteEmail(''); setInviteError(false); })
       .catch(cause => { setInviteMessage(cause instanceof Error ? cause.message : 'Could not invite this person.'); setInviteError(true); });
   };
   const removeMember = (memberId: number) => { if (!selected) return; organizationStore.removeMember(selected.id, memberId).then(refresh); };
   if (!workspace) return null;
   return <main className="organization-page project-picker-page">
-    <header className="organization-topbar"><div className="organization-brand"><span className="organization-brand-mark"><GitBranch size={20} /></span><Button className="picker-back" onClick={() => navigate('/workspaces')}>Workspaces</Button><span className="organization-brand-divider">/</span><strong>Projects</strong></div><div className="topbar-actions"><TopbarSearch value={query} onChange={setQuery} placeholder="Search projects" className="topbar-search-slot" /><TopbarAccount /></div></header>
-    {!projects.length ? <section className="workspace-empty-page"><div className="empty-state-card"><span><FolderKanban size={34} /></span><h1>Start your first project</h1><p>Attach a verified GitHub repository to begin organizing work inside {workspace.name}.</p><Button className="projects-primary-action" onClick={() => void openDialog()}><Plus size={16} /> Create project</Button><ul className="empty-state-points"><li><CheckCircle2 size={15} /> Attach a GitHub repository or a database connection</li><li><CheckCircle2 size={15} /> See dependencies, ownership, and schema together</li><li><CheckCircle2 size={15} /> Pick up right where analysis left off</li></ul></div></section> : <section className="project-workspace-layout">
+    <header className="organization-topbar"><div className="organization-brand"><span className="organization-brand-mark"><GitBranch size={20} /></span><Button className="picker-back" onClick={() => navigate('/workspaces')}>Workspaces</Button><span className="organization-brand-divider">/</span><strong className="picker-workspace-name" title={workspace.name}>{workspace.name}</strong></div><div className="topbar-actions"><TopbarSearch value={query} onChange={setQuery} placeholder="Search projects" className="topbar-search-slot" /><TopbarAccount /></div></header>
+    {pendingRepository && <p className="pending-repository-banner" role="status"><GitBranch size={15} aria-hidden="true" /><span>Ready to add <strong>{pendingRepository}</strong> to {workspace.name}.</span><Button className="project-row-open-button" onClick={() => void openDialog(pendingRepository)}>Add as project <ArrowRight size={14} /></Button><Button className="project-delete-button" aria-label="Dismiss" onClick={() => { clearPendingRepository(); setPendingRepository(null); }}><X size={14} /></Button></p>}
+    {!projects.length ? <section className="workspace-empty-page"><div className="empty-state-card"><span><FolderKanban size={34} /></span><h1>Start your first project</h1><p>Attach a verified GitHub repository to begin organizing work inside {workspace.name}.</p><Button className="projects-primary-action" onClick={() => void openDialog(pendingRepository ?? undefined)}><Plus size={16} /> {pendingRepository ? `Add ${pendingRepository}` : 'Create project'}</Button><ul className="empty-state-points"><li><CheckCircle2 size={15} /> Attach a GitHub repository or a database connection</li><li><CheckCircle2 size={15} /> See dependencies, ownership, and schema together</li><li><CheckCircle2 size={15} /> Pick up right where analysis left off</li></ul></div></section> : <section className="project-workspace-layout">
       <aside className="project-list-panel">
-        <div className="project-list-heading"><h2>Projects</h2><Button className="project-create-pill" aria-label="Create project" onClick={() => void openDialog()}><Plus size={16} /><span className="project-create-pill-label">New project</span></Button></div>
+        <div className="project-list-heading"><h2>Projects <small className="project-count">{projects.length}</small></h2><Button className="project-create-pill project-create-pill-labeled" onClick={() => void openDialog()}><Plus size={15} /><span className="project-create-pill-label">New project</span></Button></div>
         <nav className="project-list" aria-label="Your projects">{visible.map(project => <div key={project.id} className="project-list-row">
           <Button className={`project-list-item${project.id === selected?.id ? ' is-selected' : ''}`} onClick={() => setSelectedProjectId(project.id)} aria-current={project.id === selected?.id}>
             <span className="project-list-icon">{project.projectType === 'database' ? <Database size={20} /> : <FolderKanban size={20} />}</span>
@@ -176,18 +185,20 @@ export default function ProjectsPage() {
           <div>{selected.projectType === 'database' ? <Database size={18} /> : <GitBranch size={18} />}<span><small>{selected.projectType === 'database' ? 'Database' : 'Repository'}</small><strong>{projectSubtitle(selected)}</strong></span></div>
           <div><Users size={18} /><span><small>Members</small><strong>{selected.members.length + 1}</strong></span></div>
         </div>
+        {selected.instructions && <section className="project-notes"><h2>Notes</h2><p>{selected.instructions}</p></section>}
         <div className="project-members-section">
-          <div className="project-section-title"><h2>Project members</h2></div>
+          <div className="project-section-title"><h2>Project members</h2><p>A shared list of who works on this project. Adding someone here does not send an email or grant sign-in access.</p></div>
           <div className="project-member-stack">
-            <Avatar seed="you" className="project-member-avatar" />
+            <span className="project-owner-chip"><Avatar seed="you" className="project-member-avatar" />You · owner</span>
             {selected.members.map(member => <span key={member.id} className="project-member-row"><Avatar seed={member.email} className="project-member-avatar" /><small>{member.email}</small><Button className="project-delete-button" aria-label={`Remove ${member.email}`} onClick={() => removeMember(member.id)}><Trash2 size={13} /></Button></span>)}
           </div>
           <form className="project-invite-form" onSubmit={inviteMember}>
             <UserPlus size={16} />
-            <Input type="email" placeholder="teammate@company.com" value={inviteEmail} onChange={event => { setInviteEmail(event.target.value); setInviteMessage(''); }} />
-            <Button className="projects-primary-action" type="submit">Invite</Button>
+            <Label htmlFor="project-member-email" className="sr-only">Member email</Label>
+            <Input id="project-member-email" type="email" placeholder="teammate@company.com" value={inviteEmail} onChange={event => { setInviteEmail(event.target.value); setInviteMessage(''); }} />
+            <Button className="projects-primary-action" type="submit" disabled={!inviteEmail.trim()}>Add member</Button>
           </form>
-          {inviteMessage && <p className={inviteError ? 'organization-error' : 'organization-success'}>{inviteMessage}</p>}
+          {inviteMessage && <p className={inviteError ? 'organization-error' : 'organization-success'} role={inviteError ? 'alert' : 'status'}>{inviteMessage}</p>}
         </div>
       </motion.article>}
     </section>}
@@ -291,8 +302,8 @@ export default function ProjectsPage() {
               <Input style={ggInput} list="project-repositories" placeholder="owner/repository" value={repositoryFullName} onChange={event => { setRepositoryFullName(event.target.value); setVerified(false); setMessage(''); }} />
               <datalist id="project-repositories">{repositories.map(repo => <option key={repo.full_name} value={repo.full_name} />)}</datalist>
             </div>
-            {message && <GGErrorBanner msg={message} />}
-            <Button type="button" style={gg.actionButton(false)} onClick={verifyRepository}><Check size={14} /> Verify repository</Button>
+            {message && !verified && <GGErrorBanner msg={message} />}
+            <Button type="button" style={gg.actionButton(verifying || !repositoryFullName.trim())} disabled={verifying || !repositoryFullName.trim()} onClick={() => void verifyRepository()}>{verifying ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Verifying…</> : <><Check size={14} /> Verify repository</>}</Button>
             {verified && <span style={{ color: 'var(--color-success)', fontSize: 12, fontFamily: GG.mono, display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={14} /> {message}</span>}
           </div>
 
@@ -301,7 +312,7 @@ export default function ProjectsPage() {
               <div style={gg.sideCardTitle()}>What we read</div>
               {[{ label: 'files & folder structure', ok: true }, { label: 'commit & branch history', ok: true }, { label: 'dependency graph', ok: true }, { label: 'secrets or env files', ok: false }].map(item => (
                 <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontFamily: GG.mono, fontSize: 12, color: item.ok ? GG.accent : GG.fg4 }}>{item.ok ? '✓' : '✗'}</span>
+                  {item.ok ? <Check size={13} color={GG.accent} aria-hidden="true" /> : <X size={13} color={GG.fg4} aria-hidden="true" />}
                   <span style={{ fontFamily: GG.mono, fontSize: 12, color: item.ok ? GG.fg2 : GG.fg4, textDecoration: item.ok ? 'none' : 'line-through' }}>{item.label}</span>
                 </div>
               ))}
@@ -337,19 +348,19 @@ export default function ProjectsPage() {
           <div style={gg.col(GG.panel)}>
             <span style={gg.kicker()}>Data sources</span>
             <Button type="button" style={gg.tile(dbType === 'postgres')} onClick={() => { setDbType('postgres'); setDbPort('5432'); setDbVerified(false); }}>
-              <span style={{ fontSize: 16, lineHeight: 1 }}>🐘</span>
+              <Database size={15} color={dbType === 'postgres' ? GG.accent : GG.fg3} style={{ flexShrink: 0 }} />
               <span style={{ flex: 1, fontFamily: GG.sans, fontSize: 13, color: dbType === 'postgres' ? GG.accent : GG.fg2, fontWeight: dbType === 'postgres' ? 600 : 400 }}>PostgreSQL</span>
               {dbType === 'postgres' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: GG.accent, flexShrink: 0 }} />}
             </Button>
             <Button type="button" style={gg.tile(dbType === 'mysql')} onClick={() => { setDbType('mysql'); setDbPort('3306'); setDbVerified(false); }}>
-              <span style={{ fontSize: 16, lineHeight: 1 }}>🐬</span>
+              <Database size={15} color={dbType === 'mysql' ? GG.accent : GG.fg3} style={{ flexShrink: 0 }} />
               <span style={{ flex: 1, fontFamily: GG.sans, fontSize: 13, color: dbType === 'mysql' ? GG.accent : GG.fg2, fontWeight: dbType === 'mysql' ? 600 : 400 }}>MySQL</span>
               {dbType === 'mysql' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: GG.accent, flexShrink: 0 }} />}
             </Button>
             <div style={{ height: 1, background: GG.line, margin: '4px 0' }} />
-            {[{ icon: '🗃', label: 'SQLite' }, { icon: '🍃', label: 'MongoDB' }, { icon: '📄', label: 'SQL Dump' }, { icon: '🗂', label: 'From Repo' }, { icon: '❄️', label: 'Snowflake' }].map(src => (
+            {['SQLite', 'MongoDB', 'SQL Dump', 'From Repo', 'Snowflake'].map(label => ({ label })).map(src => (
               <Button type="button" key={src.label} style={gg.tileDisabled()} disabled>
-                <span style={{ fontSize: 16, lineHeight: 1 }}>{src.icon}</span>
+                <Database size={15} color={GG.fg4} style={{ flexShrink: 0 }} />
                 <span style={{ flex: 1, fontFamily: GG.sans, fontSize: 13, color: GG.fg3 }}>{src.label}</span>
                 <span style={{ fontFamily: GG.mono, fontSize: 9, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Soon</span>
               </Button>
@@ -358,7 +369,7 @@ export default function ProjectsPage() {
 
           <div style={gg.col(GG.bg2)}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 20 }}>{dbType === 'postgres' ? '🐘' : '🐬'}</span>
+              <Database size={20} color={GG.accent} />
               <div>
                 <div style={{ fontFamily: GG.mono, fontSize: 14, color: GG.fg, fontWeight: 700 }}>connect to {dbType === 'postgres' ? 'postgresql' : 'mysql'}</div>
                 <div style={{ fontFamily: GG.sans, fontSize: 12, color: GG.fg3, marginTop: 2 }}>Enter your database credentials below</div>
@@ -394,7 +405,7 @@ export default function ProjectsPage() {
               <div style={gg.sideCardTitle()}>What we read</div>
               {[{ label: 'table metadata', ok: true }, { label: 'foreign keys', ok: true }, { label: 'view definitions', ok: true }, { label: 'row data', ok: false }].map(item => (
                 <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontFamily: GG.mono, fontSize: 12, color: item.ok ? GG.accent : GG.fg4 }}>{item.ok ? '✓' : '✗'}</span>
+                  {item.ok ? <Check size={13} color={GG.accent} aria-hidden="true" /> : <X size={13} color={GG.fg4} aria-hidden="true" />}
                   <span style={{ fontFamily: GG.mono, fontSize: 12, color: item.ok ? GG.fg2 : GG.fg4, textDecoration: item.ok ? 'none' : 'line-through' }}>{item.label}</span>
                 </div>
               ))}

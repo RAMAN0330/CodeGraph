@@ -20,3 +20,24 @@ export function decryptJson<T>(encoded: string): T {
   const plaintext = Buffer.concat([decipher.update(Buffer.from(ciphertextHex, 'hex')), decipher.final()]);
   return JSON.parse(plaintext.toString('utf8')) as T;
 }
+
+const encryptedPattern = /^[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/;
+
+// Secret strings (e.g. OAuth tokens) are stored encrypted. Rows written before
+// encryption was introduced hold the plaintext value, which never matches the
+// iv:tag:ciphertext shape, so they are read back unchanged. A value that can't
+// be decrypted (rotated key) is treated as absent rather than failing the
+// whole request — the user simply reconnects.
+export function encryptSecret(value: string): string {
+  return encryptJson(value);
+}
+
+export function revealSecret(stored: string | null): string | null {
+  if (!stored) return null;
+  if (!encryptedPattern.test(stored)) return stored;
+  try {
+    return decryptJson<string>(stored);
+  } catch {
+    return null;
+  }
+}

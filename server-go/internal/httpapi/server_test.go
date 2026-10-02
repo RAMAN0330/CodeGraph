@@ -105,6 +105,7 @@ func TestOrganizationRoutesProxy(t *testing.T) {
 		{http.MethodDelete, "/api/projects/proj-1/members/mem-1"},
 		{http.MethodPost, "/api/workspaces"},
 		{http.MethodDelete, "/api/workspaces/ws-1"},
+		{http.MethodGet, "/api/github/access/octocat/hello-world"},
 	} {
 		request := httptest.NewRequest(tc.method, tc.path, nil)
 		response := httptest.NewRecorder()
@@ -150,5 +151,65 @@ func TestArchitectureEnrichmentProxy(t *testing.T) {
 	New(testConfig(legacy.URL)).ServeHTTP(response, request)
 	if response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected proxied 503, got %d", response.Code)
+	}
+}
+
+func TestAnalysisRoutesGoThroughLegacyAPI(t *testing.T) {
+	var legacyHits, analysisHits int
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		legacyHits++
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "Not authenticated"})
+	}))
+	defer legacy.Close()
+	analysis := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		analysisHits++
+		writeJSON(w, http.StatusOK, map[string]string{"task_id": "direct"})
+	}))
+	defer analysis.Close()
+	cfg := testConfig(analysis.URL)
+	cfg.LegacyAPIURL = legacy.URL
+	api := New(cfg)
+	for _, request := range []*http.Request{
+		httptest.NewRequest(http.MethodPost, "/api/analyze", strings.NewReader(`{"url":"file:///etc"}`)),
+		httptest.NewRequest(http.MethodGet, "/api/tasks/00000000-0000-0000-0000-000000000000", nil),
+	} {
+		response := httptest.NewRecorder()
+		api.ServeHTTP(response, request)
+		if response.Code != http.StatusUnauthorized {
+			t.Fatalf("%s %s: expected legacy 401, got %d", request.Method, request.URL.Path, response.Code)
+		}
+	}
+	if analysisHits != 0 || legacyHits != 2 {
+		t.Fatalf("expected 2 legacy hits and 0 direct analysis hits, got %d and %d", legacyHits, analysisHits)
+	}
+}
+
+func TestRateLimitKeysOnForwardedClientWhenTrusted(t *testing.T) {
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	defer legacy.Close()
+	cfg := testConfig(legacy.URL)
+	cfg.RateLimitPerSecond = 1
+	cfg.TrustProxyHeader = true
+	api := New(cfg)
+	for _, ip := range []string{"203.0.113.1", "203.0.113.2"} {
+		request := httptest.NewRequest(http.MethodGet, "/api/projects", nil)
+		request.Header.Set("X-Real-IP", ip)
+		response := httptest.NewRecorder()
+		api.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("client %s behind the same proxy was throttled: %d", ip, response.Code)
+		}
+	}
+}
+
+func TestCorsAllowsMutatingMethods(t *testing.T) {
+	api := New(testConfig("http://127.0.0.1:1"))
+	response := httptest.NewRecorder()
+	api.ServeHTTP(response, httptest.NewRequest(http.MethodOptions, "/api/projects/1", nil))
+	allowed := response.Header().Get("Access-Control-Allow-Methods")
+	for _, method := range []string{"PUT", "DELETE"} {
+		if !strings.Contains(allowed, method) {
+			t.Fatalf("CORS preflight must allow %s, got %q", method, allowed)
+		}
 	}
 }
