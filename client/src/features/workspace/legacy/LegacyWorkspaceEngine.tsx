@@ -31,7 +31,6 @@ import ExplorerFilesView from '../components/ExplorerFilesView';
 import FilePreviewModal from '../components/modals/FilePreviewModal';
 import { parseDbSchema } from '../../database/services/dbParser';
 import { saveBookmark } from '../services/bookmarks';
-import { recordAnalysisSnapshot } from '../services/analysisHistory';
 import { buildArchitectureGraph } from '../services/architectureGraph';
 import { adaptGraphifyGraph } from '../../analysis/services/graphifyAdapter';
 import CommandPalette from '../components/CommandPalette';
@@ -58,6 +57,17 @@ const StaleCodeRadar = React.lazy(() => import('../../analysis/components/StaleC
 const CodeOwnershipMap = React.lazy(() => import('../../git-insights/components/CodeOwnershipMap'));
 const ReleaseNotesGenerator = React.lazy(() => import('../../git-insights/components/ReleaseNotesGenerator'));
 const TechDebtTimeline = React.lazy(() => import('../../analysis/components/TechDebtTimeline'));
+const OnboardingGuide = React.lazy(() => import('../../analysis/components/OnboardingGuide'));
+const AskCodebase = React.lazy(() => import('../../analysis/components/AskCodebase'));
+const ArchitectureRules = React.lazy(() => import('../../analysis/components/ArchitectureRules'));
+const TeamNotes = React.lazy(() => import('../components/TeamNotes'));
+const HotspotsView = React.lazy(() => import('../../analysis/components/HotspotsView'));
+const EndpointsView = React.lazy(() => import('../../analysis/components/EndpointsView'));
+const CoverageView = React.lazy(() => import('../../analysis/components/CoverageView'));
+const CyclesView = React.lazy(() => import('../../analysis/components/CyclesView'));
+const CodeOwnersView = React.lazy(() => import('../../git-insights/components/CodeOwnersView'));
+const PackagesView = React.lazy(() => import('../../analysis/components/PackagesView'));
+const CleanupPlanView = React.lazy(() => import('../../analysis/components/CleanupPlanView'));
 const ExportModal = React.lazy(() => import('../../export/components/ExportModal'));
 const MetricsTrendChart = React.lazy(() => import('../../analysis/components/MetricsTrendChart'));
 const ArchitectureDiagram = React.lazy(() => import('../components/ArchitectureDiagram'));
@@ -135,6 +145,7 @@ export default function LegacyWorkspaceEngine(){
     // in tasks.py ("Graphify extraction failed; using browser graph fallback").
     var _gfy=useState<any>(null),graphifyGraph=_gfy[0],setGraphifyGraph=_gfy[1];
     var _prevSnap=useState<any>(null),previousSnapshot=_prevSnap[0],setPreviousSnapshot=_prevSnap[1];
+    var _regAlerts=useState<any[]>([]),regressionAlerts=_regAlerts[0],setRegressionAlerts=_regAlerts[1];
     // Active sidebar section
     var _sec=useState<any>('overview'),activeSection=_sec[0],setActiveSection=_sec[1];
     var _pal=useState<any>(false),showPalette=_pal[0],setShowPalette=_pal[1];
@@ -150,6 +161,9 @@ export default function LegacyWorkspaceEngine(){
     var analysisContentCacheRef=useRef({});
     var analyzeGenerationRef=useRef(0);// guards against a stale poll loop applying results after a newer analyze() call started
     var selectFileRef=useRef(null);
+    // ?file=<path> from a shared link; read once at mount because the URL is
+    // rewritten after the analysis loads (buildAppUrl drops extra params).
+    var pendingFileRef=useRef<string|null>(typeof window!=='undefined'?new URLSearchParams(window.location.search).get('file'):null);
     var confirmResolverRef=useRef(null);
     var activeExcludePatterns=useMemo(function(){return compileExcludePatterns(excludePatternInput);},[excludePatternInput]);
 
@@ -249,7 +263,7 @@ export default function LegacyWorkspaceEngine(){
                 try{
                     var res=await fetch(
                         'https://api.github.com/repos/'+repoInfo.owner+'/'+repoInfo.repo+'/commits?per_page=20&path='+encodeURIComponent(fp),
-                        {headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}}
+                        {headers:token?{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}:{'Accept':'application/vnd.github.v3+json'}}
                     );
                     if(res.ok){
                         var commits=await res.json();
@@ -471,7 +485,7 @@ export default function LegacyWorkspaceEngine(){
         var analysisBase=appConfig.apiUrl+'/api/analysis/'+encodeURIComponent(p.owner)+'/'+encodeURIComponent(p.repo);
         var pollGeneration=(analyzeGenerationRef.current=(analyzeGenerationRef.current||0)+1);
 
-        function applyReadyData(dataObj: any){
+        function applyReadyData(dataObj: any, commitSha?: string){
             if(analyzeGenerationRef.current!==pollGeneration)return;// superseded by a newer analyze() call
             var detectedBranch=requestedBranch||currentBranch||'main';
             if(detectedBranch&&!currentBranch)setCurrentBranch(detectedBranch);
@@ -489,19 +503,18 @@ export default function LegacyWorkspaceEngine(){
             // change that cost.
             setRecentCommits([]);
             if(p&&p.owner&&p.repo){setTrendLoading(true);GitHub.getCommits(p.owner,p.repo,undefined,60).then(function(fetchedCommits: any){setRecentCommits(fetchedCommits||[]);setActivityPoints(buildActivityPoints(fetchedCommits||[]));return fetchTrendData(fetchedCommits||[],p.owner,p.repo,GitHub);}).then(function(snaps: any){setTrendSnapshots(snaps);setTrendLoading(false);}).catch(function(){setTrendLoading(false);});}
-            var _repoKey=(p.owner+'/'+p.repo+'@'+(detectedBranch||'main'));
-            var _health=calcHealth(dataObj);
-            var _prevSnapshot=recordAnalysisSnapshot(_repoKey,{
-                timestamp:new Date().toISOString(),
-                healthScore:_health.score,
-                healthGrade:_health.grade,
-                stats:{
-                    files:dataObj.stats.files,functions:dataObj.stats.functions,connections:dataObj.stats.connections,
-                    loc:dataObj.stats.loc,security:dataObj.stats.security,dead:dataObj.stats.dead,
-                    violations:dataObj.stats.violations,duplicates:dataObj.stats.duplicates,patterns:dataObj.stats.patterns,
-                },
-            });
-            setPreviousSnapshot(_prevSnapshot);
+            // Overview deltas diff against the server's snapshot of the most
+            // recent *other* commit on this branch; alerts are the repo's
+            // recorded regressions (server/src/services/analysisHistory.ts).
+            setPreviousSnapshot(null);setRegressionAlerts([]);
+            fetch(analysisBase+'/history?branch='+branchParam,{credentials:'include'})
+                .then(function(res){return res.ok?res.json():null;})
+                .then(function(history: any){
+                    if(!history||analyzeGenerationRef.current!==pollGeneration)return;
+                    var earlier=(history.snapshots||[]).filter(function(s: any){return s.commitSha!==commitSha;});
+                    setPreviousSnapshot(earlier.length?earlier[earlier.length-1]:null);
+                    setRegressionAlerts(history.alerts||[]);
+                }).catch(function(){});
             var _repoBookmarkKey=(p.owner+'/'+p.repo);
             saveBookmark(_repoBookmarkKey,'https://github.com/'+_repoBookmarkKey,{
               files: dataObj.stats.files,
@@ -535,7 +548,7 @@ export default function LegacyWorkspaceEngine(){
             }).then(function(payload: any){
                 if(analyzeGenerationRef.current!==pollGeneration)return;
                 if(payload.status==='ready'){
-                    applyReadyData(payload.data);
+                    applyReadyData(payload.data,payload.commitSha);
                 }else if(payload.status==='failed'){
                     setError('Analysis failed on the server. Try Rescan to retry.');
                     setLoading(false);
@@ -925,6 +938,12 @@ export default function LegacyWorkspaceEngine(){
         }
     },[data,repoInfo,localDirHandle]);
     selectFileRef.current=selectFile;
+    useEffect(function(){
+        var path=pendingFileRef.current;
+        if(!data||!path)return;
+        pendingFileRef.current=null;
+        if((data as any).files.some(function(f: any){return f.path===path;})){setActiveSection('explorer');selectFile(path);}
+    },[data,selectFile]);
 
     var togglePath=useCallback(function(p: any){setExpandedPaths(function(prev: any){var n=new Set(prev);if(n.has(p))n.delete(p);else n.add(p);return n;});},[]);
     var toggleFn=useCallback(function(name: any){setExpandedFns(function(prev: any){var n=new Set(prev);if(n.has(name))n.delete(name);else n.add(name);return n;});},[]);
@@ -983,7 +1002,18 @@ export default function LegacyWorkspaceEngine(){
 
     function exportJSON(){if(!data)return;var blob=new Blob([JSON.stringify({stats:(data as any).stats,files:(data as any).files.map(function(f: any){return{path:f.path,fns:f.functions.length,layer:f.layer,lines:f.lines,dependencies:f.dependencies||[]};}),connections:(data as any).connections,issues:(data as any).issues,patterns:(data as any).patterns,security:(data as any).securityIssues},null,2)],{type:'application/json'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='structrace-analysis.json';a.click();}
     function showNotification(msg,type){setToast({msg:msg,type:type||'success'});setTimeout(function(){setToast(null);},3000);}
-    function analyzePR(){if(!prUrl||!repoInfo)return;var m=prUrl.match(/\/pull\/(\d+)/);if(!m){showNotification('Invalid PR URL','error');return;}GitHub.getPR(repoInfo.owner,repoInfo.repo,m[1]).then(function(pr: any){if(pr)setPrData(pr);else showNotification('Could not load PR','error');});}
+    // Server-built report (same one the GitHub App posts on the PR): risk,
+    // dependents per file, test impact and reviewers from real commit history.
+    function analyzePR(){
+        if(!prUrl||!repoInfo)return;
+        var m=prUrl.match(/\/pull\/(\d+)/);
+        if(!m){showNotification('Invalid PR URL','error');return;}
+        setPrData(null);
+        fetch(appConfig.apiUrl+'/api/pr-review/'+encodeURIComponent(repoInfo.owner)+'/'+encodeURIComponent(repoInfo.repo)+'/'+m[1],{credentials:'include'})
+            .then(function(res){return res.json().then(function(body: any){if(!res.ok)throw new Error((body&&body.error)||'Could not load PR');return body;});})
+            .then(function(report: any){setPrData(report);})
+            .catch(function(e: any){showNotification(e.message||'Could not load PR','error');});
+    }
     function filterByFolder(path){setFolderFilter(function(prev: any){return prev===path?null:path;});}
     var health=useMemo(function(){return calcHealth(data as any);},[data]);
     // Computed client-side (not always present on the server-analyzed payload)
@@ -1037,6 +1067,14 @@ export default function LegacyWorkspaceEngine(){
             onPaletteOpen: function(){ if(data) setShowPalette(true); },
             onGoHome:function(){ window.location.href='/'; },
             activeSection:activeSection,
+            currentView:{section:activeSection,file:activeSection==='explorer'&&selected?selected.path:null,branch:currentBranch||null},
+            // Another branch re-analyzes first; the file is selected once that
+            // analysis loads (pendingFileRef, as for ?file= links).
+            onOpenView:function(v: any){
+                setActiveSection(v.section);
+                if(v.branch&&v.branch!==currentBranch){pendingFileRef.current=v.file||null;switchBranchLight(v.branch);}
+                else if(v.file&&selectFileRef.current)selectFileRef.current(v.file);
+            },
         }),
         React.createElement(WorkspaceSidebar,{
             login:authUser?.login??'',
@@ -1066,6 +1104,7 @@ export default function LegacyWorkspaceEngine(){
             dbSchemaDetected:dbSchemaDetected,
             suggestions:overviewSuggestions,
             previousSnapshot:previousSnapshot,
+            regressionAlerts:regressionAlerts,
             architecture:overviewArchitecture,
             onOpen:function(s: any){setActiveSection(s);if(s==='database'&&data&&!dbSchema)openDbSchema();},
             onOpenUnused:function(){if(data&&(data as any).deadFunctions?.length)setShowUnused(true);},
@@ -1099,10 +1138,10 @@ export default function LegacyWorkspaceEngine(){
           token: token,
           branch: currentBranch||'main',
         } as any),
-        activeSection==='database'&&React.createElement(DatabaseSchemaSection,{dbSchema:dbSchema,filteredDbSchema:filteredDbSchema,selectedDbTable:selectedDbTable}),
+        activeSection==='database'&&React.createElement(DatabaseSchemaSection,{dbSchema:dbSchema,filteredDbSchema:filteredDbSchema,selectedDbTable:selectedDbTable,data:data,onSelectTable:setSelectedDbTable,onOpenFile:function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);}}),
         activeSection==='pullrequests'&&React.createElement(PullRequestsSection,{prUrl:prUrl,onPrUrlChange:setPrUrl,onLoadPr:function(){setShowPR(true);}}),
         activeSection==='migrations'&&React.createElement(MigrationsSection,null),
-        activeSection==='security'&&React.createElement(SecuritySection,{data:data,vulns:vulns,vulnLoading:vulnLoading,vulnError:vulnError,onRescan:function(){analyze(undefined,undefined,true);},scanning:loading,repoInfo:repoInfo,currentBranch:currentBranch}),
+        activeSection==='security'&&React.createElement(SecuritySection,{data:data,vulns:vulns,vulnLoading:vulnLoading,vulnError:vulnError,onRescan:function(){analyze(undefined,undefined,true);},scanning:loading,repoInfo:repoInfo,currentBranch:currentBranch,onOpenFile:function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);}}),
         activeSection==='patterns'&&React.createElement(PatternsSection,{data:data,onSelectFile:selectFile,onViewSource:openFilePreview}),
         activeSection==='actions'&&React.createElement(ActionsSection,{data:data,onSelectFile:selectFile,onViewSource:openFilePreview}),
         activeSection==='trends'&&React.createElement(MetricsTrendChart,{snapshots:trendSnapshots,activityPoints:activityPoints,loading:trendLoading,onCommitClick:function(sha: any){setActiveSection('commits');}}),
@@ -1111,6 +1150,64 @@ export default function LegacyWorkspaceEngine(){
             connections:data?((data as any).connections||[]):[],
             repoName:repoInfo?repoInfo.owner+'/'+repoInfo.repo:'Repository',
             onOpenFile:function(path: string){if(selectFileRef.current)selectFileRef.current(path);}
+        }),
+        activeSection==='guide' && repoInfo && data && React.createElement(OnboardingGuide, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          data: data,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
+        }),
+        activeSection==='cleanup' && repoInfo && data && React.createElement(CleanupPlanView, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          data: data,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
+        }),
+        activeSection==='packages' && data && React.createElement(PackagesView, {
+          data: data,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
+        }),
+        activeSection==='codeowners' && repoInfo && data && React.createElement(CodeOwnersView, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          branch: currentBranch||undefined,
+          data: data,
+        }),
+        activeSection==='cycles' && data && React.createElement(CyclesView, {
+          data: data,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
+        }),
+        activeSection==='coverage' && repoInfo && data && React.createElement(CoverageView, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          branch: currentBranch||undefined,
+          data: data,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
+        }),
+        activeSection==='endpoints' && data && React.createElement(EndpointsView, {
+          data: data,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
+          onOpenTable: function(table: string){setSelectedDbTable(table);setActiveSection('database');if(!dbSchema)openDbSchema();},
+        }),
+        activeSection==='hotspots' && data && React.createElement(HotspotsView, {
+          data: data,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
+        }),
+        activeSection==='notes' && repoInfo && React.createElement(TeamNotes, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
+        }),
+        activeSection==='rules' && data && React.createElement(ArchitectureRules, {
+          data: data,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
+        }),
+        activeSection==='ask' && repoInfo && data && React.createElement(AskCodebase, {
+          owner: repoInfo.owner,
+          repo: repoInfo.repo,
+          branch: currentBranch||undefined,
+          data: data,
+          onOpenFile: function(path: string){setActiveSection('explorer');if(selectFileRef.current)selectFileRef.current(path);},
         }),
         activeSection==='radar' && repoInfo && React.createElement(StaleCodeRadar, {
           owner: repoInfo.owner,
@@ -1237,7 +1334,7 @@ export default function LegacyWorkspaceEngine(){
                 )
             )
         ),
-        showPR&&React.createElement(PrReviewModal,{prUrl:prUrl,onPrUrlChange:setPrUrl,onAnalyze:analyzePR,prData:prData,data:data,revertCounts:revertCounts,onClose:function(){setShowPR(false);}}),
+        showPR&&React.createElement(PrReviewModal,{prUrl:prUrl,onPrUrlChange:setPrUrl,onAnalyze:analyzePR,prData:prData,revertCounts:revertCounts,onClose:function(){setShowPR(false);}}),
         drillDown&&React.createElement(DrillDownModal,{drillDown:drillDown,onClose:function(){setDrillDown(null);},onSelectFile:selectFile,onViewSource:openFilePreview}),
         showPrivacy&&React.createElement(PrivacyModal,{onClose:function(){setShowPrivacy(false);}}),
         showKeyModal&&React.createElement(GithubAppKeyModal,{privateKey:privateKey,onPrivateKeyChange:setPrivateKey,onClose:function(){setShowKeyModal(false);}}),

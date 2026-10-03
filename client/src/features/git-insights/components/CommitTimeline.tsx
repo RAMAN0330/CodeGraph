@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import CommitHeatmap from './CommitHeatmap';
 
 const AUTHOR_COLORS = ['var(--color-success)','var(--acc2)','var(--accent-orange)','var(--chart-purple)','var(--color-danger)','var(--teal-500)','var(--accent-orange)','var(--chart-purple)'];
 
@@ -108,6 +109,8 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedSha, setCopiedSha] = useState<string | null>(null);
+  // A day picked on the heatmap (YYYY-MM-DD, UTC) narrows the list to it.
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   ensureStyle();
 
@@ -117,9 +120,12 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
     setError(null);
     (async () => {
       try {
+        const range = selectedDay ? `&since=${selectedDay}T00:00:00Z&until=${selectedDay}T23:59:59Z` : '';
+        const headers: Record<string, string> = { 'Accept': 'application/vnd.github.v3+json' };
+        if (token) headers.Authorization = 'token ' + token;
         const res = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/commits?per_page=30&sha=${branch}`,
-          { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' } }
+          `https://api.github.com/repos/${owner}/${repo}/commits?per_page=${selectedDay ? 100 : 30}&sha=${encodeURIComponent(branch)}${range}`,
+          { headers }
         );
         if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
         const data = await res.json();
@@ -131,7 +137,15 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
       }
     })();
     return () => { cancelled = true; };
-  }, [owner, repo, token, branch]);
+  }, [owner, repo, token, branch, selectedDay]);
+
+  const heatmap = <CommitHeatmap owner={owner} repo={repo} token={token} selectedDay={selectedDay} onSelectDay={setSelectedDay} />;
+  const dayFilter = selectedDay && (
+    <div className="ct-day-filter" role="status">
+      Showing commits on <strong>{new Date(`${selectedDay}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</strong> on {branch}
+      <button type="button" onClick={() => setSelectedDay(null)}>Show recent commits</button>
+    </div>
+  );
 
   const handleCopySha = useCallback((sha: string) => {
     navigator.clipboard.writeText(sha).catch(() => {});
@@ -140,6 +154,14 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
   }, []);
 
   // ── Loading state ────────────────────────────────────────────────────────────
+  // Picking a day keeps the heatmap in place and only reloads the list.
+  if (loading && selectedDay) return (
+    <div className="gi-page">
+      {heatmap}
+      {dayFilter}
+      {[0,1,2].map(i => <SkeletonRow key={i} />)}
+    </div>
+  );
   if (loading) return (
     <div className="gi-page">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
@@ -173,6 +195,7 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
   // ── Error state ──────────────────────────────────────────────────────────────
   if (error) return (
     <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 200 }}>
+      {selectedDay && <div style={{ alignSelf: 'stretch' }}>{heatmap}{dayFilter}</div>}
       <div style={{ fontSize: 36 }}>⚠️</div>
       <div style={{ fontSize: 15, color: 'var(--color-danger)', fontWeight: 600 }}>Failed to load commits</div>
       <div style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 360, textAlign: 'center' }}>{error}</div>
@@ -182,8 +205,9 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
   // ── Empty state ──────────────────────────────────────────────────────────────
   if (!commits.length) return (
     <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 200 }}>
+      {selectedDay && <div style={{ alignSelf: 'stretch' }}>{heatmap}{dayFilter}</div>}
       <div style={{ fontSize: 36 }}>📭</div>
-      <div style={{ fontSize: 15, color: 'var(--text-muted)' }}>No commits found on branch "{branch}".</div>
+      <div style={{ fontSize: 15, color: 'var(--text-muted)' }}>{selectedDay ? `No commits on "${branch}" that day — the heatmap counts the default branch.` : `No commits found on branch "${branch}".`}</div>
     </div>
   );
 
@@ -227,6 +251,9 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
           {commits.length} commits
         </span>
       </div>
+
+      {heatmap}
+      {dayFilter}
 
       {/* Stats row */}
       <div style={{

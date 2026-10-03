@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { vulnReach, type Reach } from '../../../security/services/vulnReach';
 
 type Severity = 'high' | 'medium' | 'low' | 'info';
 
@@ -25,7 +26,8 @@ interface SecurityIssue {
 }
 
 interface Props {
-  data: { securityIssues?: SecurityIssue[] } | null;
+  // packageUsage + connections give dependency advisories their reach.
+  data: { securityIssues?: SecurityIssue[]; packageUsage?: Record<string, string[]>; connections?: any[] } | null;
   vulns: VulnResult[];
   vulnLoading: boolean;
   vulnError: string | null;
@@ -34,6 +36,7 @@ interface Props {
   scanning?: boolean;
   repoInfo?: { owner: string; repo: string } | null;
   currentBranch?: string;
+  onOpenFile?: (path: string) => void;
 }
 
 /** A code finding and a dependency advisory, normalised into one row type. */
@@ -49,6 +52,8 @@ interface Finding {
   code?: string;
   url?: string;
   raw?: SecurityIssue;
+  // Dependency advisories: which files import the package (null = unknown).
+  reach?: Reach | null;
 }
 
 const SEVERITY_ORDER: Record<Severity, number> = { high: 0, medium: 1, low: 2, info: 3 };
@@ -71,7 +76,13 @@ function iconFor(finding: Finding) {
   return Lock;
 }
 
-function toFindings(issues: SecurityIssue[], vulns: VulnResult[]): Finding[] {
+function reachText(reach: Reach | null | undefined): string {
+  if (!reach) return '';
+  if (!reach.importers.length) return ' Not imported by any source file — likely build tooling or a transitive dependency.';
+  return ` Imported by ${reach.importers.length} file${reach.importers.length === 1 ? '' : 's'}${reach.downstream ? `; ${reach.downstream} more depend on them` : ''}.`;
+}
+
+function toFindings(issues: SecurityIssue[], vulns: VulnResult[], data: Props['data']): Finding[] {
   const code: Finding[] = issues.map((issue, i) => ({
     id: `code-${i}-${issue.path ?? issue.file ?? ''}-${issue.title}`,
     kind: 'code',
@@ -85,23 +96,27 @@ function toFindings(issues: SecurityIssue[], vulns: VulnResult[]): Finding[] {
     raw: issue,
   }));
 
-  const deps: Finding[] = vulns.map((v, i) => ({
+  const deps: Finding[] = vulns.map((v, i) => {
+    const reach = vulnReach(v.pkg, v.ecosystem, data);
+    return {
     id: `dep-${i}-${v.pkg}-${v.cveId}`,
     kind: 'dependency',
     severity: DEP_SEVERITY[v.severity],
     title: `Vulnerable Dependency: ${v.pkg}`,
-    desc: v.summary || `${v.pkg} ${v.version} is affected by a published advisory.`,
+    desc: (v.summary || `${v.pkg} ${v.version} is affected by a published advisory.`) + reachText(reach),
+    reach,
     file: `${v.pkg}@${v.version}`,
     path: `${v.ecosystem} · ${v.pkg} ${v.version}`,
     code: v.cveId,
     url: v.url,
-  }));
+    };
+  });
 
   return [...code, ...deps];
 }
 
 export default function SecuritySection({
-  data, vulns, vulnLoading, vulnError, onSelectIssue, onRescan, scanning, repoInfo, currentBranch,
+  data, vulns, vulnLoading, vulnError, onSelectIssue, onRescan, scanning, repoInfo, currentBranch, onOpenFile,
 }: Props) {
   const [severityFilter, setSeverityFilter] = useState<Severity | 'all'>('all');
   const [query, setQuery] = useState('');
@@ -112,7 +127,7 @@ export default function SecuritySection({
   const searchRef = useRef<HTMLInputElement>(null);
 
   const findings = useMemo(
-    () => toFindings(data?.securityIssues ?? [], vulns ?? []),
+    () => toFindings(data?.securityIssues ?? [], vulns ?? [], data),
     [data, vulns],
   );
 
@@ -133,7 +148,9 @@ export default function SecuritySection({
     return filtered.sort((a, b) => {
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'file') return (a.path ?? '').localeCompare(b.path ?? '');
-      return SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.title.localeCompare(b.title);
+      // Same severity: advisories for packages the code actually imports, widest reach first.
+      const reachOf = (f: Finding) => (f.reach ? f.reach.importers.length + f.reach.downstream : -1);
+      return SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || reachOf(b) - reachOf(a) || a.title.localeCompare(b.title);
     });
   }, [findings, severityFilter, query, sortBy]);
 
@@ -305,6 +322,7 @@ export default function SecuritySection({
             copied={copied}
             repoInfo={repoInfo}
             currentBranch={currentBranch}
+            onOpenFile={onOpenFile}
           />
         )}
       </div>
@@ -354,7 +372,7 @@ function SecurityHeader({
 }
 
 function SecurityDetail({
-  finding, onClose, onCopy, copied, repoInfo, currentBranch,
+  finding, onClose, onCopy, copied, repoInfo, currentBranch, onOpenFile,
 }: {
   finding: Finding;
   onClose: () => void;
@@ -362,6 +380,7 @@ function SecurityDetail({
   copied: string | null;
   repoInfo?: { owner: string; repo: string } | null;
   currentBranch?: string;
+  onOpenFile?: (path: string) => void;
 }) {
   const Glyph = iconFor(finding);
   const reference = referenceFor(finding.title);
@@ -424,6 +443,23 @@ function SecurityDetail({
               </a>
             )}
           </div>
+        </section>
+      )}
+
+      {isDependency && finding.reach && (
+        <section className="sec-block">
+          <h3>Where it's used</h3>
+          {finding.reach.importers.length ? (
+            <>
+              <p className="sec-reach-note">{finding.reach.importers.length} file{finding.reach.importers.length === 1 ? ' imports' : 's import'} it{finding.reach.downstream ? `, and ${finding.reach.downstream} more depend on those` : ''}. Check whether these call the affected functions.</p>
+              <ul className="sec-reach-list">
+                {finding.reach.importers.slice(0, 15).map(path => (
+                  <li key={path}>{onOpenFile ? <button type="button" className="guide-file" onClick={() => onOpenFile(path)}>{path}</button> : <code>{path}</code>}</li>
+                ))}
+              </ul>
+              {finding.reach.importers.length > 15 && <p className="sec-reach-note">+{finding.reach.importers.length - 15} more</p>}
+            </>
+          ) : <p className="sec-reach-note">No source file imports this package. It's most likely build tooling or pulled in by another dependency — upgrade it, but code-level advisories that are reachable come first.</p>}
         </section>
       )}
 

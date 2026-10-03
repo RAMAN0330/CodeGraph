@@ -8,10 +8,8 @@ import { describeAnalysisError } from '../services/analysisErrors';
 
 interface Suggestion { title: string; desc: string; priority: 'critical' | 'high' | 'medium' | string }
 interface Pattern { name: string; isAnti?: boolean; severity?: string; files: any[] }
-interface AnalysisSnapshot {
-  timestamp: string; healthScore: number; healthGrade: string;
-  stats: { files: number; functions: number; connections: number; loc: number; security: number; dead: number; violations: number; duplicates: number; patterns: number };
-}
+import type { AnalysisSnapshot } from '../../analysis/services/analysisHealth';
+interface RegressionAlert { id: number; branch: string; commitSha: string; kind: string; message: string; createdAt: string }
 interface ArchitectureSnapshot { layers: number; modules: number; edges: number; circular: number }
 
 interface Props {
@@ -26,6 +24,7 @@ interface Props {
   dbSchemaDetected?: boolean;
   suggestions?: Suggestion[];
   previousSnapshot?: AnalysisSnapshot | null;
+  regressionAlerts?: RegressionAlert[];
   architecture?: ArchitectureSnapshot | null;
   onOpen: (section: string) => void;
   onOpenUnused: () => void;
@@ -134,10 +133,39 @@ export default function WorkspaceOverview(props: Props) {
   );
 }
 
+const REGRESSION_LABELS: Record<string, string> = { health: 'Health', circular: 'Cycles', security: 'Security', violations: 'Architecture', rules: 'Rules' };
+
+function relativeDate(iso: string) {
+  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (minutes < 60) return `${Math.max(1, minutes)}m ago`;
+  if (minutes < 60 * 24) return `${Math.round(minutes / 60)}h ago`;
+  return `${Math.round(minutes / (60 * 24))}d ago`;
+}
+
+// Regressions the server detected between consecutive analyzed commits,
+// including scheduled re-analyses nobody was watching.
+function RegressionPanel({ alerts }: { alerts: RegressionAlert[] }) {
+  return (
+    <article className="overview-panel ov-area-regressions">
+      <div className="overview-panel-heading"><div><h2>Regressions</h2></div><small>Between analyzed commits</small></div>
+      <ul className="ov-regression-list">
+        {alerts.slice(0, 5).map(alert => (
+          <li key={alert.id}>
+            <span className={`ov-regression-kind ${alert.kind}`}>{REGRESSION_LABELS[alert.kind] ?? alert.kind}</span>
+            <span className="ov-regression-message">{alert.message}</span>
+            <code>{alert.branch === 'HEAD' ? 'default' : alert.branch} @ {alert.commitSha.slice(0, 7)}</code>
+            <time dateTime={alert.createdAt}>{relativeDate(alert.createdAt)}</time>
+          </li>
+        ))}
+      </ul>
+    </article>
+  );
+}
+
 function OverviewContent({
   repoInfo, data, health,
   vulns, vulnLoading, dbSchemaDetected,
-  previousSnapshot, architecture,
+  previousSnapshot, regressionAlerts = [], architecture,
   onOpen,
 }: Props) {
   const stats = data.stats ?? {};
@@ -155,7 +183,7 @@ function OverviewContent({
 
   const prevStats = previousSnapshot?.stats;
   const delta = (key: keyof NonNullable<typeof prevStats>, current: number) =>
-    prevStats ? current - prevStats[key] : 0;
+    prevStats ? current - (prevStats[key] ?? 0) : 0;
 
   // Real, deterministic bucketing of every signal type into one severity
   // taxonomy — not a fabricated score, just a shared vocabulary across
@@ -188,10 +216,12 @@ function OverviewContent({
       .slice(0, 6);
   }, [data.files]);
   const maxComplexity = Math.max(1, ...complexityHotspots.map((f: any) => f.complexity.score));
+  // Real hotspots (complexity × churn) when the analysis has commit history.
+  const realHotspots: Array<{ path: string; score: number }> = data.hotspots?.status === 'ok' ? (data.hotspots.items ?? []).slice(0, 6) : [];
 
   return (
     <main className="workspace-overview">
-      <div className="overview-master-grid ov-grid-v2">
+      <div className={`overview-master-grid ov-grid-v2${regressionAlerts.length ? ' has-regressions' : ''}`}>
         <article className="overview-health-card ov-area-health">
           <div className={`overview-health-score ${health.score >= 80 ? 'good' : health.score >= 60 ? 'warn' : 'risk'}`}>
             <span>{health.score}</span><small>/100</small>
@@ -219,6 +249,8 @@ function OverviewContent({
             </div>
           ))}
         </div>
+
+        {regressionAlerts.length > 0 && <RegressionPanel alerts={regressionAlerts} />}
 
         <article className="ov-area-arch ov-kpi-panel">
           <div className="ov-kpi-grid">
@@ -258,6 +290,18 @@ function OverviewContent({
         </article>
 
         <article className="overview-panel ov-area-complexity">
+          {realHotspots.length ? <>
+            <div className="overview-panel-heading"><div><h2>Hotspots</h2></div><small>Complex and frequently changed</small></div>
+            <div className="ov-hotspot-list">
+              {realHotspots.map(h => (
+                <Button variant="ghost" key={h.path} className="ov-hotspot-row" onClick={() => onOpen('hotspots')}>
+                  <span>{h.path}</span>
+                  <div className="ov-hotspot-track"><i style={{ width: `${Math.max(3, h.score)}%` }} /></div>
+                  <b>{h.score}</b>
+                </Button>
+              ))}
+            </div>
+          </> : <>
           <div className="overview-panel-heading"><div><h2>Complexity hotspots</h2></div><small>Highest first</small></div>
           {complexityHotspots.length ? (
             <div className="ov-hotspot-list">
@@ -270,6 +314,7 @@ function OverviewContent({
               ))}
             </div>
           ) : <p className="overview-panel-empty">No high-complexity files detected.</p>}
+          </>}
         </article>
 
         <OwnershipRiskPanel repoInfo={repoInfo} files={data.files ?? []} />

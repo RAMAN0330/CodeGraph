@@ -3,8 +3,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { Client } from 'pg';
-import mysql from 'mysql2/promise';
 import session from 'express-session';
 import { RedisStore } from 'connect-redis';
 import { createClient } from 'redis';
@@ -15,15 +13,27 @@ import bcrypt from 'bcryptjs';
 import { env, validateEnvironment } from './config/env';
 import type { SchemaColumn, SchemaForeignKey as SchemaFK, SchemaIndex, SchemaTable } from './types/schema';
 import { createJsonProxy } from './middleware/asyncProxy';
-import { fetchBlobContent, fetchFileContent, fetchLatestCommitSha, fetchRepositoryTree, fetchUserRepositories } from './services/githubService';
+import { GitHubApiError, fetchBlobContent, fetchFileContent, fetchLatestCommitSha, fetchRepositoryTree, fetchUserRepositories } from './services/githubService';
+import { githubAppConfigured, githubAppInstallUrl, verifyWebhookSignature } from './services/githubApp';
+import { MissingAnalysisError, buildPrReview, prReviewJobFromEvent } from './services/prReview';
 import { getCachedBlob, getCachedFile, getCachedTree, pruneStaleCacheEntries, saveBlobCache, saveFileCache, saveTreeCache, touchTreeCache } from './db/repoCache';
 import { initSchema } from './db/pool';
 import { UsernameTakenError, clearGithubConnection, createOrganizationWithAdmin, findUserById, findUserByUsername, setGithubConnection, toPublicUser, type UserRow } from './db/users';
-import { addMember, createProject, createWorkspace, getDecryptedConnection, listProjects, listWorkspaces, removeMember, removeProject, removeWorkspace, updateDbConnection } from './db/projectStore';
-import { getAnalysis } from './db/analysisStore';
+import { AccessError, NotFoundError, addMember, assertCanEditProject, createProject, createWorkspace, getAlertWebhook, getDecryptedConnection, listProjects, listWorkspaces, removeMember, removeProject, removeWorkspace, setAlertWebhook, updateDbConnection, type Actor } from './db/projectStore';
+import { listAlerts, listSnapshots } from './db/analysisHistory';
+import { InviteUnavailableError, createInvite, findOpenInvite, joinOrganizationWithInvite, listMembers } from './db/organization';
+import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation, validateNote } from './db/annotations';
+import { deleteCoverage, getCoverage, saveCoverage, validateCoverage } from './db/coverage';
+import { createView, deleteView, listViews, validateView } from './db/savedViews';
+import { compareAnalyses } from './analysis/compareAnalyses';
+import { aiConfigured, structuredResponse } from './services/openaiClient';
+import { connectMysql, connectPostgres, type MysqlConnection } from './services/customerDb';
+import { buildExplainContext, explainSchema, EXPLAIN_SYSTEM_PROMPT } from './services/codebaseExplain';
+import { sendWebhookMessage } from './services/alertNotifier';
+import { getAnalysis, type StoredAnalysis } from './db/analysisStore';
 import { createAlertRule, deleteAlertRule, listAlertRules } from './db/metricsSnapshots';
 import { buildActivity, buildOverview, buildPerformance, buildQueries, buildReplication, buildSecurity, buildStorage } from './services/telemetry/orchestrate';
-import { enqueueAnalysisJob, getAnalysisJobState, startAnalysisWorker, stopAnalysisWorker } from './queue/analysisQueue';
+import { enqueueAnalysisJob, enqueuePrReviewJob, getAnalysisJobState, startAnalysisWorker, stopAnalysisWorker } from './queue/analysisQueue';
 import { canReadRepository, isValidRepoSegment, parseGithubCloneUrl, sanitizeToken } from './services/repoAccess';
 
 declare global {
@@ -50,6 +60,31 @@ app.use(cors({
   origin: env.clientOrigin,
   credentials: true,
 }));
+
+// GitHub App webhook for automatic PR reviews. Registered ahead of the JSON
+// parser because the signature covers the exact raw bytes GitHub sent. It
+// only queues work; the review itself runs in the pr-review worker.
+app.post('/api/github/webhook', express.raw({ type: 'application/json', limit: '5mb' }), async (req: any, res: any) => {
+  if (!githubAppConfigured()) return res.status(503).json({ error: 'Automatic PR reviews are not configured.' });
+  if (!Buffer.isBuffer(req.body) || !verifyWebhookSignature(req.body, req.get('x-hub-signature-256'))) {
+    return res.status(401).json({ error: 'Invalid webhook signature.' });
+  }
+  let payload: unknown;
+  try {
+    payload = JSON.parse(req.body.toString('utf8'));
+  } catch {
+    return res.status(400).json({ error: 'Webhook body is not JSON.' });
+  }
+  const job = prReviewJobFromEvent(req.get('x-github-event'), payload);
+  if (!job) return res.status(202).json({ queued: false });
+  try {
+    await enqueuePrReviewJob(job);
+    res.status(202).json({ queued: true });
+  } catch (error: any) {
+    res.status(503).json({ error: error.message });
+  }
+});
+
 app.use(express.json({ limit: '10mb' }));
 
 const authRateLimit = rateLimit({
@@ -155,6 +190,18 @@ function requireAuth(req: any, res: any, next: any) {
 
 // Prefer an explicit (validated) token from the request body, falling back to
 // the GitHub connection stored on the signed-in user.
+function actorOf(req: any): Actor {
+  return { id: req.user.id, organizationId: req.user.organization_id, role: req.user.role };
+}
+
+// 403 when the caller is in the organization but may not change this
+// resource; 404 when it is not in their organization at all.
+function errorStatus(error: unknown, fallback: number): number {
+  if (error instanceof AccessError) return 403;
+  if (error instanceof NotFoundError) return 404;
+  return fallback;
+}
+
 function requestGithubToken(req: any): string | undefined {
   return sanitizeToken(req.body?.token) ?? sanitizeToken(req.user?.github_token);
 }
@@ -162,9 +209,8 @@ function requestGithubToken(req: any): string | undefined {
 app.get('/health/live', (_req, res) => res.json({ status: 'ok' }));
 
 async function introspectPostgres(conn: { host: string; port: string | number; database: string; user: string; password: string; ssl?: boolean }): Promise<{ tables: SchemaTable[] }> {
-  const client = new Client({ host: conn.host, port: parseInt(String(conn.port), 10) || 5432, database: conn.database, user: conn.user, password: conn.password, ssl: conn.ssl ? { rejectUnauthorized: false } : undefined, connectionTimeoutMillis: 8000 });
+  const client = await connectPostgres(conn);
   try {
-    await client.connect();
 
     const tableResult = await client.query<{table_schema:string; table_name:string}>(`
       SELECT table_schema, table_name FROM information_schema.tables
@@ -241,9 +287,9 @@ async function introspectPostgres(conn: { host: string; port: string | number; d
 
 async function introspectMysql(conn: { host: string; port: string | number; database: string; user: string; password: string; ssl?: boolean }): Promise<{ tables: SchemaTable[] }> {
   const { host, port, database, user, password, ssl } = conn;
-  let connection: Awaited<ReturnType<typeof mysql.createConnection>> | undefined;
+  let connection: MysqlConnection | undefined;
   try {
-    connection = await mysql.createConnection({ host, port: parseInt(String(port), 10) || 3306, database, user, password, ssl: ssl ? { rejectUnauthorized: false } : undefined, connectTimeout: 8000 });
+    connection = await connectMysql({ host, port, database, user, password, ssl });
 
     const [tableRows]: any = await connection.execute(
       `SELECT TABLE_NAME, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME`,
@@ -459,29 +505,17 @@ app.post('/api/architecture/enrich', requireAuth, outboundRateLimit, async (req:
     },
   };
   try {
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.openaiApiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: env.openaiModel,
-        input: [
-          { role: 'system', content: [{ type: 'input_text', text: 'Explain this repository architecture concisely. Preserve every supplied ID exactly. Return text updates only; do not invent components, paths, connections, or IDs.' }] },
-          { role: 'user', content: [{ type: 'input_text', text: JSON.stringify({ groups, nodes, edges }) }] },
-        ],
-        text: { format: { type: 'json_schema', name: 'architecture_enrichment', strict: true, schema } },
-      }),
-      signal: AbortSignal.timeout(45_000),
+    const enrichment: any = await structuredResponse({
+      system: 'Explain this repository architecture concisely. Preserve every supplied ID exactly. Return text updates only; do not invent components, paths, connections, or IDs.',
+      user: JSON.stringify({ groups, nodes, edges }),
+      schemaName: 'architecture_enrichment',
+      schema,
     });
-    const result: any = await response.json();
-    if (!response.ok) return res.status(502).json({ error: result?.error?.message || 'Explanation provider rejected the request.' });
-    const outputText = result.output_text || result.output?.flatMap((item: any) => item.content || []).find((item: any) => item.type === 'output_text')?.text;
-    if (!outputText) return res.status(502).json({ error: 'Explanation provider returned no structured output.' });
-    const enrichment = JSON.parse(outputText);
     const safeGroups = Array.isArray(enrichment.groups) ? enrichment.groups.filter((item: any) => groupIds.has(item.id)).map((item: any) => ({ id: item.id, label: String(item.label || '').slice(0, 120), description: String(item.description || '').slice(0, 400) })) : [];
     const safeNodes = Array.isArray(enrichment.nodes) ? enrichment.nodes.filter((item: any) => nodeIds.has(item.id)).map((item: any) => ({ id: item.id, label: String(item.label || '').slice(0, 120), description: String(item.description || '').slice(0, 400) })) : [];
     return res.json({ summary: String(enrichment.summary || '').slice(0, 600), groups: safeGroups, nodes: safeNodes });
   } catch (error: any) {
-    return res.status(502).json({ error: error?.name === 'TimeoutError' ? 'Explanation request timed out.' : 'Unable to generate the architecture explanation.' });
+    return res.status(502).json({ error: error?.message || 'Unable to generate the architecture explanation.' });
   }
 });
 
@@ -501,20 +535,55 @@ function loginSession(req: any, res: any, next: any, user: UserRow, onSuccess: (
   });
 }
 
+// With an invite token the account joins the inviting organization as a
+// member; without one it founds a new organization as its admin.
 app.post('/auth/register', credentialsRateLimit, async (req, res, next) => {
+  const inviteToken = typeof req.body?.inviteToken === 'string' ? req.body.inviteToken : '';
   const organizationName = String(req.body?.organizationName ?? '').trim();
   const username = String(req.body?.username ?? '').trim();
   const password = String(req.body?.password ?? '');
-  if (!organizationName) return res.status(400).json({ error: 'Organization name is required.' });
+  if (!inviteToken && !organizationName) return res.status(400).json({ error: 'Organization name is required.' });
   if (!usernamePattern.test(username)) return res.status(400).json({ error: 'Username must be 3-32 characters (letters, numbers, . _ -).' });
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
   try {
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await createOrganizationWithAdmin(organizationName, username, passwordHash);
+    const user = inviteToken
+      ? await joinOrganizationWithInvite(inviteToken, username, passwordHash)
+      : await createOrganizationWithAdmin(organizationName, username, passwordHash);
     loginSession(req, res, next, user, () => res.status(201).json(toPublicUser(user)));
   } catch (error) {
     if (error instanceof UsernameTakenError) return res.status(409).json({ error: error.message });
+    if (error instanceof InviteUnavailableError) return res.status(410).json({ error: error.message });
     next(error);
+  }
+});
+
+app.get('/auth/invite/:token', authRateLimit, async (req, res) => {
+  try {
+    const invite = await findOpenInvite(String(req.params.token));
+    if (!invite) return res.status(404).json({ error: 'This invite link has expired or was already used.' });
+    res.json(invite);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Organization (team) ---
+app.get('/api/organization/members', requireAuth, async (req: any, res: any) => {
+  try {
+    res.json({ members: await listMembers(req.user.organization_id), canInvite: req.user.role === 'admin' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/organization/invites', requireAuth, credentialsRateLimit, async (req: any, res: any) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only organization admins can invite people.' });
+  try {
+    const { token, expiresAt } = await createInvite(req.user.organization_id, req.user.id);
+    res.status(201).json({ url: `${env.clientOrigin.replace(/\/$/, '')}/register?invite=${token}`, expiresAt });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -602,7 +671,7 @@ app.get('/api/github/token', requireAuth, (req: any, res: any) => {
 // --- Projects / workspaces (server-backed, replacing client localStorage) ---
 app.get('/api/projects', requireAuth, async (req: any, res: any) => {
   try {
-    const [workspaces, projects] = await Promise.all([listWorkspaces(req.user.id), listProjects(req.user.id)]);
+    const [workspaces, projects] = await Promise.all([listWorkspaces(actorOf(req)), listProjects(actorOf(req))]);
     res.json({ workspaces, projects });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -611,7 +680,7 @@ app.get('/api/projects', requireAuth, async (req: any, res: any) => {
 
 app.post('/api/workspaces', requireAuth, async (req: any, res: any) => {
   try {
-    const workspace = await createWorkspace(req.user.id, String(req.body?.name ?? ''));
+    const workspace = await createWorkspace(actorOf(req), String(req.body?.name ?? ''));
     res.status(201).json(workspace);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -620,17 +689,17 @@ app.post('/api/workspaces', requireAuth, async (req: any, res: any) => {
 
 app.delete('/api/workspaces/:id', requireAuth, async (req: any, res: any) => {
   try {
-    await removeWorkspace(req.user.id, Number(req.params.id));
+    await removeWorkspace(actorOf(req), Number(req.params.id));
     res.status(204).end();
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(errorStatus(error, 500)).json({ error: error.message });
   }
 });
 
 app.post('/api/projects', requireAuth, async (req: any, res: any) => {
   try {
     const projectType = req.body?.projectType === 'database' ? 'database' : 'codebase';
-    const project = await createProject(req.user.id, {
+    const project = await createProject(actorOf(req), {
       workspaceId: Number(req.body?.workspaceId),
       name: String(req.body?.name ?? ''),
       instructions: String(req.body?.instructions ?? ''),
@@ -646,16 +715,16 @@ app.post('/api/projects', requireAuth, async (req: any, res: any) => {
 
 app.delete('/api/projects/:id', requireAuth, async (req: any, res: any) => {
   try {
-    await removeProject(req.user.id, Number(req.params.id));
+    await removeProject(actorOf(req), Number(req.params.id));
     res.status(204).end();
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(errorStatus(error, 500)).json({ error: error.message });
   }
 });
 
 app.post('/api/projects/:id/schema', requireAuth, async (req: any, res: any) => {
   try {
-    const connection = await getDecryptedConnection(req.user.id, Number(req.params.id));
+    const connection = await getDecryptedConnection(actorOf(req), Number(req.params.id));
     const schema = connection.dbType === 'mysql' ? await introspectMysql(connection) : await introspectPostgres(connection);
     res.json({ success: true, schema });
   } catch (error: any) {
@@ -665,10 +734,10 @@ app.post('/api/projects/:id/schema', requireAuth, async (req: any, res: any) => 
 
 app.put('/api/projects/:id/db-connection', requireAuth, async (req: any, res: any) => {
   try {
-    const summary = await updateDbConnection(req.user.id, Number(req.params.id), req.body?.dbConnection);
+    const summary = await updateDbConnection(actorOf(req), Number(req.params.id), req.body?.dbConnection);
     res.json(summary);
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    res.status(errorStatus(error, 400)).json({ error: error.message });
   }
 });
 
@@ -676,7 +745,7 @@ app.put('/api/projects/:id/db-connection', requireAuth, async (req: any, res: an
 app.get('/api/projects/:id/db/overview', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(req.user.id, projectId);
+    const connection = await getDecryptedConnection(actorOf(req), projectId);
     const data = await buildOverview(projectId, connection);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -687,7 +756,7 @@ app.get('/api/projects/:id/db/overview', requireAuth, async (req: any, res: any)
 app.get('/api/projects/:id/db/performance', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(req.user.id, projectId);
+    const connection = await getDecryptedConnection(actorOf(req), projectId);
     const data = await buildPerformance(projectId, connection);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -698,7 +767,7 @@ app.get('/api/projects/:id/db/performance', requireAuth, async (req: any, res: a
 app.get('/api/projects/:id/db/queries', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(req.user.id, projectId);
+    const connection = await getDecryptedConnection(actorOf(req), projectId);
     const data = await buildQueries(projectId, connection);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -709,7 +778,7 @@ app.get('/api/projects/:id/db/queries', requireAuth, async (req: any, res: any) 
 app.get('/api/projects/:id/db/storage', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(req.user.id, projectId);
+    const connection = await getDecryptedConnection(actorOf(req), projectId);
     const data = await buildStorage(projectId, connection);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -720,7 +789,7 @@ app.get('/api/projects/:id/db/storage', requireAuth, async (req: any, res: any) 
 app.get('/api/projects/:id/db/replication', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(req.user.id, projectId);
+    const connection = await getDecryptedConnection(actorOf(req), projectId);
     const data = await buildReplication(projectId, connection);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -731,7 +800,7 @@ app.get('/api/projects/:id/db/replication', requireAuth, async (req: any, res: a
 app.get('/api/projects/:id/db/activity', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    await getDecryptedConnection(req.user.id, projectId); // ownership check
+    await getDecryptedConnection(actorOf(req), projectId); // ownership check
     const data = await buildActivity(projectId);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -742,7 +811,7 @@ app.get('/api/projects/:id/db/activity', requireAuth, async (req: any, res: any)
 app.get('/api/projects/:id/db/security', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(req.user.id, projectId);
+    const connection = await getDecryptedConnection(actorOf(req), projectId);
     const data = await buildSecurity(connection);
     res.json({ success: true, data });
   } catch (error: any) {
@@ -753,7 +822,7 @@ app.get('/api/projects/:id/db/security', requireAuth, async (req: any, res: any)
 app.get('/api/projects/:id/db/alerts', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    await getDecryptedConnection(req.user.id, projectId); // ownership check
+    await getDecryptedConnection(actorOf(req), projectId); // ownership check
     const rules = await listAlertRules(projectId);
     res.json({ success: true, data: rules });
   } catch (error: any) {
@@ -764,7 +833,7 @@ app.get('/api/projects/:id/db/alerts', requireAuth, async (req: any, res: any) =
 app.post('/api/projects/:id/db/alerts', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    await getDecryptedConnection(req.user.id, projectId); // ownership check
+    await assertCanEditProject(actorOf(req), projectId);
     const rule = await createAlertRule(projectId, {
       metric: String(req.body?.metric ?? ''),
       condition: req.body?.condition === 'lt' ? 'lt' : 'gt',
@@ -773,36 +842,36 @@ app.post('/api/projects/:id/db/alerts', requireAuth, async (req: any, res: any) 
     });
     res.status(201).json({ success: true, data: rule });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
+    res.status(errorStatus(error, 400)).json({ success: false, error: error.message });
   }
 });
 
 app.delete('/api/projects/:id/db/alerts/:ruleId', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    await getDecryptedConnection(req.user.id, projectId); // ownership check
+    await assertCanEditProject(actorOf(req), projectId);
     await deleteAlertRule(projectId, Number(req.params.ruleId));
     res.status(204).end();
   } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
+    res.status(errorStatus(error, 400)).json({ success: false, error: error.message });
   }
 });
 
 app.post('/api/projects/:id/members', requireAuth, async (req: any, res: any) => {
   try {
-    const member = await addMember(req.user.id, Number(req.params.id), String(req.body?.email ?? ''));
+    const member = await addMember(actorOf(req), Number(req.params.id), String(req.body?.username ?? ''));
     res.status(201).json(member);
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    res.status(errorStatus(error, 400)).json({ error: error.message });
   }
 });
 
 app.delete('/api/projects/:id/members/:memberId', requireAuth, async (req: any, res: any) => {
   try {
-    await removeMember(req.user.id, Number(req.params.id), Number(req.params.memberId));
+    await removeMember(actorOf(req), Number(req.params.id), Number(req.params.memberId));
     res.status(204).end();
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(errorStatus(error, 500)).json({ error: error.message });
   }
 });
 
@@ -815,26 +884,47 @@ function resolveAnalysisBranch(req: any): string {
   return typeof req.query.branch === 'string' && req.query.branch ? req.query.branch : 'HEAD';
 }
 
-// Checks freshness against the repo's current HEAD commit; auto-enqueues a
-// job when stale or missing instead of ever computing the analysis inline.
-app.get('/api/analysis/:owner/:repo', requireAuth, async (req: any, res: any) => {
-  const { owner, repo } = req.params;
-  const branch = resolveAnalysisBranch(req);
+// A saved GitHub connection that GitHub now rejects (revoked, expired) would
+// otherwise fail every analysis, public repositories included. Drop it so the
+// account shows as disconnected, and carry on anonymously; a private repo then
+// surfaces as "not found" with the hint to reconnect.
+async function resolveAnalysisHead(req: any, owner: string, repo: string, branch: string): Promise<{ headSha: string | null; token?: string }> {
+  const ref = branch === 'HEAD' ? undefined : branch;
   const token = req.user.github_token || undefined;
   try {
-    const headSha = await fetchLatestCommitSha(owner, repo, branch === 'HEAD' ? undefined : branch, token);
-    const stored = await getAnalysis(owner, repo, branch);
-    if (headSha && stored && stored.commitSha === headSha) {
-      return res.json({ status: 'ready', commitSha: stored.commitSha, data: stored.data, analyzedAt: stored.analyzedAt });
-    }
-    // Don't auto-retry a job that already failed — that would silently loop
-    // forever on a poll every couple seconds. Surface it and let the user
-    // retry explicitly via the refresh (Rescan) endpoint.
-    const existingState = await getAnalysisJobState(owner, repo, branch);
-    if (existingState === 'failed') return res.status(202).json({ status: 'failed' });
-    await enqueueAnalysisJob({ owner, repo, branch, commitSha: headSha || stored?.commitSha || 'unknown', token });
-    const state = await getAnalysisJobState(owner, repo, branch);
-    res.status(202).json({ status: state === 'active' ? 'active' : 'queued' });
+    return { headSha: await fetchLatestCommitSha(owner, repo, ref, token), token };
+  } catch (error: any) {
+    if (!token || !(error instanceof GitHubApiError && error.status === 401)) throw error;
+    req.user = await clearGithubConnection(req.user.id);
+    return { headSha: await fetchLatestCommitSha(owner, repo, ref, undefined), token: undefined };
+  }
+}
+
+type AnalysisReadiness = { status: 'ready'; stored: StoredAnalysis } | { status: 'queued' | 'active' | 'failed' };
+
+// Checks freshness against the branch's current commit; auto-enqueues a job
+// when stale or missing instead of ever computing the analysis inline.
+async function ensureAnalysisFresh(req: any, owner: string, repo: string, branch: string): Promise<AnalysisReadiness> {
+  const { headSha, token } = await resolveAnalysisHead(req, owner, repo, branch);
+  const stored = await getAnalysis(owner, repo, branch);
+  if (headSha && stored && stored.commitSha === headSha) return { status: 'ready', stored };
+  // Don't auto-retry a job that already failed — that would silently loop
+  // forever on a poll every couple seconds. Surface it and let the user
+  // retry explicitly via the refresh (Rescan) endpoint.
+  const existingState = await getAnalysisJobState(owner, repo, branch);
+  if (existingState === 'failed') return { status: 'failed' };
+  await enqueueAnalysisJob({ owner, repo, branch, commitSha: headSha || stored?.commitSha || 'unknown', token });
+  const state = await getAnalysisJobState(owner, repo, branch);
+  return { status: state === 'active' ? 'active' : 'queued' };
+}
+
+app.get('/api/analysis/:owner/:repo', requireAuth, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  try {
+    const readiness = await ensureAnalysisFresh(req, owner, repo, resolveAnalysisBranch(req));
+    if (readiness.status !== 'ready') return res.status(202).json({ status: readiness.status });
+    const { stored } = readiness;
+    res.json({ status: 'ready', commitSha: stored.commitSha, data: stored.data, analyzedAt: stored.analyzedAt });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -844,13 +934,275 @@ app.get('/api/analysis/:owner/:repo', requireAuth, async (req: any, res: any) =>
 app.post('/api/analysis/:owner/:repo/refresh', requireAuth, async (req: any, res: any) => {
   const { owner, repo } = req.params;
   const branch = resolveAnalysisBranch(req);
-  const token = req.user.github_token || undefined;
   try {
-    const headSha = await fetchLatestCommitSha(owner, repo, branch === 'HEAD' ? undefined : branch, token);
+    const { headSha, token } = await resolveAnalysisHead(req, owner, repo, branch);
     await enqueueAnalysisJob({ owner, repo, branch, commitSha: headSha || 'unknown', token });
     const state = await getAnalysisJobState(owner, repo, branch);
     res.status(202).json({ status: state === 'active' ? 'active' : state === 'failed' ? 'failed' : 'queued' });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const refPattern = /^[A-Za-z0-9_./-]{1,200}$/;
+function isValidRef(value: unknown): value is string {
+  return typeof value === 'string' && refPattern.test(value) && !value.startsWith('-') && !value.includes('..');
+}
+
+// Architecture diff between two branches. Each side must be analyzed at its
+// current commit first; until both are, this answers 202 with each side's job
+// status (the client polls), exactly like the single-branch analysis route.
+app.get('/api/analysis/:owner/:repo/compare', requireAuth, outboundRateLimit, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  const { base, head } = req.query;
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) return res.status(400).json({ error: 'Use owner/repository.' });
+  if (!isValidRef(base) || !isValidRef(head) || base === head) return res.status(400).json({ error: 'Pick two different branches to compare.' });
+  try {
+    const [baseReady, headReady] = await Promise.all([ensureAnalysisFresh(req, owner, repo, base), ensureAnalysisFresh(req, owner, repo, head)]);
+    if (baseReady.status === 'ready' && headReady.status === 'ready') {
+      return res.json({
+        status: 'ready',
+        base: { ref: base, commitSha: baseReady.stored.commitSha },
+        head: { ref: head, commitSha: headReady.stored.commitSha },
+        diff: compareAnalyses(baseReady.stored.data, headReady.stored.data),
+      });
+    }
+    res.status(202).json({ status: 'pending', base: { ref: base, status: baseReady.status }, head: { ref: head, status: headReady.status } });
+  } catch (error: any) {
+    if (error instanceof GitHubApiError && error.status === 404) return res.status(404).json({ error: 'One of those branches was not found.' });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Ask the codebase ---
+// Questions are answered client-side from the graph (codebaseQuery.ts); this
+// optional step writes a prose answer from the matched files' code, taken
+// from the stored analysis. Only offered when an AI key is configured.
+app.get('/api/analysis/ai-config', requireAuth, (_req: any, res: any) => res.json({ explain: aiConfigured() }));
+
+app.post('/api/analysis/:owner/:repo/explain', requireAuth, outboundRateLimit, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) return res.status(400).json({ error: 'Use owner/repository.' });
+  if (!question) return res.status(400).json({ error: 'Ask a question first.' });
+  if (!aiConfigured()) return res.status(503).json({ error: 'AI answers are not configured on this server.' });
+  try {
+    if (!(await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)))) return res.status(404).json({ error: 'Repository not found or not accessible.' });
+    const branch = typeof req.body?.branch === 'string' && isValidRef(req.body.branch) ? req.body.branch : 'HEAD';
+    const stored = (await getAnalysis(owner, repo, branch)) ?? (await getAnalysis(owner, repo, 'HEAD'));
+    if (!stored) return res.status(409).json({ error: 'Analyze this repository first.' });
+    const { user, allowed } = buildExplainContext(stored.data, question, req.body?.paths);
+    if (!allowed.size) return res.status(400).json({ error: 'No matching files to explain from.' });
+    const result = await structuredResponse<{ answer: string; cited: string[] }>({ system: EXPLAIN_SYSTEM_PROMPT, user, schemaName: 'codebase_answer', schema: explainSchema });
+    res.json({
+      answer: String(result.answer || '').slice(0, 4000),
+      // Only paths that were actually part of the evidence can be cited.
+      cited: (Array.isArray(result.cited) ? result.cited : []).filter(p => allowed.has(p)).slice(0, 8),
+    });
+  } catch (error: any) {
+    res.status(502).json({ error: error.message || 'Could not get an answer.' });
+  }
+});
+
+// Health snapshots per analyzed commit (oldest first) and recent regression
+// alerts for the repository. Shared across users, so access is checked first.
+app.get('/api/analysis/:owner/:repo/history', requireAuth, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) return res.status(400).json({ error: 'Use owner/repository.' });
+  try {
+    if (!(await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)))) return res.status(404).json({ error: 'Repository not found or not accessible.' });
+    const [snapshots, alerts] = await Promise.all([listSnapshots(owner, repo, resolveAnalysisBranch(req)), listAlerts(owner, repo)]);
+    res.json({ snapshots, alerts });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Regression alert destination for a codebase project ---
+app.put('/api/projects/:id/alert-webhook', requireAuth, async (req: any, res: any) => {
+  const url = req.body?.url;
+  if (url !== null && typeof url !== 'string') return res.status(400).json({ error: 'url must be a string or null.' });
+  try {
+    const configured = await setAlertWebhook(actorOf(req), Number(req.params.id), url === null || !url.trim() ? null : url);
+    res.json({ configured });
+  } catch (error: any) {
+    res.status(errorStatus(error, 400)).json({ error: error.message });
+  }
+});
+
+app.post('/api/projects/:id/alert-webhook/test', requireAuth, outboundRateLimit, async (req: any, res: any) => {
+  try {
+    const { url, repositoryFullName } = await getAlertWebhook(actorOf(req), Number(req.params.id));
+    if (!url) return res.status(409).json({ error: 'Save a webhook URL first.' });
+    await sendWebhookMessage(url, `Structrace: regression alerts for ${repositoryFullName} will be posted here.`);
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(errorStatus(error, 502)).json({ error: error.message });
+  }
+});
+
+// --- Team notes on repository files ---
+// Scoped to the caller's organization; reading or adding notes for a
+// repository also requires being able to read that repository.
+app.get('/api/annotations/:owner/:repo', requireAuth, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) return res.status(400).json({ error: 'Use owner/repository.' });
+  try {
+    if (!(await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)))) return res.status(404).json({ error: 'Repository not found or not accessible.' });
+    res.json({ annotations: await listAnnotations(req.user.organization_id, owner, repo), userId: req.user.id, isAdmin: req.user.role === 'admin' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/annotations/:owner/:repo', requireAuth, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) return res.status(400).json({ error: 'Use owner/repository.' });
+  let note: { path: string; body: string };
+  try {
+    note = validateNote(req.body?.path, req.body?.body);
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message });
+  }
+  try {
+    if (!(await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)))) return res.status(404).json({ error: 'Repository not found or not accessible.' });
+    res.status(201).json(await createAnnotation(req.user.organization_id, req.user.id, owner, repo, note.path, note.body));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/annotations/:id', requireAuth, async (req: any, res: any) => {
+  const id = Number(req.params.id);
+  const change: { body?: string; resolved?: boolean } = {};
+  try {
+    if (req.body?.body !== undefined) change.body = validateNote('x', req.body.body).body;
+    if (typeof req.body?.resolved === 'boolean') change.resolved = req.body.resolved;
+    const updated = await updateAnnotation(req.user.organization_id, req.user.id, id, change);
+    if (!updated) return res.status(404).json({ error: 'Note not found.' });
+    res.json(updated);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete('/api/annotations/:id', requireAuth, async (req: any, res: any) => {
+  try {
+    const removed = await deleteAnnotation(req.user.organization_id, { id: req.user.id, role: req.user.role }, Number(req.params.id));
+    if (!removed) return res.status(404).json({ error: 'Note not found, or not yours to delete.' });
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Test coverage (uploaded from CI reports, parsed in the browser) ---
+async function coverageRequest(req: any, res: any): Promise<{ owner: string; repo: string; branch: string } | null> {
+  const { owner, repo } = req.params;
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) { res.status(400).json({ error: 'Use owner/repository.' }); return null; }
+  if (!(await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)))) { res.status(404).json({ error: 'Repository not found or not accessible.' }); return null; }
+  const branch = typeof req.query.branch === 'string' && isValidRef(req.query.branch) ? req.query.branch : 'HEAD';
+  return { owner, repo, branch };
+}
+
+app.get('/api/coverage/:owner/:repo', requireAuth, async (req: any, res: any) => {
+  try {
+    const target = await coverageRequest(req, res);
+    if (!target) return;
+    res.json({ report: await getCoverage(req.user.organization_id, target.owner, target.repo, target.branch) });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/coverage/:owner/:repo', requireAuth, async (req: any, res: any) => {
+  let report: ReturnType<typeof validateCoverage>;
+  try {
+    report = validateCoverage(req.body?.format, req.body?.files);
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message });
+  }
+  try {
+    const target = await coverageRequest(req, res);
+    if (!target) return;
+    await saveCoverage(req.user.organization_id, req.user.id, target.owner, target.repo, target.branch, report.format, report.files);
+    res.json({ report: await getCoverage(req.user.organization_id, target.owner, target.repo, target.branch) });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/coverage/:owner/:repo', requireAuth, async (req: any, res: any) => {
+  try {
+    const target = await coverageRequest(req, res);
+    if (!target) return;
+    await deleteCoverage(req.user.organization_id, target.owner, target.repo, target.branch);
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- Saved workspace views (shared within the organization) ---
+app.get('/api/views/:owner/:repo', requireAuth, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) return res.status(400).json({ error: 'Use owner/repository.' });
+  try {
+    if (!(await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)))) return res.status(404).json({ error: 'Repository not found or not accessible.' });
+    res.json({ views: await listViews(req.user.organization_id, owner, repo), userId: req.user.id, isAdmin: req.user.role === 'admin' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/views/:owner/:repo', requireAuth, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo)) return res.status(400).json({ error: 'Use owner/repository.' });
+  let view: ReturnType<typeof validateView>;
+  try {
+    view = validateView(req.body);
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message });
+  }
+  try {
+    if (!(await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)))) return res.status(404).json({ error: 'Repository not found or not accessible.' });
+    res.status(201).json(await createView(req.user.organization_id, req.user.id, owner, repo, view));
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete('/api/views/:id', requireAuth, async (req: any, res: any) => {
+  try {
+    const removed = await deleteView(req.user.organization_id, { id: req.user.id, role: req.user.role }, Number(req.params.id));
+    if (!removed) return res.status(404).json({ error: 'View not found, or not yours to delete.' });
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- PR impact review (in-app) ---
+// Same report the GitHub App posts on a pull request, scored against the
+// stored analysis of the PR's base branch rather than a fresh one.
+app.get('/api/pr-review/config', requireAuth, (_req: any, res: any) => {
+  res.json({ automatic: githubAppConfigured(), installUrl: githubAppInstallUrl() });
+});
+
+app.get('/api/pr-review/:owner/:repo/:number', requireAuth, outboundRateLimit, async (req: any, res: any) => {
+  const { owner, repo } = req.params;
+  const number = Number(req.params.number);
+  if (!isValidRepoSegment(owner) || !isValidRepoSegment(repo) || !Number.isInteger(number) || number < 1) {
+    return res.status(400).json({ error: 'Use owner/repository and a pull request number.' });
+  }
+  const token = sanitizeToken(req.user.github_token);
+  try {
+    // The stored analysis is shared across users; prove access before using it.
+    if (!(await canReadRepository(owner, repo, token))) return res.status(404).json({ error: 'Repository not found or not accessible.' });
+    res.json(await buildPrReview({ owner, repo, number, token, analysis: 'stored' }));
+  } catch (error: any) {
+    if (error instanceof GitHubApiError && error.status === 404) return res.status(404).json({ error: `Pull request #${number} was not found.` });
+    if (error instanceof MissingAnalysisError) return res.status(409).json({ error: error.message });
     res.status(500).json({ error: error.message });
   }
 });

@@ -89,7 +89,7 @@ export default function WorkspacesPage() {
                 </span>
                 <span className="workspace-card-open">Open <ArrowRight size={14} aria-hidden="true" /></span>
               </button>
-              <Button className="project-delete-button workspace-card-delete" aria-label={`Delete ${workspace.name}`} onClick={() => askDelete(workspace)}><Trash2 size={15} /></Button>
+              {workspace.canDelete && <Button className="project-delete-button workspace-card-delete" aria-label={`Delete ${workspace.name}`} onClick={() => askDelete(workspace)}><Trash2 size={15} /></Button>}
             </motion.article>;
           })}
         </div>

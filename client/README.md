@@ -42,7 +42,7 @@ Our proprietary virtualization engine allows the UI to handle repositories with 
 1. Navigate to the `client` directory.
 2. Ensure you are in your target environment (WSL or Windows).
 3. Run `npm install`.
-4. Start the dev server: `npm run dev`.
+4. Start the dev server: `npm run dev`. It listens on the local network; open `http://<computer-LAN-IP>:5173` on another device connected to the same network.
 
 ### Server
 1. Navigate to the `server` directory.

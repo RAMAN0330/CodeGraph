@@ -103,7 +103,7 @@ Detection of recurring design patterns and anti-patterns across the codebase.
 A dedicated surface for connected databases — schema exploration, ER diagrams, and live operational telemetry for PostgreSQL and MySQL. See [Database Visualizer](#database-visualizer-1) for the full description.
 
 ### Collaboration
-Workspaces group related projects; projects carry members, connected repositories, database credentials, and stored analysis results. Credentials are encrypted at rest.
+Workspaces group related projects and are shared across the organization: everyone in it can view and analyze every project. A project's creator, its members (people from the organization) and admins can change it — its database connection, alert webhook and members — or delete it; anyone else gets `403`. Projects carry connected repositories, database credentials, and stored analysis results. Credentials are encrypted at rest, and connections to customer databases run in read-only sessions.
 
 ---
 
@@ -339,7 +339,7 @@ The gateway then occupies port `5000` and the Node API moves to `5001`.
 
 | Service | Port (`npm run dev`) | Port (`npm run dev:go`) |
 |---------|----------------------|-------------------------|
-| Web client (Vite) | `5173` | `5173` |
+| Web client (Vite, listening on the local network) | `5173` | `5173` |
 | Go gateway | — | `5000` |
 | Node application API | `5000` | `5001` |
 | FastAPI analysis engine | `8000` | `8000` |
@@ -368,6 +368,10 @@ npm run docker:down    # Stop and remove the stack
 ```
 
 The application is served at **http://localhost:8080**.
+
+To use it from another device on the same network, open `http://<computer-LAN-IP>:8080` (or `http://<computer-LAN-IP>:5173` when using the development server). Allow the relevant port through the computer's firewall if needed.
+
+For GitHub sign-in over the LAN, start the stack with `npm run docker:lan`. It detects the current LAN IP, points `CLIENT_ORIGIN` and `GITHUB_CALLBACK_URL` at it, and prints the callback URL to register on the GitHub OAuth app whenever the IP changes. Open the app at that IP on every device, this one included, so the session cookie stays on one host.
 
 `POSTGRES_PASSWORD` is mandatory and has no default — Compose fails fast if it is unset. Port `5001` is also mapped through Nginx so that a GitHub OAuth callback registered against `localhost:5001` continues to resolve.
 
@@ -491,7 +495,7 @@ The Go gateway reads `TRUST_PROXY_HEADER=true` (set in both compose files) to ra
 | `DELETE` | `/api/workspaces/{id}` | Delete a workspace |
 | `POST` | `/api/projects` | Create a project |
 | `DELETE` | `/api/projects/{id}` | Delete a project |
-| `POST` | `/api/projects/{id}/members` | Add a member |
+| `POST` | `/api/projects/{id}/members` | Add an organization member to a project by `username` (grants edit rights) |
 | `DELETE` | `/api/projects/{id}/members/{memberId}` | Remove a member |
 
 ### Databases

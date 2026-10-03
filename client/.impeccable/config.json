@@ -509,6 +509,15 @@
         ],
         "createdAt": "2026-10-02T17:46:07.513Z",
         "reason": "Claude: existing architecture node-kind stroke/text palette from client/src/index.css .architecture-kind-* (lines 1289-1295) and the existing rgb(20,24,32) shadow, mirrored as SVG attributes so PNG export keeps them"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "*",
+        "files": [
+          "src/features/landing/components/ModuleDiagrams.css"
+        ],
+        "createdAt": "2026-10-03T09:36:55.209Z",
+        "reason": "model decision: these are SVG user-unit text sizes inside a 1000x625 viewBox that scales with its frame, not page type steps"
       }
     ]
   }

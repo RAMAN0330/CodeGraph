@@ -163,3 +163,13 @@ button.auth-primary-button:disabled { width: 100%; min-height: 50px; color: var(
   .auth-card { padding: 26px 22px; }
   .auth-flow-note p { white-space: normal; text-align: center; }
 }
+
+/* Touch screens (phones, iPads): 44px targets, and 16px inputs so iOS Safari
+   does not zoom the page when a field is focused. Mouse layouts keep their
+   density. */
+@media (pointer: coarse) {
+  :where(.auth-page) :where(button, input) { min-height: 44px; }
+  .auth-page button.auth-back:not(:disabled) { min-height: 44px; }
+  :where(.auth-page) input { font-size: 16px; }
+  .auth-page p a { padding-block: 14px; }
+}

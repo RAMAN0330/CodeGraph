@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, GitBranch, ChevronDown, Check } from 'lucide-react';
 import { organizationStore } from '../../organization/services/organizationStore';
 import { moduleForSection } from '../config/workspaceModules';
+import SavedViews, { type ViewState } from './SavedViews';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -16,6 +17,9 @@ interface WorkspaceHeaderProps {
   branchLoading?: boolean;
   onBranchSwitch?: (branch: string) => void;
   activeSection: string;
+  // Saved views: what "Save this view" captures, and how to reopen one.
+  currentView?: ViewState;
+  onOpenView?: (view: ViewState) => void;
 }
 
 function GitGraphMark() {
@@ -121,7 +125,7 @@ function SearchControl({ disabled, onOpen }: { disabled: boolean; onOpen: () => 
 export default function WorkspaceHeader({
   repoInfo, hasData, onPaletteOpen, onGoHome,
   currentBranch, branches, branchLoading, onBranchSwitch,
-  activeSection,
+  activeSection, currentView, onOpenView,
 }: WorkspaceHeaderProps) {
   const navigate = useNavigate();
   const activeModule = moduleForSection(activeSection);
@@ -158,6 +162,7 @@ export default function WorkspaceHeader({
 
       <div className="workspace-header-utilities">
         <SearchControl disabled={!hasData} onOpen={onPaletteOpen} />
+        {hasData && repoInfo && currentView && onOpenView && <SavedViews owner={repoInfo.owner} repo={repoInfo.repo} current={currentView} onOpen={onOpenView} />}
         {hasData && onBranchSwitch && (
           <BranchPicker current={currentBranch || 'main'} branches={branches || []} loading={!!branchLoading} onSwitch={onBranchSwitch} />
         )}

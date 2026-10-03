@@ -9,6 +9,7 @@
     "build": "npm run build --prefix client && npm run build --prefix server",
     "build:go": "cd server-go && mkdir -p bin && go build -o bin/codeflow-api ./cmd/api",
     "docker:up": "CLIENT_ORIGIN=http://localhost:8080 GITHUB_CALLBACK_URL=http://localhost:8080/auth/github/callback docker compose --env-file server/.env -f docker-compose.production.yml up -d --wait",
+    "docker:lan": "scripts/lan-up.sh",
     "docker:down": "docker compose --env-file server/.env -f docker-compose.production.yml down",
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
     "install:python": "pip install -r server/requirements.txt",

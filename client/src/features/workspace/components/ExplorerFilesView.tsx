@@ -4,6 +4,7 @@ import {
   Layers, Link2, ShieldCheck, Sparkles, Users, Zap,
 } from 'lucide-react';
 import { COLORS } from '../../analysis/services/parser';
+import FileNotes from './FileNotes';
 import { Button } from '@/components/ui/button';
 
 const BlameHeatmap = React.lazy(() => import('../../git-insights/components/BlameHeatmap'));
@@ -249,6 +250,8 @@ export default function ExplorerFilesView({
             </Suspense>
           </section>
         )}
+
+        {repoInfo && <FileNotes owner={repoInfo.owner} repo={repoInfo.repo} path={selected.path} />}
       </div>
     </div>
   );

@@ -1,0 +1,68 @@
+/* Diagram text sizes are SVG user units inside a 1000×625 viewBox, scaled
+   with the frame; they are not page type steps. */
+.dg{display:block;overflow:visible;font-family:inherit}
+.dg-note{fill:var(--text-secondary);font-size:15px}
+.dg-label{fill:var(--ink);font-size:16px;font-weight:650;paint-order:stroke;stroke:color-mix(in srgb,var(--tone) 5%,#ffffff);stroke-width:6px;stroke-linejoin:round}
+.dg-heading{fill:var(--ink);font-size:30px;font-weight:800;letter-spacing:-.02em}
+.dg-heading-sm{font-size:20px}
+.dg-sub,.dg-axis{fill:var(--text-secondary);font-size:15px}
+.dg-edge{fill:none;stroke:var(--tone);stroke-width:1.8;stroke-opacity:.42}
+.dg-node{fill:color-mix(in srgb,var(--tone) 12%,#ffffff);stroke:var(--tone);stroke-width:2}
+.dg-node-hub{fill:var(--tone)}
+.dg-node-quiet{fill:#ffffff;stroke:var(--border-medium);stroke-dasharray:4 4}
+.dg-halo{fill:none;stroke:var(--tone);stroke-opacity:.25;stroke-width:8}
+.dg-count{fill:var(--tone);font-size:15px;font-weight:800}
+.dg-count-hub{fill:#ffffff;font-size:22px}
+
+.dg-tier{fill:color-mix(in srgb,var(--tone) 4%,#ffffff);stroke:color-mix(in srgb,var(--tone) 22%,#ffffff);stroke-width:1.2}
+.dg-tier-label{fill:var(--text-secondary);font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.dg-box{fill:#ffffff;stroke:var(--border-medium);stroke-width:1.4}
+.dg-box-api{stroke:var(--tone);stroke-width:2}
+.dg-box-work{stroke:var(--chart-purple);stroke-width:2}
+.dg-box-data{stroke:var(--color-warning);stroke-width:2}
+.dg-box-title{fill:var(--ink);font-size:18px;font-weight:750}
+.dg-box-sub{fill:var(--text-secondary);font-size:14px}
+.dg-call{stroke-opacity:.6}
+.dg-arrow{fill:var(--tone)}
+
+.dg-heat{fill:var(--surface-hover)}
+.dg-heat-1{fill:color-mix(in srgb,var(--tone) 28%,#ffffff)}
+.dg-heat-2{fill:color-mix(in srgb,var(--tone) 50%,#ffffff)}
+.dg-heat-3{fill:color-mix(in srgb,var(--tone) 75%,#ffffff)}
+.dg-heat-4{fill:var(--tone)}
+.dg-bar{fill:var(--tone)}
+.dg-bar-label{fill:var(--ink);font-size:15px;font-weight:650}
+.dg-bar-value{fill:var(--text-secondary);font-size:14px;font-weight:650}
+
+.dg-table{fill:#ffffff;stroke:color-mix(in srgb,var(--tone) 45%,#ffffff);stroke-width:1.4}
+.dg-table-head{fill:color-mix(in srgb,var(--tone) 16%,#ffffff)}
+.dg-table-title{fill:var(--ink);font-size:15px;font-weight:800}
+.dg-col{fill:var(--text-secondary);font-size:13.5px}
+.dg-col-key{fill:var(--tone);font-weight:800}
+.dg-col-fk{fill:var(--ink);font-weight:650}
+.dg-fk{fill:none;stroke:var(--tone);stroke-width:2;stroke-opacity:.7}
+.dg-chip{fill:#ffffff;stroke:var(--border-medium);stroke-dasharray:4 4}
+.dg-chip-text{fill:var(--text-secondary);font-size:12.5px}
+
+.dg-sev{fill:color-mix(in srgb,var(--sev) 12%,#ffffff);stroke:color-mix(in srgb,var(--sev) 40%,#ffffff)}
+.dg-sev-text{fill:var(--sev);font-size:14px;font-weight:750;text-transform:capitalize}
+.dg-sev-critical,.dg-sev-text-critical,.dg-dot-critical,.dg-risk-critical{--sev:var(--color-danger)}
+.dg-sev-high,.dg-sev-text-high,.dg-dot-high,.dg-risk-high{--sev:var(--color-warning)}
+.dg-sev-medium,.dg-sev-text-medium,.dg-dot-medium,.dg-risk-medium{--sev:var(--chart-purple)}
+.dg-file{fill:#ffffff;stroke:var(--border-subtle);stroke-width:1.2}
+.dg-file-text{fill:var(--ink);font-size:16px;font-weight:600}
+.dg-dot{fill:var(--sev)}
+.dg-risk{fill:none;stroke:var(--sev);stroke-width:2.2;stroke-opacity:.6}
+.dg-rule{fill:color-mix(in srgb,var(--tone) 6%,#ffffff);stroke:color-mix(in srgb,var(--tone) 35%,#ffffff);stroke-width:1.2}
+.dg-rule-id{fill:var(--tone);font-size:15px;font-weight:800}
+.dg-rule-name{fill:var(--ink);font-size:15px;font-weight:600}
+
+.dg-boundary{fill:color-mix(in srgb,var(--tone) 4%,#ffffff);stroke:var(--tone);stroke-width:2;stroke-dasharray:10 8}
+.dg-box-optional{stroke-dasharray:6 6}
+.dg-egress{fill:none;stroke:var(--tone);stroke-width:2;stroke-opacity:.7}
+.dg-egress-optional{stroke:var(--text-muted);stroke-dasharray:6 6}
+.dg-edit-list{fill:var(--tone);font-size:15px;font-weight:750}
+.dg-person{fill:#ffffff;stroke:var(--border-medium);stroke-width:1.4}
+.dg-person-admin{stroke:var(--tone);stroke-width:2}
+.dg-avatar{fill:color-mix(in srgb,var(--tone) 14%,#ffffff)}
+.dg-avatar-text{fill:var(--tone);font-size:15px;font-weight:800}

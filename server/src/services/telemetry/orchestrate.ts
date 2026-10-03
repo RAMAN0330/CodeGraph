@@ -1,5 +1,5 @@
-import { Client } from 'pg';
-import mysql from 'mysql2/promise';
+import type { Client } from 'pg';
+import { connectMysql, connectPostgres, type MysqlConnection } from '../customerDb';
 import type { DbConnectionInput } from '../../db/projectStore';
 import * as pg from './postgres';
 import * as my from './mysql';
@@ -11,12 +11,8 @@ import type {
 } from '../../types/telemetry';
 
 async function withPostgres<T>(conn: DbConnectionInput, fn: (client: Client) => Promise<T>): Promise<T> {
-  const client = new Client({
-    host: conn.host, port: parseInt(String(conn.port), 10) || 5432, database: conn.database, user: conn.user,
-    password: conn.password, ssl: conn.ssl ? { rejectUnauthorized: false } : undefined, connectionTimeoutMillis: 8000,
-  });
+  const client = await connectPostgres(conn);
   try {
-    await client.connect();
     const result = await fn(client);
     await client.end();
     return result;
@@ -26,11 +22,8 @@ async function withPostgres<T>(conn: DbConnectionInput, fn: (client: Client) => 
   }
 }
 
-async function withMysql<T>(conn: DbConnectionInput, fn: (connection: Awaited<ReturnType<typeof mysql.createConnection>>) => Promise<T>): Promise<T> {
-  const connection = await mysql.createConnection({
-    host: conn.host, port: parseInt(String(conn.port), 10) || 3306, database: conn.database, user: conn.user,
-    password: conn.password, ssl: conn.ssl ? { rejectUnauthorized: false } : undefined, connectTimeout: 8000,
-  });
+async function withMysql<T>(conn: DbConnectionInput, fn: (connection: MysqlConnection) => Promise<T>): Promise<T> {
+  const connection = await connectMysql(conn);
   try {
     const result = await fn(connection);
     await connection.end();

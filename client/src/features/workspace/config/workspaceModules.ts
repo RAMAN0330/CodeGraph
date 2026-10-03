@@ -42,6 +42,9 @@ export const WORKSPACE_MODULES: WorkspaceModule[] = [
     defaultSection: 'explorer',
     tools: [
       { id: 'explorer', label: 'Code graph', description: 'Files and dependencies' },
+      { id: 'guide', label: 'Onboarding guide', description: 'Where to start reading', requiresData: true },
+      { id: 'ask', label: 'Ask the codebase', description: 'Questions answered from the graph', requiresData: true },
+      { id: 'notes', label: 'Team notes', description: 'Notes your team left on files', requiresData: true },
     ],
   },
   {
@@ -55,6 +58,7 @@ export const WORKSPACE_MODULES: WorkspaceModule[] = [
       { id: 'commits', label: 'Commits', description: 'Repository activity', requiresData: true },
       { id: 'contributors', label: 'People', description: 'Contributor insights', requiresData: true },
       { id: 'ownership', label: 'Ownership', description: 'Who owns what', requiresData: true },
+      { id: 'codeowners', label: 'Code owners', description: 'CODEOWNERS from commit history', requiresData: true },
       { id: 'releases', label: 'Releases', description: 'Generate release notes', requiresData: true },
       { id: 'pullrequests', label: 'PR review', description: 'Review change risk', requiresData: true },
     ],
@@ -65,7 +69,13 @@ export const WORKSPACE_MODULES: WorkspaceModule[] = [
     description: 'System architecture',
     icon: 'architecture',
     defaultSection: 'architecture',
-    tools: [{ id: 'architecture', label: 'System architecture', description: 'Modules, layers, and dependencies', requiresData: true }],
+    tools: [
+      { id: 'architecture', label: 'System architecture', description: 'Modules, layers, and dependencies', requiresData: true },
+      { id: 'endpoints', label: 'API endpoints', description: 'Routes, the code and tables they reach', requiresData: true },
+      { id: 'cycles', label: 'Cycles', description: 'Dependency loops and how to break them', requiresData: true },
+      { id: 'packages', label: 'Packages', description: 'Monorepo packages and their dependencies', requiresData: true },
+      { id: 'rules', label: 'Rules', description: 'Team architecture rules', requiresData: true },
+    ],
   },
   {
     id: 'security',
@@ -98,6 +108,9 @@ export const WORKSPACE_MODULES: WorkspaceModule[] = [
     icon: 'quality',
     defaultSection: 'debt',
     tools: [
+      { id: 'hotspots', label: 'Hotspots', description: 'Complex files that change often', requiresData: true },
+      { id: 'coverage', label: 'Test coverage', description: 'Widely used, poorly tested code', requiresData: true },
+      { id: 'cleanup', label: 'Cleanup plan', description: 'Unused code to remove, safest first', requiresData: true },
       { id: 'debt', label: 'Tech debt', description: 'Maintenance hotspots', requiresData: true },
       { id: 'radar', label: 'Stale code', description: 'Aging code radar', requiresData: true },
       { id: 'trends', label: 'Trends', description: 'Health over time', requiresData: true },

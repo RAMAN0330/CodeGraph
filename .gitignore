@@ -43,3 +43,6 @@ Thumbs.db
 # Git worktrees
 .worktrees/
 .claude/worktrees/
+
+# LAN IP last used by scripts/lan-up.sh
+.lan-ip

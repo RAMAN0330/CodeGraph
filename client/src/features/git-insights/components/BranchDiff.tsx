@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GitHub } from '../../repository/services/github';
+import ArchitectureImpact from './ArchitectureImpact';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -262,6 +263,8 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
         {status && <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: status === 'diverged' ? 'color-mix(in srgb, var(--color-danger) 12%, transparent)' : 'var(--accbg)', color: status === 'diverged' ? 'var(--color-danger)' : 'var(--teal-500)', border: `1px solid ${status === 'diverged' ? 'color-mix(in srgb, var(--color-danger) 30%, transparent)' : 'color-mix(in srgb, var(--teal-500) 25%, transparent)'}` }}>{status}</span>}
         {conflictCandidates.size > 0 && <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'color-mix(in srgb, var(--color-danger) 12%, transparent)', color: 'var(--color-danger)', border: '1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)' }}>{conflictCandidates.size} file conflict{conflictCandidates.size !== 1 ? 's' : ''}</span>}
       </div>
+
+      <ArchitectureImpact owner={owner} repo={repo} base={base} head={head} />
 
       {/* Body */}
       <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0 }}>

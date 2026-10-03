@@ -1,46 +1,51 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-20T00:00:00.000Z",
+  "generatedAt": "2026-10-03T00:00:00.000Z",
   "title": "Design System: Structrace",
   "extensions": {
     "colorMeta": {
-      "indigo-500": { "role": "primary", "displayName": "Signal Indigo", "canonical": "#4f5bd5", "tonalRamp": ["#151837", "#212657", "#2d3378", "#3c46b0", "#4f5bd5", "#7e88e2", "#aeb4ee", "#dfe1f9"] },
-      "indigo-600": { "role": "primary", "displayName": "Signal Indigo (deep)", "canonical": "#3c46b0", "tonalRamp": ["#10132b", "#191e44", "#232a5e", "#2f3890", "#3c46b0", "#6c75c6", "#a2a8dd", "#d8daf3"] },
+      "indigo-500": { "role": "primary", "displayName": "Signal Indigo", "canonical": "#4F46E5", "tonalRamp": ["#15124a", "#221d73", "#2f289c", "#4338CA", "#4F46E5", "#7c75ec", "#b0acf4", "#e4e2fc"] },
+      "indigo-600": { "role": "primary", "displayName": "Signal Indigo Deep", "canonical": "#4338CA", "tonalRamp": ["#120f3d", "#1d1862", "#2a2388", "#362dab", "#4338CA", "#6f66d6", "#a7a1e6", "#deddf7"] },
+      "indigo-wash": { "role": "primary", "displayName": "Indigo Wash", "canonical": "#EEF0FF" },
       "chart-cyan": { "role": "tertiary", "displayName": "Trace Cyan", "canonical": "#147a89", "tonalRamp": ["#051c20", "#082c32", "#0b3c45", "#0f5d69", "#147a89", "#3fa0ae", "#8cc6cf", "#d6ecef"] },
       "chart-purple": { "role": "tertiary", "displayName": "Trace Purple", "canonical": "#7c3fa8", "tonalRamp": ["#1e0f2a", "#2e1740", "#3e1f56", "#5f2f82", "#7c3fa8", "#a06cc3", "#c6a2dc", "#ebd9f4"] },
-      "color-warning": { "role": "tertiary", "displayName": "Trace Amber / Warning", "canonical": "#b7791f", "tonalRamp": ["#2c1c09", "#432b0d", "#5a3a11", "#8a591a", "#b7791f", "#d09c4f", "#e6c08e", "#f7e6cc"] },
-      "color-danger": { "role": "tertiary", "displayName": "Trace Red / Danger", "canonical": "#d1414a", "tonalRamp": ["#330f12", "#4c171b", "#661f24", "#a12f37", "#d1414a", "#e07980", "#f0b1b5", "#faddde"] },
-      "color-success": { "role": "tertiary", "displayName": "Success Green", "canonical": "#1a8f52", "tonalRamp": ["#062313", "#0a361d", "#0e4827", "#146b3d", "#1a8f52", "#4dae7c", "#93cfad", "#d5eee0"] },
-      "bg-canvas": { "role": "neutral", "displayName": "Canvas", "canonical": "#f7f8fa", "tonalRamp": ["#14161a", "#2c2f36", "#565b64", "#8a8f98", "#c7cbd2", "#e2e5ea", "#f7f8fa", "#ffffff"] },
+      "color-warning": { "role": "tertiary", "displayName": "Trace Amber / Warning", "canonical": "#D97706", "tonalRamp": ["#2e1901", "#4a2802", "#6b3a03", "#a35a05", "#D97706", "#e89a45", "#f3c48d", "#fcebd5"] },
+      "color-danger": { "role": "tertiary", "displayName": "Trace Red / Danger", "canonical": "#DC2626", "tonalRamp": ["#330909", "#550f0f", "#7a1616", "#ad1e1e", "#DC2626", "#e86464", "#f3a6a6", "#fce0e0"] },
+      "color-success": { "role": "tertiary", "displayName": "Success Green", "canonical": "#059669", "tonalRamp": ["#012419", "#023a29", "#035239", "#047552", "#059669", "#40b58f", "#8dd5bd", "#d6f2e9"] },
+      "bg-canvas": { "role": "neutral", "displayName": "Canvas", "canonical": "#F6F8FB", "tonalRamp": ["#111827", "#2a3342", "#475569", "#64748B", "#94A3B8", "#CBD5E1", "#E2E8F0", "#F6F8FB"] },
       "surface-card": { "role": "neutral", "displayName": "Surface Card", "canonical": "#ffffff" },
-      "surface-subtle": { "role": "neutral", "displayName": "Surface Subtle", "canonical": "#eef0f3" },
-      "surface-hover": { "role": "neutral", "displayName": "Surface Hover", "canonical": "#e6e9ee" },
-      "text-primary": { "role": "neutral", "displayName": "Text Primary", "canonical": "#14161a" },
-      "text-secondary": { "role": "neutral", "displayName": "Text Secondary", "canonical": "#5b6270" },
-      "text-muted": { "role": "neutral", "displayName": "Text Muted", "canonical": "#7b8291" },
-      "border-subtle": { "role": "neutral", "displayName": "Hairline Border", "canonical": "#e2e5ea" },
-      "border-medium": { "role": "neutral", "displayName": "Border Medium", "canonical": "#cdd2da" }
+      "surface-subtle": { "role": "neutral", "displayName": "Surface Subtle", "canonical": "#F8FAFC" },
+      "surface-hover": { "role": "neutral", "displayName": "Surface Hover", "canonical": "#F1F5F9" },
+      "text-primary": { "role": "neutral", "displayName": "Text Primary", "canonical": "#111827" },
+      "text-secondary": { "role": "neutral", "displayName": "Text Secondary", "canonical": "#64748B" },
+      "text-muted": { "role": "neutral", "displayName": "Text Muted", "canonical": "#94A3B8" },
+      "border-subtle": { "role": "neutral", "displayName": "Border Subtle", "canonical": "#E2E8F0" },
+      "border-medium": { "role": "neutral", "displayName": "Border Medium", "canonical": "#CBD5E1" }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Hero and close-out headlines only; em spans recolor to Signal Indigo instead of italicizing." },
-      "headline": { "displayName": "Headline", "purpose": "Section titles: comparison, connect, stage headings." },
-      "body": { "displayName": "Body", "purpose": "Lede and paragraph copy, ~495-640px max width depending on context." },
-      "label": { "displayName": "Label / Mono", "purpose": "Literal system values only: file paths, repo names, status words, graph node and table-column labels." }
+      "display": { "displayName": "Display", "purpose": "The landing hero headline only; Manrope 800, ~12ch, balanced wrap." },
+      "headline": { "displayName": "Headline", "purpose": "Section titles (questions, start); Manrope 800, ~18ch." },
+      "body": { "displayName": "Body", "purpose": "Lede, paragraph copy, table cells, frame captions; emphasis steps up in weight, not size." },
+      "label": { "displayName": "Label", "purpose": "Uppercase tracked captions: table column heads and the active tile's 'In view' marker. Never above a headline." },
+      "code": { "displayName": "Code", "purpose": "JetBrains Mono for code excerpts, function names, file paths and column types inside workspace panels only." }
     },
     "shadows": [
-      { "name": "frame-lift", "value": "0 32px 80px rgba(20,24,32,0.11)", "purpose": "Lifts the sticky explorer pane, hero graph frame, and connect-demo frame off the canvas." },
+      { "name": "frame-lift", "value": "0 32px 80px rgba(20,24,32,0.22)", "purpose": "The large Data Frame where it overlaps the indigo band; the same geometry at 0.08 lifts the start card on the canvas." },
+      { "name": "tile-lift", "value": "0 4px 16px rgba(20,24,32,.1)", "purpose": "Module tiles at rest; hover rises 2px to 0 10px 28px rgba(20,24,32,.16)." },
+      { "name": "inverse-button-lift", "value": "0 8px 24px rgba(20,24,32,.18)", "purpose": "White primary button on the indigo band; hover 0 10px 30px rgba(20,24,32,.24)." },
       { "name": "shadow-sm", "value": "0 1px 3px rgba(20,24,32,.08), 0 1px 2px rgba(20,24,32,.05)", "purpose": "App-wide low lift for cards/stat tiles." },
       { "name": "shadow-md", "value": "0 4px 16px rgba(20,24,32,.10), 0 2px 6px rgba(20,24,32,.06)", "purpose": "App-wide panel/toolbar lift." },
       { "name": "shadow-lg", "value": "0 8px 32px rgba(20,24,32,.14), 0 4px 12px rgba(20,24,32,.08)", "purpose": "App-wide modal/legend lift." }
     ],
     "motion": [
-      { "name": "stage-reveal", "value": "opacity .3-.45s ease, transform .3-.45s cubic-bezier(.16,1,.3,1)", "purpose": "Scroll-triggered section/stage entrance (fade + rise), gated by whileInView/IntersectionObserver and prefers-reduced-motion." },
-      { "name": "pop-reveal", "value": "opacity .45s, scale .45s cubic-bezier(.16,1,.3,1) from .82", "purpose": "Staggered child entrance for evidence-panel items (grid cells, graph nodes, ownership ring segments)." },
-      { "name": "hover-standard", "value": "all .18s ease", "purpose": "Default hover/focus transition across nav, links, buttons, rail items." }
+      { "name": "frame-promote", "value": "opacity 0->1, scale .97->1, blur 6px->0 over .45s cubic-bezier(.16,1,.3,1)", "purpose": "Selecting a module tile promotes its diagram into the large frame; instant under reduced motion." },
+      { "name": "diagram-pop", "value": "opacity 0->1, scale .85->1 over .5s cubic-bezier(.16,1,.3,1), stagger .035s", "purpose": "Staggered entrance of diagram nodes, boxes and cells." },
+      { "name": "diagram-draw", "value": "pathLength 0->1 over .7s ease-out", "purpose": "Diagram edges draw in; thumbnails and reduced motion render final state." },
+      { "name": "hover-standard", "value": ".18s ease", "purpose": "Default hover/focus transition for nav, links, buttons and tile lift." }
     ],
     "breakpoints": [
-      { "name": "md", "value": "940px" },
-      { "name": "sm", "value": "640px" }
+      { "name": "md", "value": "1080px" },
+      { "name": "sm", "value": "720px" }
     ]
   },
   "components": [
@@ -48,90 +53,102 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Main CTA ('Get started'); Signal Indigo fill with white text. Rendered as the shared shadcn/ui-style `Button` primitive (components/ui/button.tsx, default variant) with the `.landing-primary` page class layered on via className for this world's exact tokens.",
-      "html": "<button class=\"ds-btn-primary\">Get started <svg class=\"ds-btn-icon\" width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M5 12h14M13 5l7 7-7 7\"/></svg></button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 18px; border: 1px solid #4f5bd5; border-radius: 8px; color: #ffffff; background: #4f5bd5; font-family: 'Montserrat', sans-serif; font-size: .88rem; font-weight: 750; cursor: pointer; transition: background .18s ease, transform .18s ease; } .ds-btn-primary:hover { background: #3c46b0; border-color: #3c46b0; } .ds-btn-primary:focus-visible { outline: 2px solid #4f5bd5; outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(1px); }"
+      "description": "Main CTA on light ground ('Analyze'); Signal Indigo fill, white text. Shared Button primitive with the .landing-primary page class.",
+      "html": "<button class=\"ds-btn-primary\">Analyze <svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14M12 5l7 7-7 7\"/></svg></button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 48px; padding: 0 22px; border: 1px solid #4F46E5; border-radius: 8px; color: #ffffff; background: #4F46E5; font-family: Manrope, ui-sans-serif, system-ui, sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background .18s ease, transform .18s ease; } .ds-btn-primary:hover { background: #4338CA; border-color: #4338CA; } .ds-btn-primary:focus-visible { outline: 2px solid #4F46E5; outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(1px); }"
     },
     {
-      "name": "Ghost Link Button",
+      "name": "Primary Button (inverse, on band)",
       "kind": "button",
-      "refersTo": "button-ghost",
-      "description": "Low-emphasis secondary action ('Sign in', rail items). Rendered as the shared `Button` primitive with variant=\"ghost\" plus a page class (`.landing-sign-in`, `.explorer-rail-button`) for exact spacing/color.",
-      "html": "<a class=\"ds-btn-ghost\" href=\"#compare\">See the evidence</a>",
-      "css": ".ds-btn-ghost { color: #5b6270; font-family: 'Montserrat', sans-serif; font-size: .84rem; font-weight: 600; text-decoration: none; transition: color .18s ease; } .ds-btn-ghost:hover { color: #14161a; } .ds-btn-ghost:focus-visible { outline: 2px solid #4f5bd5; outline-offset: 3px; border-radius: 6px; }"
+      "refersTo": "button-primary-inverse",
+      "description": "'Get started' on the indigo band: white fill, Signal Indigo Deep text, soft lift.",
+      "html": "<div class=\"ds-band\"><button class=\"ds-btn-inverse\">Get started <svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14M12 5l7 7-7 7\"/></svg></button><a class=\"ds-band-link\" href=\"#start\">Paste a repository</a></div>",
+      "css": ".ds-band { display: flex; align-items: center; gap: 26px; padding: 28px; background: #4338CA; font-family: Manrope, ui-sans-serif, system-ui, sans-serif; } .ds-btn-inverse { display: inline-flex; align-items: center; gap: 9px; height: 48px; padding: 0 22px; border: 1px solid #ffffff; border-radius: 8px; color: #4338CA; background: #ffffff; font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; box-shadow: 0 8px 24px rgba(20,24,32,.18); transition: background .18s ease, box-shadow .18s ease, transform .18s ease; } .ds-btn-inverse:hover { background: #EEF0FF; box-shadow: 0 10px 30px rgba(20,24,32,.24); } .ds-btn-inverse:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; } .ds-btn-inverse:active { transform: translateY(1px); } .ds-band-link { color: #ffffff; font-size: .85rem; font-weight: 650; text-decoration: underline; text-decoration-color: rgba(255,255,255,.45); text-underline-offset: 6px; } .ds-band-link:hover { text-decoration-color: #ffffff; } .ds-band-link:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }"
     },
     {
-      "name": "Navigation Bar",
+      "name": "Navigation Bar (on band)",
       "kind": "nav",
       "refersTo": "nav-bar",
-      "description": "Transparent top nav on the canvas ground, brand mark + links + sign-in.",
-      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-brand\" href=\"#top\"><span class=\"ds-nav-mark\"><svg width=\"19\" height=\"19\" viewBox=\"0 0 28 28\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M9 7v11.2a3.8 3.8 0 1 0 2 3.3V12l7 4.1v2.1a3.8 3.8 0 1 0 2-3.3L11 9.7V7A3.8 3.8 0 1 0 9 7Z\"/></svg></span><span>Structrace</span></a><div class=\"ds-nav-links\"><a href=\"#explore\">How it works</a><a href=\"#close\">Get started</a></div><button class=\"ds-nav-signin\">Sign in</button></nav>",
-      "css": ".ds-nav { display: flex; align-items: center; height: 74px; border-bottom: 1px solid rgba(184,191,201,.16); color: #14161a; } .ds-nav-brand { display: inline-flex; align-items: center; gap: 10px; color: #14161a; font-family: 'Montserrat', sans-serif; font-size: 1.02rem; font-weight: 720; text-decoration: none; } .ds-nav-mark { display: grid; place-items: center; width: 31px; height: 31px; color: #4f5bd5; border: 1px solid rgba(79,91,213,.45); border-radius: 9px; background: rgba(79,91,213,.1); } .ds-nav-links { display: flex; gap: 26px; margin-left: 70px; } .ds-nav-links a { color: #5b6270; font-size: .84rem; font-weight: 600; text-decoration: none; transition: color .18s ease; } .ds-nav-links a:hover { color: #14161a; } .ds-nav-signin { margin-left: auto; padding: 8px 13px; border: 0; border-radius: 7px; color: #14161a; background: transparent; font-family: 'Montserrat', sans-serif; font-weight: 650; cursor: pointer; transition: background .18s ease; } .ds-nav-signin:hover { background: rgba(184,191,201,.1); }"
-    },
-    {
-      "name": "Module Rail Item",
-      "kind": "nav",
-      "refersTo": "module-rail-item",
-      "description": "Signature rail row: icon tile + label + description + chevron; shared between the landing explorer (built on the shared `Button` primitive, variant=\"ghost\") and the connected workspace's WorkspaceModuleNav (built from a raw <button>) — markup differs, rendered row does not.",
-      "html": "<button class=\"ds-rail-item ds-rail-item-active\"><span class=\"ds-rail-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M3 12h18M3 6h18M3 18h18\"/></svg></span><span class=\"ds-rail-copy\"><strong>Architecture</strong><small>Dependencies, traced</small></span><span class=\"ds-rail-chevron\">-</span></button>",
-      "css": ".ds-rail-item { display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px; border: 0; border-radius: 9px; background: transparent; text-align: left; font-family: 'Montserrat', sans-serif; cursor: pointer; transition: background .15s ease; } .ds-rail-item:hover, .ds-rail-item-active { background: #e6e9ee; } .ds-rail-icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 8px; color: #147a89; border: 1px solid rgba(20,122,137,.4); background: rgba(20,122,137,.1); } .ds-rail-copy { flex: 1; display: flex; flex-direction: column; gap: 1px; } .ds-rail-copy strong { color: #2a3446; font-size: .85rem; font-weight: 700; } .ds-rail-copy small { color: #5b6270; font-size: .72rem; } .ds-rail-chevron { color: #4f5bd5; }"
+      "description": "72px transparent nav on the indigo band: brand tile, links, outlined Sign-in.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-brand\" href=\"#top\"><span class=\"ds-nav-mark\"><svg width=\"19\" height=\"19\" viewBox=\"0 0 28 28\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M9 7v11.2a3.8 3.8 0 1 0 2 3.3V12l7 4.1v2.1a3.8 3.8 0 1 0 2-3.3L11 9.7V7A3.8 3.8 0 1 0 9 7Z\"/></svg></span><span>Structrace</span></a><div class=\"ds-nav-links\"><a href=\"#product\">Product</a><a href=\"#questions\">Why</a><a href=\"#start\">Start</a></div><button class=\"ds-nav-signin\">Sign in</button></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 20px; height: 72px; padding: 0 24px; background: #4338CA; border-bottom: 1px solid rgba(255,255,255,.16); font-family: Manrope, ui-sans-serif, system-ui, sans-serif; } .ds-nav-brand { display: inline-flex; align-items: center; gap: 10px; color: #ffffff; font-size: 1rem; font-weight: 750; text-decoration: none; } .ds-nav-mark { display: grid; place-items: center; width: 31px; height: 31px; color: #ffffff; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; background: rgba(255,255,255,.12); } .ds-nav-links { display: flex; gap: 28px; margin-left: 56px; } .ds-nav-links a { color: rgba(255,255,255,.84); font-size: .85rem; font-weight: 600; text-decoration: none; transition: color .18s ease; } .ds-nav-links a:hover { color: #ffffff; } .ds-nav-links a:focus-visible, .ds-nav-signin:focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; } .ds-nav-signin { margin-left: auto; height: 38px; padding: 0 16px; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; color: #ffffff; background: transparent; font: inherit; font-size: .85rem; font-weight: 650; cursor: pointer; transition: background .18s ease, border-color .18s ease; } .ds-nav-signin:hover { border-color: #ffffff; background: rgba(255,255,255,.1); }"
     },
     {
       "name": "Data Frame",
       "kind": "custom",
       "refersTo": "data-frame",
-      "description": "Signature bordered IDE-window panel: monospace topbar with live status dot, over the canvas.",
-      "html": "<div class=\"ds-frame\"><div class=\"ds-frame-topbar\"><span class=\"ds-frame-dot\"></span><span>acme/api</span><span class=\"ds-frame-status\">Analyzed</span></div><div class=\"ds-frame-body\"></div></div>",
-      "css": ".ds-frame { overflow: hidden; border: 1px solid rgba(184,191,201,.25); border-radius: 13px; background: #eef0f3; box-shadow: 0 32px 80px rgba(20,24,32,0.11); display: flex; flex-direction: column; } .ds-frame-topbar { display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 14px; border-bottom: 1px solid rgba(184,191,201,.13); color: #31363f; background: #ffffff; font-family: ui-monospace, monospace; font-size: .67rem; } .ds-frame-dot { width: 7px; height: 7px; border-radius: 50%; background: #1a8f52; box-shadow: 0 0 0 5px rgba(26,143,82,.1); } .ds-frame-status { margin-left: auto; color: #1a8f52; } .ds-frame-body { flex: 1; padding: 8px; }"
+      "description": "Signature IDE-window panel: topbar with status dot, literal source path and status; tone-tinted body; caption bar.",
+      "html": "<figure class=\"ds-frame\"><div class=\"ds-frame-topbar\"><span class=\"ds-frame-dot\"></span><span class=\"ds-frame-path\">RAMAN0330/CodeGraph · client/src/features</span><span class=\"ds-frame-status\">Analyzed</span></div><div class=\"ds-frame-body\"><svg viewBox=\"0 0 1000 625\" width=\"100%\" height=\"100%\"><path d=\"M500 312 C 350 312, 350 450, 232 452\" fill=\"none\" stroke=\"#4F46E5\" stroke-width=\"1.8\" stroke-opacity=\".42\"/><path d=\"M500 312 C 620 312, 620 178, 724 178\" fill=\"none\" stroke=\"#4F46E5\" stroke-width=\"1.8\" stroke-opacity=\".42\"/><circle cx=\"500\" cy=\"312\" r=\"56\" fill=\"#4F46E5\"/><circle cx=\"232\" cy=\"452\" r=\"36\" fill=\"#eceaff\" stroke=\"#4F46E5\" stroke-width=\"2\"/><circle cx=\"724\" cy=\"178\" r=\"24\" fill=\"#eceaff\" stroke=\"#4F46E5\" stroke-width=\"2\"/></svg></div><figcaption class=\"ds-frame-caption\"><strong>Code graph</strong><span>Every folder and import as one graph.</span></figcaption></figure>",
+      "css": ".ds-frame { margin: 0; overflow: hidden; border: 1px solid rgba(203,213,225,.7); border-radius: 13px; background: #ffffff; box-shadow: 0 32px 80px rgba(20,24,32,.08); font-family: Manrope, ui-sans-serif, system-ui, sans-serif; } .ds-frame-topbar { display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 16px; border-bottom: 1px solid rgba(203,213,225,.7); font-size: .85rem; } .ds-frame-dot { width: 8px; height: 8px; border-radius: 50%; background: #059669; box-shadow: 0 0 0 4px rgba(5,150,105,.12); } .ds-frame-path { color: #111827; font-weight: 600; } .ds-frame-status { margin-left: auto; color: #059669; font-weight: 650; } .ds-frame-body { aspect-ratio: 16/10; background: #f9f9ff; } .ds-frame-caption { display: flex; gap: 12px; padding: 14px 18px; border-top: 1px solid rgba(203,213,225,.7); color: #64748B; font-size: 1rem; } .ds-frame-caption strong { color: #111827; font-weight: 750; }"
+    },
+    {
+      "name": "Module Tile",
+      "kind": "custom",
+      "refersTo": "module-tile",
+      "description": "Contact-sheet tab: still thumbnail of a module diagram plus icon tile and label; active state takes the module tone ring.",
+      "html": "<div class=\"ds-tiles\"><button class=\"ds-tile ds-tile-active\" style=\"--tone:#147a89\"><span class=\"ds-tile-thumb\"></span><span class=\"ds-tile-label\"><span class=\"ds-tile-icon\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"9\" y=\"2\" width=\"6\" height=\"6\" rx=\"1\"/><rect x=\"16\" y=\"16\" width=\"6\" height=\"6\" rx=\"1\"/><rect x=\"2\" y=\"16\" width=\"6\" height=\"6\" rx=\"1\"/><path d=\"M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8\"/></svg></span>Architecture<small>In view</small></span></button><button class=\"ds-tile\" style=\"--tone:#D97706\"><span class=\"ds-tile-thumb\"></span><span class=\"ds-tile-label\"><span class=\"ds-tile-icon\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><ellipse cx=\"12\" cy=\"5\" rx=\"9\" ry=\"3\"/><path d=\"M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0\"/></svg></span>Database</span></button></div>",
+      "css": ".ds-tiles { display: flex; flex-direction: column; gap: 9px; width: 240px; padding: 16px; background: #F6F8FB; font-family: Manrope, ui-sans-serif, system-ui, sans-serif; } .ds-tile { display: flex; flex-direction: column; gap: 8px; padding: 7px; border: 1px solid rgba(203,213,225,.7); border-radius: 13px; background: #ffffff; color: #111827; font: inherit; text-align: left; cursor: pointer; box-shadow: 0 4px 16px rgba(20,24,32,.1); transition: transform .18s ease, box-shadow .18s ease; } .ds-tile:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(20,24,32,.16); } .ds-tile:focus-visible { outline: 2px solid #4F46E5; outline-offset: 2px; } .ds-tile-active { border-color: color-mix(in srgb, var(--tone) 55%, #ffffff); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 22%, transparent), 0 4px 16px rgba(20,24,32,.1); } .ds-tile-active:hover { transform: none; } .ds-tile-thumb { display: block; aspect-ratio: 12/5; border-radius: 8px; background: color-mix(in srgb, var(--tone) 6%, #ffffff); } .ds-tile:not(.ds-tile-active) .ds-tile-thumb { opacity: .55; filter: saturate(.4); } .ds-tile-label { display: flex; align-items: center; gap: 9px; padding: 0 3px 1px; font-size: .85rem; font-weight: 700; } .ds-tile-label small { margin-left: auto; color: var(--tone); font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; } .ds-tile-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, #ffffff); }"
+    },
+    {
+      "name": "Repository Field",
+      "kind": "input",
+      "refersTo": "repo-field",
+      "description": "github.com/ prefixed repository input with indigo focus ring.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-prefix\">github.com/</span><input placeholder=\"owner/repository\" /></label>",
+      "css": ".ds-field { display: flex; align-items: center; height: 60px; padding: 0 18px; border: 1px solid #CBD5E1; border-radius: 8px; background: #F6F8FB; font-family: Manrope, ui-sans-serif, system-ui, sans-serif; font-size: 1rem; cursor: text; transition: border-color .15s ease, box-shadow .15s ease, background .15s ease; } .ds-field:focus-within { border-color: #4F46E5; background: #ffffff; box-shadow: 0 0 0 4px rgba(79,70,229,.14); } .ds-field-prefix { color: #64748B; font-weight: 600; } .ds-field input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: #111827; font: inherit; font-weight: 600; caret-color: #4F46E5; } .ds-field input::placeholder { color: #64748B; font-weight: 500; }"
+    },
+    {
+      "name": "Questions Table Row",
+      "kind": "custom",
+      "refersTo": "questions-row",
+      "description": "Question / usual tool / Structrace answer row; the question leads with its module's icon tile.",
+      "html": "<div class=\"ds-q-row\" style=\"--tone:#7c3fa8\"><span class=\"ds-q-ask\"><span class=\"ds-q-icon\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 3v18h18M18 17V9M13 17V5M8 17v-3\"/></svg></span>Who knows this part of the code?</span><span class=\"ds-q-before\">git blame, one file at a time</span><span class=\"ds-q-after\">Ownership and churn per module</span></div>",
+      "css": ".ds-q-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; align-items: center; gap: 24px; padding: 18px 0; border-top: 1px solid rgba(203,213,225,.7); font-family: Manrope, ui-sans-serif, system-ui, sans-serif; } .ds-q-ask { display: flex; align-items: center; gap: 14px; color: #111827; font-size: 1.08rem; font-weight: 700; } .ds-q-icon { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; color: var(--tone); background: color-mix(in srgb, var(--tone) 13%, #ffffff); } .ds-q-before { color: #64748B; font-size: 1rem; } .ds-q-after { color: #111827; font-size: 1rem; font-weight: 650; }"
     },
     {
       "name": "Status/Alert Chip",
       "kind": "chip",
       "refersTo": "status-chip",
-      "description": "Inline semantic-colored pill pairing an icon with a short label; used for the close-out risk callout.",
-      "html": "<p class=\"ds-chip ds-chip-danger\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z\"/></svg>One signal found in <code>api/router.ts</code></p>",
-      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 8px 13px; border-radius: 8px; font-size: .78rem; font-family: 'Montserrat', sans-serif; } .ds-chip-danger { border: 1px solid rgba(209,65,74,.35); color: #4c2427; background: rgba(209,65,74,.08); } .ds-chip code { font-family: ui-monospace, monospace; font-weight: 700; }"
-    },
-    {
-      "name": "Comparison Table Row",
-      "kind": "custom",
-      "refersTo": "comparison-row",
-      "description": "Without/With row used in the evidence comparison table; label + two copy columns.",
-      "html": "<div class=\"ds-cmp-row\"><span class=\"ds-cmp-label\">Understanding structure</span><span class=\"ds-cmp-without\">grep and manual file-hopping</span><span class=\"ds-cmp-with\">one navigable dependency graph</span></div>",
-      "css": ".ds-cmp-row { display: grid; grid-template-columns: minmax(180px,.9fr) 1fr 1fr; gap: 16px; padding: 16px 22px; border-top: 1px solid rgba(184,191,201,.16); font-family: 'Montserrat', sans-serif; } .ds-cmp-label { color: #31363f; font-size: .88rem; font-weight: 650; } .ds-cmp-without { color: #31363f; font-size: .86rem; } .ds-cmp-with { color: #147a3f; font-size: .86rem; font-weight: 600; }"
+      "description": "Inline semantic-colored pill pairing an icon with a short label.",
+      "html": "<p class=\"ds-chip ds-chip-danger\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z\"/></svg>One finding in <code>api/router.ts</code></p>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 8px 13px; border-radius: 8px; font-family: Manrope, ui-sans-serif, system-ui, sans-serif; font-size: .78rem; } .ds-chip-danger { border: 1px solid rgba(220,38,38,.35); color: #7f1d1d; background: rgba(220,38,38,.08); } .ds-chip code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 600; }"
     }
   ],
   "narrative": {
     "northStar": "The Light Diagnostic Console",
-    "overview": "Structrace's world is a light IDE, not a marketing surface: a near-white canvas (#f7f8fa/#ffffff), a faint hairline indigo grid standing in for graph paper, and a single indigo accent (#4f5bd5) carrying every interactive and primary-brand moment, with a narrow semantic set (cyan/purple/amber/red) reserved for data meaning. Montserrat carries every authored sentence; monospace (ui-monospace) is reserved for literal values pulled out of the system under inspection - a file path, a repo name, a status word, a graph node label. The landing page's module rail is not a marketing invention: it reuses the same rail-plus-evidence-pane structure, the same 'Data Frame' chrome, and the same semantic accent assignment (cyan = architecture, purple = insights/ownership, amber = database, red = security) that the connected workspace itself uses once a repository is analyzed.\n\nDensity is instrument-panel, not editorial: hairline 1px borders plus a small set of soft, ambient shadows do the separating; color is functional rather than decorative. Text sits close to true near-black-on-near-white contrast for legibility. The system does not use kicker/eyebrow labels over headlines, does not use hard-offset (neobrutalist) shadows, and does not use glyph/emoji icons - only Lucide line icons at consistent small sizes, with one glass-tile brand mark as the sole exception.",
+    "overview": "Structrace's world is a light IDE, not a marketing surface: a near-white canvas (#F6F8FB/#ffffff) and a single indigo accent (#4F46E5, deepening to #4338CA) carrying every interactive and primary-brand moment, with a narrow semantic set (cyan/purple/amber/red) reserved for data meaning. Manrope carries every sentence the interface says, from the display headline down to labels, captions and the literal source path in a frame's topbar; JetBrains Mono is loaded alongside it and appears only where the workspace shows code itself: code excerpts, function names, file paths in file detail rows, column types. The landing page shows the product rather than describing it: real module diagrams sit in the same \"Data Frame\" chrome and carry the same per-module accent assignment (indigo = code graph, cyan = architecture, purple = insights/ownership, amber = database, red = security) that the connected workspace uses.\n\nDensity is instrument-panel, not editorial: hairline 1px borders plus a small set of soft, ambient shadows do the separating; color is functional rather than decorative. Text sits close to true near-black-on-near-white contrast for legibility. The landing page may raise indigo to a committed, full-bleed band, but the band is the same indigo the system already uses for its one accent, not a new hue. The system does not use kicker/eyebrow labels over headlines, does not use hard-offset (neobrutalist) shadows, and does not use glyph/emoji icons; only Lucide line icons at consistent small sizes, with one tile-framed SVG brand mark as the sole exception.",
     "keyCharacteristics": [
-      "Light IDE ground (#f7f8fa canvas, #ffffff card surfaces) with a masked hairline indigo grid on every full-bleed surface",
-      "One indigo accent (#4f5bd5) for every primary/interactive element; cyan/purple/amber/red are reserved for semantic and data-role signal only, never for CTAs",
-      "Montserrat for all prose and headings; monospace exclusively for literal system values (paths, labels, statuses, node text)",
+      "Light IDE ground (#F6F8FB canvas, #ffffff card surfaces); surfaces are plain, not gridded",
+      "One indigo accent (#4F46E5 / #4338CA) for every primary/interactive element; cyan/purple/amber/red are reserved for semantic and data-role signal only, never for CTAs",
+      "Manrope for all prose, headings, labels and UI text; JetBrains Mono only for code and code-level identifiers inside the workspace",
+      "Each product module owns one accent, carried through its diagram, icon tile and any row that refers to it",
       "Flat-bordered surfaces with soft ambient shadows, never hard-offset shadows",
-      "Motion is a staged reveal (opacity + translateY/scale), gated by prefers-reduced-motion, with instant equivalents built for the same layout"
+      "Motion is a staged reveal (opacity + translateY/scale, path drawing for diagram edges), gated by `prefers-reduced-motion`, with instant equivalents built for the same layout"
     ],
     "rules": [
-      { "name": "The One Accent Rule", "body": "Indigo (#4f5bd5) is the only color used for primary interactive elements (buttons, links, focus rings, the active module-rail icon). Cyan/purple/amber/red never appear on a call-to-action; they only ever encode a specific module's data meaning or a status.", "section": "colors" },
-      { "name": "The Grid Ground Rule", "body": "Every full-bleed page or panel surface sits on the same masked hairline dot/line grid (56px on the landing page; 28px on the workspace canvas), faded to transparent toward the bottom of the viewport. A surface in this world is never a flat, gridless void.", "section": "colors" },
-      { "name": "The Literal-Value-Is-Monospace Rule", "body": "Any string that is a literal value out of the system under inspection - a file path, a repo name, a status word, a graph node or table-column label - renders in monospace. Everything that is authored prose renders in Montserrat.", "section": "typography" },
-      { "name": "The No Hard Shadow Rule", "body": "Shadows are always soft and diffuse (blur >= 16px, low opacity, neutral near-black tint). A hard-offset shadow does not belong to this world; depth reads as blur and background-shade stepping, not as a drawn edge.", "section": "elevation" }
+      { "name": "The One Accent Rule", "body": "Indigo (#4F46E5 / #4338CA) is the only color used for primary interactive elements (buttons, links, focus rings, the selected-state field). Cyan/purple/amber/red never appear on a call-to-action; they only ever encode a specific module's data meaning or a status (success/warning/danger).", "section": "colors" },
+      { "name": "The Module Tone Rule", "body": "A module's accent travels with it. Any element about one module (its diagram, its icon tile, its tab, a table row that names it) takes that module's tone, and tinted fills are mixed from that tone toward white (about 5% for a diagram ground, 6% for a thumbnail, 12–13% for icon tiles and nodes) rather than introducing a new color.", "section": "colors" },
+      { "name": "The Inverse-On-Band Rule", "body": "On the indigo band, white is the action color: the primary button turns white with Signal Indigo Deep text, secondary links and nav links are white (secondary text at 84% opacity), the brand tile and Sign-in outline turn white-on-indigo, and focus outlines switch to white.", "section": "colors" },
+      { "name": "The One Voice Rule", "body": "Every piece of authored or interface text, including a literal repo path in a frame topbar, is set in Manrope. JetBrains Mono appears only where the workspace renders code or a code-level identifier inside a code-oriented panel.", "section": "typography" },
+      { "name": "The No Hard Shadow Rule", "body": "Shadows are always soft and diffuse (blur at least 16px, low opacity, neutral near-black tint). A hard-offset shadow does not belong to this world. Selected state is a tone-colored 3px spread ring, not a drawn offset edge.", "section": "elevation" }
     ],
     "dos": [
-      "Do keep indigo (#4f5bd5) as the only primary/interactive accent; reserve cyan/purple/amber/red for a specific module's data meaning or a status.",
-      "Do render literal system values (paths, repo names, status words, node/table labels) in monospace; render authored copy in Montserrat.",
-      "Do put every full-bleed surface on the masked hairline grid ground rather than a flat color.",
-      "Do use soft, diffuse shadows only to lift a genuinely floating panel; rely on hairline borders and background-shade steps for everything else.",
-      "Do reuse the module-rail + evidence-pane pattern for any new surface that lets a user browse product capabilities, rather than inventing a new navigation shape.",
-      "Do build new buttons on the shared Button primitive (components/ui/button.tsx) with a page-level class for this world's visual tokens, rather than a raw <button> or Tailwind-only styling.",
-      "Do gate scroll- or view-triggered motion behind prefers-reduced-motion, with a fully static fallback."
+      "Do keep indigo (#4F46E5 / #4338CA) as the only primary/interactive accent; reserve cyan/purple/amber/red for a specific module's data meaning or a status.",
+      "Do set all interface text in Manrope, including literal repo paths in frame topbars; use JetBrains Mono only for code excerpts and code-level identifiers in workspace panels.",
+      "Do carry a module's accent through everything about that module (diagram, icon tile, tab, row) via its tone, mixing tints toward white rather than adding colors.",
+      "Do invert the primary button to white with Signal Indigo Deep text when it sits on the indigo band.",
+      "Do show product capabilities as real diagrams inside Data Frame chrome, built from the shared diagram language, rather than abstract illustration.",
+      "Do use soft, diffuse shadows only to lift a genuinely floating panel or tile; rely on hairline borders and background-shade steps for everything else.",
+      "Do build new buttons on the shared `Button` primitive (`components/ui/button.tsx`) with a page-level class for this world's visual tokens.",
+      "Do gate scroll-, view- or selection-triggered motion behind `prefers-reduced-motion`, with a fully static equivalent."
     ],
     "donts": [
-      "Don't introduce kicker/eyebrow labels above headlines on new surfaces; the core system's type hierarchy (display -> headline -> body) carries emphasis without them.",
+      "Don't introduce kicker/eyebrow labels above headlines on new surfaces; the display, headline, body hierarchy carries emphasis without them.",
       "Don't use hard-offset (neobrutalist) shadows; this world's depth language is soft and ambient only.",
-      "Don't use glyph/emoji icons for general UI; the system uses Lucide line icons exclusively, with the single indigo glass tile reserved for the brand mark.",
-      "Don't put a second body/label typeface into a new surface; Montserrat + ui-monospace is the established pairing.",
-      "Don't treat a page-local text or accent override as a system-wide neutral redefinition; the app-wide tokens in index.css remain normative."
+      "Don't use glyph/emoji icons for general UI; the system uses Lucide line icons, with the tile-framed SVG brand mark as the only mark.",
+      "Don't put a third typeface into a new surface; Manrope with JetBrains Mono for code is the established pair.",
+      "Don't put a module accent on a call-to-action, or hover a primary button to any color other than Signal Indigo Deep.",
+      "Don't treat a page-local text or accent override as a system-wide neutral redefinition; the app-wide tokens in `index.css` remain normative."
     ]
   }
 }

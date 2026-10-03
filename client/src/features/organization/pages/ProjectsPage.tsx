@@ -5,12 +5,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { appConfig } from '../../../app/config';
 import { Avatar } from '../../../components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { organizationStore, type DbConnectionInput, type OrganizationState, type Project, type ProjectType } from '../services/organizationStore';
+import { organizationStore, type DbConnectionInput, type OrganizationState, type Project, type ProjectType, type OrganizationPerson } from '../services/organizationStore';
 import { TopbarSearch } from '../components/TopbarSearch';
 import { TopbarAccount } from '../components/TopbarAccount';
+import { AlertWebhookSection } from '../components/AlertWebhookSection';
 import { relativeTime } from '../services/relativeTime';
 import { clearPendingRepository, peekPendingRepository } from '../services/pendingRepository';
 import { GG, ggInput, ggLabel, MiniSchemaPreview, GGErrorBanner } from '../../database/components/dbConnectTheme';
@@ -60,6 +62,15 @@ function projectSubtitle(project: Project): string {
   return project.repositoryFullName || '—';
 }
 
+// Least-privilege role for the database connection form. SELECT is needed for
+// information_schema to list a table at all; the monitoring grants feed the
+// database dashboard. Structrace never reads row data.
+function readOnlyUserSql(dbType: 'postgres' | 'mysql', database: string): string {
+  return dbType === 'postgres'
+    ? `CREATE ROLE structrace_ro LOGIN PASSWORD 'choose-a-password';\nGRANT CONNECT ON DATABASE ${database} TO structrace_ro;\nGRANT USAGE ON SCHEMA public TO structrace_ro;\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO structrace_ro;\nGRANT pg_monitor TO structrace_ro;`
+    : `CREATE USER 'structrace_ro'@'%' IDENTIFIED BY 'choose-a-password';\nGRANT SELECT, SHOW VIEW ON ${database}.* TO 'structrace_ro'@'%';\nGRANT PROCESS, REPLICATION CLIENT ON *.* TO 'structrace_ro'@'%';`;
+}
+
 export default function ProjectsPage() {
   const navigate = useNavigate(); const { workspaceId = '' } = useParams(); const dialog = useRef<HTMLDialogElement>(null); const deleteDialog = useRef<HTMLDialogElement>(null); const reduceMotion = useReducedMotion();
   const numericWorkspaceId = Number(workspaceId);
@@ -70,11 +81,12 @@ export default function ProjectsPage() {
   const [dbTesting, setDbTesting] = useState(false); const [dbVerified, setDbVerified] = useState(false); const [dbMessage, setDbMessage] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Project | null>(null); const [deleteConfirmText, setDeleteConfirmText] = useState(''); const [deleteError, setDeleteError] = useState('');
-  const [inviteEmail, setInviteEmail] = useState(''); const [inviteMessage, setInviteMessage] = useState(''); const [inviteError, setInviteError] = useState(false);
+  const [memberUsername, setMemberUsername] = useState(''); const [inviteMessage, setInviteMessage] = useState(''); const [inviteError, setInviteError] = useState(false);
+  const [people, setPeople] = useState<OrganizationPerson[]>([]);
   const workspace = state.workspaces.find(item => item.id === numericWorkspaceId); const projects = state.projects.filter(project => project.workspaceId === numericWorkspaceId); const visible = useMemo(() => projects.filter(project => project.name.toLowerCase().includes(query.trim().toLowerCase())), [projects, query]);
   const selected = projects.find(project => project.id === selectedProjectId) || projects[0];
   const refresh = () => organizationStore.load().then(setState);
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { refresh(); organizationStore.listPeople().then(setPeople).catch(() => setPeople([])); }, []);
   useEffect(() => { if (state.workspaces.length && !workspace) navigate('/workspaces', { replace: true }); }, [navigate, workspace, state.workspaces.length]);
   useEffect(() => { if (selected && selected.id !== selectedProjectId) setSelectedProjectId(selected.id); }, [selected, selectedProjectId]);
   const openDialog = async (prefillRepository?: string) => {
@@ -151,9 +163,9 @@ export default function ProjectsPage() {
   const inviteMember = (event: React.FormEvent) => {
     event.preventDefault();
     if (!selected) return;
-    organizationStore.inviteMember(selected.id, inviteEmail)
-      .then(() => { refresh(); setInviteMessage(`Added ${inviteEmail.trim()} to the member list.`); setInviteEmail(''); setInviteError(false); })
-      .catch(cause => { setInviteMessage(cause instanceof Error ? cause.message : 'Could not invite this person.'); setInviteError(true); });
+    organizationStore.addMember(selected.id, memberUsername)
+      .then(() => { refresh(); setInviteMessage(`${memberUsername} can now change this project.`); setMemberUsername(''); setInviteError(false); })
+      .catch(cause => { setInviteMessage(cause instanceof Error ? cause.message : 'Could not add this person.'); setInviteError(true); });
   };
   const removeMember = (memberId: number) => { if (!selected) return; organizationStore.removeMember(selected.id, memberId).then(refresh); };
   if (!workspace) return null;
@@ -169,7 +181,7 @@ export default function ProjectsPage() {
             <span className="project-list-copy"><strong>{project.name}</strong><small>{projectSubtitle(project)}</small></span>
           </Button>
           <span className="project-row-actions">
-            <Button className="project-delete-button" aria-label={`Delete ${project.name}`} onClick={() => deleteProject(project)}><Trash2 size={16} /></Button>
+            {project.canEdit && <Button className="project-delete-button" aria-label={`Delete ${project.name}`} onClick={() => deleteProject(project)}><Trash2 size={16} /></Button>}
             <Button className="project-row-open-button" aria-label={`Open ${project.name}`} onClick={() => openProject(project)}>Open <ArrowRight size={15} /></Button>
           </span>
         </div>)}</nav>
@@ -186,18 +198,29 @@ export default function ProjectsPage() {
           <div><Users size={18} /><span><small>Members</small><strong>{selected.members.length + 1}</strong></span></div>
         </div>
         {selected.instructions && <section className="project-notes"><h2>Notes</h2><p>{selected.instructions}</p></section>}
+        {selected.projectType === 'codebase' && selected.canEdit && <AlertWebhookSection key={selected.id} project={selected} onChange={refresh} />}
         <div className="project-members-section">
-          <div className="project-section-title"><h2>Project members</h2><p>A shared list of who works on this project. Adding someone here does not send an email or grant sign-in access.</p></div>
+          <div className="project-section-title"><h2>Project members</h2><p>Everyone in your organization can view and analyze this project. Its creator, members and admins can also change it: connection, alerts, members, or deleting it.</p></div>
           <div className="project-member-stack">
-            <span className="project-owner-chip"><Avatar seed="you" className="project-member-avatar" />You · owner</span>
-            {selected.members.map(member => <span key={member.id} className="project-member-row"><Avatar seed={member.email} className="project-member-avatar" /><small>{member.email}</small><Button className="project-delete-button" aria-label={`Remove ${member.email}`} onClick={() => removeMember(member.id)}><Trash2 size={13} /></Button></span>)}
+            <span className="project-owner-chip"><Avatar seed={selected.createdBy ?? 'creator'} className="project-member-avatar" />{selected.createdBy ?? 'Former member'} · creator</span>
+            {selected.members.map(member => {
+              const label = member.username ?? `${member.email} · no account`;
+              return <span key={member.id} className="project-member-row"><Avatar seed={label} className="project-member-avatar" /><small>{label}</small>{selected.canEdit && <Button className="project-delete-button" aria-label={`Remove ${label}`} onClick={() => removeMember(member.id)}><Trash2 size={13} /></Button>}</span>;
+            })}
           </div>
-          <form className="project-invite-form" onSubmit={inviteMember}>
-            <UserPlus size={16} />
-            <Label htmlFor="project-member-email" className="sr-only">Member email</Label>
-            <Input id="project-member-email" type="email" placeholder="teammate@company.com" value={inviteEmail} onChange={event => { setInviteEmail(event.target.value); setInviteMessage(''); }} />
-            <Button className="projects-primary-action" type="submit" disabled={!inviteEmail.trim()}>Add member</Button>
-          </form>
+          {selected.canEdit ? (() => {
+            const taken = new Set([selected.createdBy, ...selected.members.map(member => member.username)]);
+            const candidates = people.filter(person => !taken.has(person.username));
+            return <form className="project-invite-form" onSubmit={inviteMember}>
+              <UserPlus size={16} />
+              <Label htmlFor="project-member-person" className="sr-only">Person from your organization</Label>
+              <Select value={memberUsername} onValueChange={value => { setMemberUsername(value); setInviteMessage(''); }} disabled={!candidates.length}>
+                <SelectTrigger id="project-member-person" className="project-member-select"><SelectValue placeholder={candidates.length ? 'Choose someone from your organization' : 'Everyone in your organization is already here'} /></SelectTrigger>
+                <SelectContent>{candidates.map(person => <SelectItem key={person.id} value={person.username}>{person.username}{person.role === 'admin' ? ' · admin' : ''}</SelectItem>)}</SelectContent>
+              </Select>
+              <Button className="projects-primary-action" type="submit" disabled={!memberUsername}>Add member</Button>
+            </form>;
+          })() : <p className="project-readonly-note">You can view and analyze this project. Ask {selected.createdBy ?? 'an admin'} or an admin to add you as a member to change it.</p>}
           {inviteMessage && <p className={inviteError ? 'organization-error' : 'organization-success'} role={inviteError ? 'alert' : 'status'}>{inviteMessage}</p>}
         </div>
       </motion.article>}
@@ -384,6 +407,10 @@ export default function ProjectsPage() {
               <div style={{ flex: 1 }}><Label style={ggLabel}>Username</Label><Input style={ggInput} value={dbUser} onChange={event => { setDbUser(event.target.value); setDbVerified(false); }} placeholder={dbType === 'postgres' ? 'postgres' : 'root'} /></div>
               <div style={{ flex: 1 }}><Label style={ggLabel}>Password</Label><Input type="password" style={ggInput} value={dbPassword} onChange={event => { setDbPassword(event.target.value); setDbVerified(false); }} /></div>
             </div>
+            <details style={{ fontFamily: GG.sans, fontSize: 12, color: GG.fg3, lineHeight: 1.6 }}>
+              <summary style={{ cursor: 'pointer', color: GG.fg2 }}>Use a read-only user. Structrace opens every session read-only, so writes are rejected either way. <span style={{ color: GG.accent }}>Create one</span></summary>
+              <pre style={{ margin: '8px 0 0', padding: '8px 12px', background: GG.bg1, border: `1px solid ${GG.line}`, borderRadius: 8, fontFamily: GG.mono, fontSize: 11, color: GG.fg2, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{readOnlyUserSql(dbType, dbDatabase.trim() || 'my_database')}</pre>
+            </details>
             <Label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: GG.mono, fontSize: 12, color: GG.fg3, cursor: 'pointer' }}>
               <Checkbox checked={dbSsl} onCheckedChange={checked => { setDbSsl(checked === true); setDbVerified(false); }} /> Require SSL
             </Label>
@@ -412,7 +439,7 @@ export default function ProjectsPage() {
             </div>
             <div style={{ background: `${GG.info}0d`, border: `1px solid color-mix(in srgb, ${GG.info} 20%, transparent)`, borderRadius: 8, padding: '10px 12px' }}>
               <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.info, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Security</div>
-              <p style={{ margin: 0, fontFamily: GG.sans, fontSize: 11, color: GG.fg3, lineHeight: 1.6 }}>Credentials are encrypted before storage. Connections run server-side — your password never reaches the browser again after saving.</p>
+              <p style={{ margin: 0, fontFamily: GG.sans, fontSize: 11, color: GG.fg3, lineHeight: 1.6 }}>Credentials are encrypted before storage. Connections run server-side and every session is opened read-only — your password never reaches the browser again after saving.</p>
             </div>
           </div>
         </div>

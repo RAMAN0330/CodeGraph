@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, Network, ShieldCheck, Sparkles, Wand2 } from 'lucide-react';
 import { appConfig } from '../../../app/config';
 import { Button } from '@/components/ui/button';
@@ -42,12 +42,26 @@ function generatePassword(): string {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  // /register?invite=<token> joins an existing organization instead of
+  // creating one (server: POST /auth/register with inviteToken).
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('invite') ?? '';
+  const [invite, setInvite] = useState<{ state: 'none' | 'checking' | 'valid' | 'invalid'; organizationName?: string }>({ state: inviteToken ? 'checking' : 'none' });
   const [organizationName, setOrganizationName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!inviteToken) return;
+    fetch(`${appConfig.apiUrl}/auth/invite/${encodeURIComponent(inviteToken)}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => setInvite(data ? { state: 'valid', organizationName: data.organizationName } : { state: 'invalid' }))
+      .catch(() => setInvite({ state: 'invalid' }));
+  }, [inviteToken]);
+  const joining = invite.state === 'valid';
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -59,7 +73,7 @@ export default function RegisterPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationName, username, password }),
+        body: JSON.stringify(joining ? { inviteToken, username, password } : { organizationName, username, password }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { setError(data.error ?? 'Could not create your account.'); return; }
@@ -109,19 +123,22 @@ export default function RegisterPage() {
 
         <div className="auth-form-side">
           <form className="auth-card" onSubmit={submit}>
-            <div className="auth-eyebrow">CREATE ACCOUNT</div>
-            <h2>Set up your organization</h2>
-            <p className="auth-subtitle">This creates your organization and its first admin account.</p>
+            <div className="auth-eyebrow">{joining ? 'JOIN YOUR TEAM' : 'CREATE ACCOUNT'}</div>
+            <h2>{joining ? `Join ${invite.organizationName}` : 'Set up your organization'}</h2>
+            <p className="auth-subtitle">{joining ? `You were invited to ${invite.organizationName}. Choose a username and password to join it.` : 'This creates your organization and its first admin account.'}</p>
 
+            {invite.state === 'invalid' && <Alert variant="destructive" className="auth-error"><AlertDescription className="text-inherit">This invite link has expired or was already used. Ask your admin for a new one, or create your own organization below.</AlertDescription></Alert>}
             {error && <Alert variant="destructive" className="auth-error"><AlertDescription className="text-inherit">{error}</AlertDescription></Alert>}
 
-            <div className="auth-field">
-              <Label htmlFor="register-org">Organization name</Label>
-              <Input id="register-org" autoFocus value={organizationName} onChange={event => setOrganizationName(event.target.value)} placeholder="Acme Inc." />
-            </div>
+            {!joining && (
+              <div className="auth-field">
+                <Label htmlFor="register-org">Organization name</Label>
+                <Input id="register-org" autoFocus value={organizationName} onChange={event => setOrganizationName(event.target.value)} placeholder="Acme Inc." disabled={invite.state === 'checking'} />
+              </div>
+            )}
             <div className="auth-field">
               <Label htmlFor="register-username">Username</Label>
-              <Input id="register-username" autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} placeholder="3-32 characters" />
+              <Input id="register-username" autoFocus={joining} autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} placeholder="3-32 characters" />
             </div>
             <div className="auth-field">
               <span className="auth-field-row">
@@ -135,8 +152,8 @@ export default function RegisterPage() {
               <Input id="register-confirm-password" type="password" autoComplete="new-password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} />
             </div>
 
-            <Button className="auth-primary-button" type="submit" disabled={submitting || !organizationName || !username || !password}>
-              {submitting ? 'Creating account…' : 'Create account'}
+            <Button className="auth-primary-button" type="submit" disabled={submitting || invite.state === 'checking' || (!joining && !organizationName) || !username || !password}>
+              {submitting ? 'Creating account…' : joining ? `Join ${invite.organizationName}` : 'Create account'}
             </Button>
 
             <div className="auth-new-user">

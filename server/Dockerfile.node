@@ -32,6 +32,15 @@ COPY server/package.json ./
 # resolves to from /app/dist/analysis/parser.js: three levels up from
 # /app/dist/analysis/ is /, then +client/src/....
 COPY client/src/features/analysis/services/analysisRules.ts /client/src/features/analysis/services/analysisRules.ts
+# Same arrangement for the rule modules dist/analysis/sharedRules.js requires;
+# none of them has any imports at all.
+COPY client/src/features/analysis/services/prImpact.ts /client/src/features/analysis/services/prImpact.ts
+COPY client/src/features/analysis/services/analysisHealth.ts /client/src/features/analysis/services/analysisHealth.ts
+COPY client/src/features/analysis/services/architectureRules.ts /client/src/features/analysis/services/architectureRules.ts
+COPY client/src/features/database/services/dbParser.ts /client/src/features/database/services/dbParser.ts
+COPY client/src/features/database/services/tableUsage.ts /client/src/features/database/services/tableUsage.ts
+COPY client/src/features/analysis/services/endpoints.ts /client/src/features/analysis/services/endpoints.ts
+COPY client/src/features/analysis/services/packages.ts /client/src/features/analysis/services/packages.ts
 # analysisRules.ts imports `acorn` by bare specifier. Node resolves that by
 # walking up from the importing file looking for a node_modules directory —
 # /client/... has no ancestry of its own in this image, so without this

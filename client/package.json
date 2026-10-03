@@ -4,13 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "postinstall": "node scripts/copy-tree-sitter-wasm.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/manrope": "^5.3.0",
     "@jscpd/core": "^4.2.5",
     "@jscpd/tokenizer": "^4.2.6",
     "@mermaid-js/layout-elk": "^0.2.2",

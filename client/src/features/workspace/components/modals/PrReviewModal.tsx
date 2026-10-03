@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Icon } from '../../../../shared/components/Icon';
-import { calcBlast, calcPRRisk, findDependencyChains, findSuggestedReviewers, findTestImpact } from '../../../repository/services/github';
+import { appConfig } from '../../../../app/config';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +10,8 @@ interface Props {
   prUrl: string;
   onPrUrlChange: (value: string) => void;
   onAnalyze: () => void;
+  // Report from GET /api/pr-review/:owner/:repo/:number (server/src/services/prReview.ts).
   prData: any;
-  data: any;
   revertCounts: Record<string, number>;
   onClose: () => void;
 }
@@ -23,11 +24,22 @@ function iconLabel(name: string, label: string) {
   );
 }
 
-export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData, data, revertCounts, onClose }: Props) {
-  const risk = prData ? calcPRRisk(prData, data) : null;
-  const reviewers = prData ? findSuggestedReviewers(prData, data) : [];
-  const testImpact = prData ? findTestImpact(prData, data) : [];
-  const chains = prData ? findDependencyChains(prData, data) : [];
+function dependentsLevel(count: number): 'low' | 'medium' | 'high' {
+  return count >= 4 ? 'high' : count >= 2 ? 'medium' : 'low';
+}
+
+export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData, revertCounts, onClose }: Props) {
+  const risk = prData ? prData.risk : null;
+  const reviewers: Array<{ login: string; commits: number }> = prData ? prData.reviewers : [];
+  const testImpact = prData ? prData.testImpact : [];
+  const chains = prData ? prData.chains : [];
+  const [automatic, setAutomatic] = useState<{ automatic: boolean; installUrl: string | null } | null>(null);
+  useEffect(() => {
+    fetch(`${appConfig.apiUrl}/api/pr-review/config`, { credentials: 'include' })
+      .then(res => (res.ok ? res.json() : null))
+      .then(setAutomatic)
+      .catch(() => setAutomatic(null));
+  }, []);
   const riskColor = risk ? (risk.level === 'critical' ? 'var(--red)' : risk.level === 'high' ? 'var(--orange)' : risk.level === 'medium' ? 'var(--blue)' : 'var(--green)') : '';
 
   return (
@@ -53,6 +65,14 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
             />
           </div>
           <Button className="top-btn primary" aria-label="Analyze Pull Request" onClick={onAnalyze} style={{ marginBottom: 16, width: '100%', height: 'auto' }}>{iconLabel('search', 'Analyze PR Impact')}</Button>
+          {automatic && (
+            <div style={{ fontSize: 11, color: 'var(--t2)', marginBottom: 16 }}>
+              {automatic.automatic
+                ? 'Automatic reviews are on: every pull request in a repository with the Structrace GitHub App installed gets this report as a comment and check.'
+                : 'Automatic reviews on GitHub need the Structrace GitHub App to be configured on this server.'}
+              {automatic.automatic && automatic.installUrl && <> <a href={automatic.installUrl} target="_blank" rel="noreferrer">Install it on a repository</a></>}
+            </div>
+          )}
           {prData && risk && (
             <>
               <div className="pr-header" style={{ marginBottom: 16 }}>
@@ -95,12 +115,12 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
                 {reviewers.length > 0 && (
                   <div className="pr-impact-card">
                     <div className="pr-impact-card-title">{iconLabel('users', 'Suggested Reviewers')}</div>
-                    {reviewers.map((r: any, i: number) => (
-                      <div key={i} className="pr-reviewer-card">
-                        <div className="pr-reviewer-avatar" style={{ background: r.avatar }}>{r.name[0]}</div>
+                    {reviewers.map(r => (
+                      <div key={r.login} className="pr-reviewer-card">
+                        <img className="pr-reviewer-avatar" src={`https://github.com/${encodeURIComponent(r.login)}.png?size=64`} alt="" />
                         <div className="pr-reviewer-info">
-                          <div className="pr-reviewer-name">{r.name}</div>
-                          <div className="pr-reviewer-reason">{r.reason}</div>
+                          <div className="pr-reviewer-name">@{r.login}</div>
+                          <div className="pr-reviewer-reason">{r.commits} recent commit{r.commits === 1 ? '' : 's'} to these files</div>
                         </div>
                       </div>
                     ))}
@@ -159,8 +179,7 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
                 <div className="pr-impact-card-title">{iconLabel('folder', 'Changed Files')}</div>
                 <div className="pr-files-list">
                   {prData.files && prData.files.slice(0, 20).map((f: any, i: number) => {
-                    const existing = data && data.files.find((df: any) => df.path === f.filename);
-                    const blast = existing ? calcBlast(f.filename, data.connections, data.files) : null;
+                    const blast = typeof f.dependents === 'number' ? { count: f.dependents, level: dependentsLevel(f.dependents) } : null;
                     const statusColor = f.status === 'added' ? 'var(--green)' : f.status === 'removed' ? 'var(--red)' : 'var(--blue)';
                     return (
                       <div key={i} className="pr-file-row">

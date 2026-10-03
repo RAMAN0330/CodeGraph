@@ -6,12 +6,16 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "check": "tsx src/cli/check.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "bin": {
+    "structrace": "dist/cli/check.js"
+  },
   "engines": {
     "node": ">=24.0.0"
   },

@@ -15,7 +15,7 @@
 .topbar-actions{display:flex;align-items:center;gap:8px}.topbar-account{position:relative}.topbar-account-trigger{display:grid;place-items:center;width:34px;height:34px;border:1px solid rgba(184,191,201,.18);border-radius:7px;background:var(--surface-card);color:#31363f;cursor:pointer}.topbar-account-trigger:hover,.topbar-account-trigger[aria-expanded=true]{border-color:var(--teal-500);color:var(--teal-500)}.topbar-account-menu{position:absolute;z-index:20;top:calc(100% + 8px);right:0;min-width:142px;padding:5px;border:1px solid rgba(184,191,201,.22);border-radius:8px;background:var(--surface-hover);box-shadow:0 14px 32px rgba(20,24,32,0.12)}.topbar-account-menu button{display:flex;align-items:center;gap:8px;width:100%;padding:8px;border:0;border-radius:5px;background:transparent;color:var(--color-danger);font:inherit;font-size:.78rem;font-weight:700;text-align:left;cursor:pointer}.topbar-account-menu button:hover{background:rgba(220,38,38,.1)}.topbar-account-menu button:disabled{opacity:.6;cursor:wait}
 .topbar-actions{display:flex;align-items:center;gap:8px}@media(max-width:780px){.topbar-actions{order:3;width:100%}}
 
-.project-workspace-layout{display:grid;grid-template-columns:3fr 7fr;gap:16px;width:100%;margin:0;padding:32px clamp(40px,6vw,80px) 72px;align-items:start}
+.project-workspace-layout{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:16px;width:100%;margin:0;padding:32px clamp(40px,6vw,80px) 72px;align-items:start}
 .project-list-panel{border:0;border-radius:0;background:transparent;padding:0 14px 0 0;height:calc(100dvh - 220px);min-height:360px;display:flex;flex-direction:column}
 .project-list-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:6px 0 10px}
 .project-list-heading h2{margin:0;color:var(--text-primary);font-size:.92rem;letter-spacing:-.025em}
@@ -41,6 +41,7 @@
 .project-row-open-button{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:32px;padding:0 12px;border:1px solid rgba(79,70,229,.35);border-radius:8px;background:rgba(79,70,229,.08);color:var(--teal-500);font:inherit;font-size:.74rem;font-weight:700;white-space:nowrap;cursor:pointer;transition:border-color .15s,background .15s}
 .project-row-open-button:hover{border-color:var(--teal-500);background:rgba(79,70,229,.16)}
 
+.project-list-panel,.project-detail-panel{min-width:0}
 .project-detail-panel{border:1px solid rgba(184,191,201,.16);border-radius:12px;background:var(--surface-hover);padding:22px}
 .project-detail-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:18px;border-bottom:1px solid rgba(184,191,201,.14)}
 .project-detail-title{display:flex;align-items:center;gap:14px;min-width:0}
@@ -61,7 +62,10 @@
 .project-invite-form{display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(184,191,201,.14);color:var(--teal-500)}
 .project-invite-form input{min-width:0;flex:1;border:1px solid rgba(184,191,201,.22);border-radius:8px;background:var(--surface-card);color:var(--text-primary);padding:9px 11px;font:inherit;font-size:.8rem}
 .project-invite-form .projects-primary-action{white-space:nowrap}
-@media(max-width:768px){.project-workspace-layout{grid-template-columns:1fr;padding:20px 16px 56px}.project-list-panel{height:auto;min-height:0;padding:0}.project-meta-grid{grid-template-columns:1fr}.project-detail-header{flex-wrap:wrap}.project-detail-header .projects-primary-action{width:100%}.project-detail-title h1{font-size:1.35rem;overflow-wrap:anywhere}}
+.project-invite-form .project-member-select{min-width:0;width:auto;flex:1 1 0;overflow:hidden;height:38px;border:1px solid rgba(184,191,201,.22);border-radius:8px;background:var(--surface-card);color:var(--text-primary);font:inherit;font-size:.8rem}
+.project-invite-form .project-member-select>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-readonly-note{margin:16px 0 0;padding-top:16px;border-top:1px solid rgba(184,191,201,.14);color:var(--text-secondary);font-size:.8rem;line-height:1.5}
+@media(max-width:768px){.project-workspace-layout{grid-template-columns:minmax(0,1fr);padding:20px 16px 56px}.project-list-panel{height:auto;min-height:0;padding:0}.project-meta-grid{grid-template-columns:1fr}.project-detail-header{flex-wrap:wrap}.project-detail-header .projects-primary-action{width:100%}.project-detail-title h1{font-size:1.35rem;overflow-wrap:anywhere}}
 
 .delete-project-dialog{position:relative;width:min(480px,calc(100vw - 32px))}
 .dialog-close-button{position:absolute;top:16px;right:16px;display:grid;place-items:center;width:28px;height:28px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--text-secondary);cursor:pointer;transition:border-color .15s,background .15s,color .15s}
@@ -150,3 +154,21 @@
 
 .project-row-actions{flex-direction:row;align-items:center;gap:6px}
 @media(max-width:640px){.workspace-catalog{padding:32px 20px 56px}.workspace-catalog-heading{flex-wrap:wrap;align-items:flex-start}.workspace-catalog-heading .projects-primary-action{width:100%}.workspace-catalog-heading h1{font-size:clamp(2.2rem,11vw,3rem)}}
+
+/* Touch screens (phones, iPads): 44px targets, and 16px inputs so iOS Safari
+   does not zoom the page when a field is focused. Mouse layouts keep their
+   density. */
+@media (pointer: coarse) {
+  /* :where() keeps this at zero specificity, so components that set their own
+     larger minimum keep it. */
+  :where(.organization-page) :where(button, input, [role="combobox"]) { min-height: 44px; }
+  :where(.organization-page) input { font-size: 16px; }
+  :where(.organization-page) :where(.project-delete-button, .account-trigger) { min-width: 44px; }
+}
+
+/* Tablets: a wider project list beside the detail panel. The row's Open
+   button gives way to the panel's own "Open workspace" so names stay readable. */
+@media (min-width: 769px) and (max-width: 1180px) {
+  .project-workspace-layout { grid-template-columns: minmax(280px, 1fr) minmax(0, 1.6fr); padding-inline: clamp(20px, 3vw, 40px); }
+  .project-row-open-button { display: none; }
+}

@@ -18,7 +18,19 @@ export const env = Object.freeze({
   githubClientId: process.env.GITHUB_CLIENT_ID ?? '',
   githubClientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
   githubCallbackUrl: process.env.GITHUB_CALLBACK_URL ?? 'http://localhost:5000/auth/github/callback',
+  // Optional GitHub App for automatic pull request reviews. All three of id,
+  // private key and webhook secret are needed; the slug only builds the
+  // "install" link. The key may be given with literal \n escapes.
+  githubAppId: process.env.GITHUB_APP_ID ?? '',
+  githubAppSlug: process.env.GITHUB_APP_SLUG ?? '',
+  githubAppPrivateKey: (process.env.GITHUB_APP_PRIVATE_KEY ?? '').replace(/\\n/g, '\n'),
+  githubWebhookSecret: process.env.GITHUB_WEBHOOK_SECRET ?? '',
   redisUrl: process.env.REDIS_URL ?? '',
+  // How often project repositories are checked for new commits and
+  // re-analyzed (regression alerts come from these runs). 0 turns it off.
+  analysisScheduleMinutes: integer(process.env.ANALYSIS_SCHEDULE_MINUTES, 360),
+  // Cron (UTC) for the weekly digest to project alert webhooks; "off" disables.
+  digestCron: process.env.DIGEST_CRON ?? '0 9 * * 1',
   openaiApiKey: process.env.OPENAI_API_KEY ?? '',
   openaiModel: process.env.OPENAI_MODEL ?? 'gpt-5-mini',
   repoCacheTtlMs: integer(process.env.REPO_CACHE_TTL_MS, 6 * 60 * 60 * 1000),

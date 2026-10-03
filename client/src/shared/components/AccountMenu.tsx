@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { LogOut } from 'lucide-react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { LogOut, Users } from 'lucide-react';
 import { appConfig } from '../../app/config';
 
 const API = appConfig.apiUrl;
+const TeamDialog = lazy(() => import('./TeamDialog'));
 
 export interface AccountMenuItem {
   label: string;
@@ -68,6 +69,7 @@ export default function AccountMenu({ login, avatarUrl, variant, active, menuIte
   const user = useSelfFetchedUser(login, avatarUrl);
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -139,11 +141,15 @@ export default function AccountMenu({ login, avatarUrl, variant, active, menuIte
               {item.icon}{item.label}
             </button>
           ))}
+          <button role="menuitem" className="account-item" onClick={() => { setTeamOpen(true); setOpen(false); }}>
+            <Users size={14} strokeWidth={1.9} /> Team
+          </button>
           <button role="menuitem" className="account-item danger" onClick={handleSignOut} disabled={signingOut}>
             <LogOut size={14} strokeWidth={1.9} /> {signingOut ? 'Signing out…' : 'Sign out'}
           </button>
         </div>
       )}
+      {teamOpen && <Suspense fallback={null}><TeamDialog onClose={() => setTeamOpen(false)} /></Suspense>}
     </div>
   );
 }

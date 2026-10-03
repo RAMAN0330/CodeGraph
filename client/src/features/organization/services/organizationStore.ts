@@ -1,7 +1,9 @@
 import { appConfig } from '../../../app/config';
 
-export type Workspace = { id: number; name: string; createdAt: string };
-export type Member = { id: number; email: string; invitedAt: string };
+export type Workspace = { id: number; name: string; createdAt: string; canDelete: boolean };
+// userId is null for an older email-only entry that matches no account.
+export type Member = { id: number; userId: number | null; username: string | null; email: string | null; invitedAt: string };
+export type OrganizationPerson = { id: number; username: string; role: string };
 export type ProjectType = 'codebase' | 'database';
 export type DbConnectionInput = { dbType: 'postgres' | 'mysql'; host: string; port: string | number; database: string; user: string; password: string; ssl?: boolean };
 export type DbConnectionSummary = Omit<DbConnectionInput, 'password'>;
@@ -13,8 +15,12 @@ export type Project = {
   projectType: ProjectType;
   repositoryFullName: string | null;
   dbConnectionSummary: DbConnectionSummary | null;
+  alertWebhookConfigured: boolean;
   createdAt: string;
   members: Member[];
+  createdBy: string | null;
+  // Creator, project members and admins; everyone else in the org can view.
+  canEdit: boolean;
 };
 export type CreateProjectInput = {
   workspaceId: number;
@@ -64,11 +70,21 @@ export function createOrganizationStore() {
     updateProjectDbConnection(projectId: number, dbConnection: DbConnectionInput): Promise<DbConnectionSummary> {
       return request<DbConnectionSummary>(`/api/projects/${projectId}/db-connection`, { method: 'PUT', body: JSON.stringify({ dbConnection }) });
     },
-    inviteMember(projectId: number, email: string): Promise<Member> {
-      return request<Member>(`/api/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ email }) });
+    addMember(projectId: number, username: string): Promise<Member> {
+      return request<Member>(`/api/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ username }) });
+    },
+    listPeople(): Promise<OrganizationPerson[]> {
+      return request<{ members: OrganizationPerson[] }>('/api/organization/members').then(body => body.members);
     },
     removeMember(projectId: number, memberId: number): Promise<void> {
       return request<void>(`/api/projects/${projectId}/members/${memberId}`, { method: 'DELETE' });
+    },
+    // null removes it. The saved URL is never sent back, only whether one is set.
+    setAlertWebhook(projectId: number, url: string | null): Promise<{ configured: boolean }> {
+      return request(`/api/projects/${projectId}/alert-webhook`, { method: 'PUT', body: JSON.stringify({ url }) });
+    },
+    testAlertWebhook(projectId: number): Promise<void> {
+      return request<void>(`/api/projects/${projectId}/alert-webhook/test`, { method: 'POST' });
     },
     removeWorkspace(workspaceId: number): Promise<void> {
       return request<void>(`/api/workspaces/${workspaceId}`, { method: 'DELETE' });
