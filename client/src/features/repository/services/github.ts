@@ -1,4 +1,3 @@
-import { KJUR } from 'jsrsasign';
 import { appConfig } from '../../../app/config';
 import { repoCache } from './cache';
 import { Parser, shouldExcludeFile, shouldIgnoreDirectory } from '../../analysis/services/parser';
@@ -67,60 +66,8 @@ export async function githubFetch(url: string, token?: string | null, init?: Req
 
 var GitHub: any = {
     token: null as string | null,
-    appId: null as string | null,
-    privateKey: null as string | null,
-    installationToken: null as string | null,
-    installationTokenExpiry: null as number | null,
     rateLimit: { remaining: 60, limit: 60, reset: 0 },
     requestTimeoutMs: 15000,
-
-    generateJWT(): string | null {
-        if (!this.appId || !this.privateKey) return null;
-        try {
-            var now = Math.floor(Date.now() / 1000);
-            var payload = { iat: now - 60, exp: now + 600, iss: this.appId };
-            var header = { alg: 'RS256', typ: 'JWT' };
-            return KJUR.jws.JWS.sign('RS256', JSON.stringify(header), JSON.stringify(payload), this.privateKey);
-        } catch (e) {
-            console.error('JWT generation failed:', e);
-            return null;
-        }
-    },
-
-    getRepoInstallation(owner: string, repo: string) {
-        var jwt = this.generateJWT();
-        if (!jwt) return Promise.reject(new Error('Failed to generate JWT'));
-        return this.request(buildGitHubApiUrl(['repos', owner, repo, 'installation']), {
-            headers: { 'Accept': 'application/vnd.github.v3+json', 'Authorization': 'Bearer ' + jwt }
-        }, { 401: 'Invalid App credentials', 404: 'GitHub App not installed on this repo' });
-    },
-
-    getInstallationToken(installationId: number) {
-        var self = this;
-        var jwt = this.generateJWT();
-        if (!jwt) return Promise.reject(new Error('Failed to generate JWT'));
-        return this.request(buildGitHubApiUrl(['app', 'installations', String(installationId), 'access_tokens']), {
-            method: 'POST',
-            headers: { 'Accept': 'application/vnd.github.v3+json', 'Authorization': 'Bearer ' + jwt }
-        }, { 401: 'Invalid App credentials', 404: 'Installation not found' }).then(function (data: any) {
-            self.installationToken = data.token;
-            self.installationTokenExpiry = new Date(data.expires_at).getTime();
-            self.token = data.token;
-            return data.token;
-        });
-    },
-
-    authenticateApp(owner: string, repo: string) {
-        var self = this;
-        if (this.installationToken && this.installationTokenExpiry && Date.now() < this.installationTokenExpiry - 60000) {
-            this.token = this.installationToken;
-            return Promise.resolve(this.installationToken);
-        }
-        return this.getRepoInstallation(owner, repo).then(function (installation: any) {
-            if (!installation || !installation.id) throw new Error('No installation found for this repository');
-            return self.getInstallationToken(installation.id);
-        });
-    },
 
     request(url: string, options?: any, errorMap?: any, retriesLeft?: number) {
         var self = this;

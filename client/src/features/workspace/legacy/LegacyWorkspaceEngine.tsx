@@ -17,7 +17,6 @@ import PatternsSection from '../components/sections/PatternsSection';
 import ActionsSection from '../components/sections/ActionsSection';
 import SettingsSection from '../components/sections/SettingsSection';
 import PrivacyModal from '../components/modals/PrivacyModal';
-import GithubAppKeyModal from '../components/modals/GithubAppKeyModal';
 import ExcludePatternModal from '../components/modals/ExcludePatternModal';
 import UnusedFunctionsModal from '../components/modals/UnusedFunctionsModal';
 import ConfirmDialog from '../components/modals/ConfirmDialog';
@@ -99,10 +98,6 @@ export default function LegacyWorkspaceEngine(){
     var _auth=useState<any>(null),authUser=_auth[0],setAuthUser=_auth[1];
     var _authResolved=useState<any>(false),authResolved=_authResolved[0],setAuthResolved=_authResolved[1];
     var _autoRunRepo=useState<any>(null),autoRunRepo=_autoRunRepo[0],setAutoRunRepo=_autoRunRepo[1];
-    var _authMethod=useState<any>('none'),authMethod=_authMethod[0],setAuthMethod=_authMethod[1];// 'none', 'pat', 'github_app'
-    var _appId=useState<any>(''),appId=_appId[0],setAppId=_appId[1];
-    var _privateKey=useState<any>(''),privateKey=_privateKey[0],setPrivateKey=_privateKey[1];
-    var _showKeyModal=useState<any>(false),showKeyModal=_showKeyModal[0],setShowKeyModal=_showKeyModal[1];
     var _d=useState<any>(false),loading=_d[0],setLoading=_d[1];
     var _e=useState<any>(''),progress=_e[0],setProgress=_e[1];
     var _f=useState<any>(null),error=_f[0],setError=_f[1];
@@ -443,34 +438,15 @@ export default function LegacyWorkspaceEngine(){
         if(!p){setError('Invalid URL. Use format: owner/repo');return;}
         var currentExcludePatterns=activeExcludePatterns;
         
-        // Validate authentication inputs
-        if(authMethod==='pat'&&!token){
-            setError('Please enter a Personal Access Token');return;
-        }
-        if(authMethod==='github_app'){
-            if(!appId){setError('Please enter the GitHub App ID');return;}
-            if(!privateKey){setError('Please set the GitHub App private key');return;}
-        }
-        
         resetAnalysisState();
         analysisContentCacheRef.current={};
         setLocalDirHandle(null);
         setLoading(true);
         setProgress('Initializing...');
         
-        // Configure GitHub authentication based on method
-        GitHub.token=null;
-        GitHub.appId=null;
-        GitHub.privateKey=null;
-        GitHub.installationToken=null;
-
-        if(authMethod==='pat'||authMethod==='none'){
-            // 'none' means OAuth session auth — token is set from /auth/me
-            GitHub.token=tokenOverride||token||null;
-        }else if(authMethod==='github_app'){
-            GitHub.appId=appId;
-            GitHub.privateKey=privateKey;
-        }
+        // A pasted personal access token is used directly; otherwise
+        // reads go through the server proxy with the connected account.
+        GitHub.token=tokenOverride||token||null;
         
         setRepoInfo(p);
         // Fetch branches list in background
@@ -1344,7 +1320,6 @@ export default function LegacyWorkspaceEngine(){
         showPR&&React.createElement(PrReviewModal,{prUrl:prUrl,onPrUrlChange:setPrUrl,onAnalyze:analyzePR,prData:prData,revertCounts:revertCounts,onClose:function(){setShowPR(false);}}),
         drillDown&&React.createElement(DrillDownModal,{drillDown:drillDown,onClose:function(){setDrillDown(null);},onSelectFile:selectFile,onViewSource:openFilePreview}),
         showPrivacy&&React.createElement(PrivacyModal,{onClose:function(){setShowPrivacy(false);}}),
-        showKeyModal&&React.createElement(GithubAppKeyModal,{privateKey:privateKey,onPrivateKeyChange:setPrivateKey,onClose:function(){setShowKeyModal(false);}}),
         showUnused&&data&&(data as any).deadFunctions&&React.createElement(UnusedFunctionsModal,{deadFunctions:(data as any).deadFunctions,expandedFns:expandedFns,setExpandedFns:setExpandedFns,onClose:function(){setShowUnused(false);},onViewSource:openFilePreview}),
         confirmDialog&&React.createElement(ConfirmDialog,{dialog:confirmDialog,onResolve:closeConfirmDialog}),
         toast&&React.createElement(Alert,{className:'toast '+(toast.type||'success')},React.createElement(AlertDescription,{className:'text-inherit'},toast.msg)),
