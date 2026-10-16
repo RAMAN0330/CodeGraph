@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { GG } from '../dbConnectTheme';
+import './LiveAreaChart.css';
 
 interface LiveAreaChartProps {
   points: number[];
@@ -7,6 +8,8 @@ interface LiveAreaChartProps {
   /** Rendered under the axis when there is not yet a trend to draw. */
   emptyLabel?: string;
   format?: (value: number) => string;
+  /** What the series measures, for the screen-reader description. */
+  name?: string;
 }
 
 const PAD = { top: 16, right: 14, bottom: 22, left: 48 };
@@ -47,7 +50,7 @@ function smoothPath(pts: { x: number; y: number }[], top: number, bottom: number
  * itself rather than stretching a fixed viewBox, so the live marker stays round
  * and the axis labels stay at their authored size at any width.
  */
-export default function LiveAreaChart({ points, color = GG.accent, emptyLabel, format }: LiveAreaChartProps) {
+export default function LiveAreaChart({ points, color = GG.accent, emptyLabel, format, name = 'Throughput' }: LiveAreaChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
   const gradientId = useId();
@@ -72,8 +75,8 @@ export default function LiveAreaChart({ points, color = GG.accent, emptyLabel, f
   const label = (v: number) =>
     format ? format(v) : ceiling < 10 ? String(Math.round(v * 10) / 10) : Math.round(v).toLocaleString();
   const describe = ready
-    ? `Throughput trend over ${points.length} samples, peak ${label(Math.max(...points))}`
-    : (emptyLabel ?? 'Throughput trend, not enough samples yet');
+    ? `${name} trend over ${points.length} samples, peak ${label(Math.max(...points))}`
+    : (emptyLabel ?? `${name} trend, not enough samples yet`);
 
   const coords = ready
     ? points.map((v, i) => ({

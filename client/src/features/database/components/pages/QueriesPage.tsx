@@ -1,97 +1,105 @@
 import { useCallback, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
-import { GG, GGErrorBanner, ggInput } from '../dbConnectTheme';
-import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
-import type { TopQueryRow } from '../../types';
+import { Search, SquareTerminal, Terminal, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EmptyState, ErrorState, FactList, LoadingState, Panel, StatusBadge } from '../ui/dbkit';
+import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
+import { severityTone } from '../../services/format';
+import type { TopQueryRow } from '../../types';
 
 type Filter = 'all' | 'slow' | 'frequent';
 
-function impactColor(impact: TopQueryRow['impact']): string {
-  if (impact === 'critical') return 'var(--color-danger)';
-  if (impact === 'high') return 'var(--color-warning)';
-  if (impact === 'medium') return GG.info;
-  return GG.fg4;
-}
+interface QueriesPageProps { projectId: number; paused: boolean; onOpenSql: (sql: string) => void; }
 
-interface QueriesPageProps { projectId: number; paused: boolean; }
-
-export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
+export default function QueriesPage({ projectId, paused, onOpenSql }: QueriesPageProps) {
   const fetcher = useCallback(() => dbTelemetryApi.queries(projectId), [projectId]);
-  const { data, loading, error } = useDbTelemetry(fetcher, [projectId], { pollMs: 15000, paused });
+  const { data, loading, error, refresh } = useDbTelemetry(fetcher, [projectId], { pollMs: 15000, paused });
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const [selected, setSelected] = useState<TopQueryRow | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const frequentThreshold = useMemo(() => {
     if (!data?.queries.length) return Infinity;
-    const sorted = [...data.queries].map(q => q.calls).sort((a, b) => b - a);
+    const sorted = data.queries.map(q => q.calls).sort((a, b) => b - a);
     return sorted[Math.floor(sorted.length / 4)] ?? Infinity;
   }, [data]);
 
   const filtered = useMemo(() => {
     if (!data) return [];
+    const needle = search.toLowerCase();
     return data.queries.filter(q => {
-      if (search && !q.query.toLowerCase().includes(search.toLowerCase())) return false;
+      if (needle && !q.query.toLowerCase().includes(needle)) return false;
       if (filter === 'slow' && q.avgMs < 200) return false;
       if (filter === 'frequent' && q.calls < frequentThreshold) return false;
       return true;
     });
   }, [data, search, filter, frequentThreshold]);
 
-  if (loading && !data) return <div style={{ padding: 40, color: GG.fg3, fontFamily: GG.mono, fontSize: 12 }}>Loading queries…</div>;
-  if (error && !data) return <GGErrorBanner msg={error} />;
+  if (loading && !data) return <LoadingState label="Loading query statistics…" />;
+  if (error && !data) return <ErrorState message={error} onRetry={refresh} />;
   if (!data) return null;
-
   if (!data.available) {
     return (
-      <div style={{ padding: 24, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, maxWidth: 700 }}>
-        <h2 style={{ margin: '0 0 6px', fontFamily: GG.mono, fontSize: 15, color: GG.fg }}>Query statistics are not available</h2>
-        <p style={{ margin: 0, color: GG.fg3, fontSize: 13, lineHeight: 1.6 }}>{data.reason}</p>
-      </div>
+      <Panel>
+        <EmptyState icon={Terminal} title="Query statistics are not available">
+          <p>{data.reason}</p>
+          {/pg_stat_statements/.test(data.reason ?? '') && (
+            <p className="mt-2">A database administrator can turn it on by adding <code className="font-mono">pg_stat_statements</code> to <code className="font-mono">shared_preload_libraries</code>, restarting, then running <code className="font-mono">CREATE EXTENSION pg_stat_statements;</code></p>
+          )}
+        </EmptyState>
+      </Panel>
     );
   }
 
+  // Look the selection up in fresh data so its numbers follow each poll.
+  const selected: TopQueryRow | null = data.queries.find(q => q.fingerprint === selectedId) ?? null;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', paddingBottom: 24 }}>
-      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <Input style={{ ...ggInput, maxWidth: 320 }} placeholder="Search queries…" value={search} onChange={e => setSearch(e.target.value)} />
-          <div style={{ display: 'flex', gap: 4 }}>
-            {(['all', 'slow', 'frequent'] as Filter[]).map(f => (
-              <Button key={f} variant="ghost" onClick={() => setFilter(f)} style={{
-                padding: '6px 12px', borderRadius: 7, border: `1px solid ${filter === f ? GG.accent + '55' : GG.lineStrong}`,
-                background: filter === f ? `${GG.accent}18` : 'transparent', color: filter === f ? GG.accent : GG.fg3,
-                fontFamily: GG.mono, fontSize: 11, fontWeight: 700, textTransform: 'capitalize', cursor: 'pointer',
-              }}>{f}</Button>
-            ))}
+    <div className={cn('grid gap-3', selected && 'xl:grid-cols-[minmax(0,1fr)_380px]')}>
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-72">
+            <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search statements" className="h-9 pl-8" aria-label="Search statements" />
           </div>
+          <Tabs value={filter} onValueChange={v => setFilter(v as Filter)}>
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="slow">Slow (≥200 ms)</TabsTrigger>
+              <TabsTrigger value="frequent">Most called</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <span className="ml-auto text-xs text-muted-foreground">{filtered.length} of {data.queries.length} statements</span>
         </div>
 
-        <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, overflow: 'hidden' }}>
-          <Table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 12 }}>
-            <TableHeader>
-              <TableRow style={{ background: GG.bg2, textAlign: 'left' }}>
-                {['Query', 'Calls', 'Avg', 'Total', 'Rows', 'Impact'].map(h => (
-                  <TableHead key={h} style={{ padding: '9px 14px', color: GG.fg4, fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</TableHead>
-                ))}
+        <div className="overflow-hidden rounded-xl border bg-card shadow-xs">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>Statement</TableHead>
+                <TableHead className="text-right">Calls</TableHead>
+                <TableHead className="text-right">Avg</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Rows</TableHead>
+                <TableHead>Impact</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map(q => (
-                <TableRow key={q.fingerprint} onClick={() => setSelected(q)} style={{ cursor: 'pointer', borderTop: `1px solid ${GG.line}` }}>
-                  <TableCell style={{ padding: '9px 14px', color: GG.fg2, maxWidth: 420, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</TableCell>
-                  <TableCell style={{ padding: '9px 14px', color: GG.fg2 }}>{q.calls.toLocaleString()}</TableCell>
-                  <TableCell style={{ padding: '9px 14px', color: GG.fg2 }}>{q.avgMs.toFixed(0)}ms</TableCell>
-                  <TableCell style={{ padding: '9px 14px', color: GG.fg2 }}>{(q.totalMs / 1000).toFixed(1)}s</TableCell>
-                  <TableCell style={{ padding: '9px 14px', color: GG.fg2 }}>{q.rows === null ? '—' : q.rows.toLocaleString()}</TableCell>
-                  <TableCell style={{ padding: '9px 14px', color: impactColor(q.impact), fontWeight: 700, textTransform: 'capitalize' }}>{q.impact}</TableCell>
+                <TableRow key={q.fingerprint} onClick={() => setSelectedId(q.fingerprint)} data-state={q.fingerprint === selectedId ? 'selected' : undefined} className="cursor-pointer">
+                  <TableCell className="max-w-[420px] truncate font-mono text-xs" title={q.query}>{q.query}</TableCell>
+                  <TableCell className="text-right tabular-nums">{q.calls.toLocaleString()}</TableCell>
+                  <TableCell className="text-right tabular-nums">{q.avgMs.toFixed(0)} ms</TableCell>
+                  <TableCell className="text-right tabular-nums">{(q.totalMs / 1000).toFixed(1)} s</TableCell>
+                  <TableCell className="text-right tabular-nums">{q.rows === null ? '—' : q.rows.toLocaleString()}</TableCell>
+                  <TableCell><StatusBadge tone={severityTone(q.impact)}>{q.impact}</StatusBadge></TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={6} style={{ padding: 20, textAlign: 'center', color: GG.fg4 }}>No queries match this filter.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No statements match this filter.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -99,35 +107,24 @@ export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
       </div>
 
       {selected && (
-        <div style={{ width: '100%', background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, padding: 18 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-            <div style={{ fontFamily: GG.mono, fontSize: 13, fontWeight: 700, color: GG.fg }}>Query Details</div>
-            <Button variant="ghost" onClick={() => setSelected(null)} style={{ background: 'none', border: 0, color: GG.fg3, cursor: 'pointer' }}><X size={16} /></Button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 24 }}>
-            <div>
-              <div style={{ fontFamily: GG.mono, fontSize: 9, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 6 }}>SQL</div>
-              <pre style={{ margin: 0, padding: 12, background: GG.bg1, border: `1px solid ${GG.line}`, borderRadius: 8, color: GG.fg2, fontSize: 11.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 260, overflow: 'auto' }}>{selected.query}</pre>
-              <p style={{ marginTop: 14, marginBottom: 0, color: GG.fg4, fontSize: 10.5, lineHeight: 1.5 }}>Execution plan and index recommendations are not available in this release.</p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, borderLeft: `1px solid ${GG.line}`, paddingLeft: 24 }}>
-              {[
-                ['Fingerprint', selected.fingerprint],
-                ['Impact', selected.impact.toUpperCase()],
-                ['Average', `${selected.avgMs.toFixed(0)}ms`],
-                ['Calls', selected.calls.toLocaleString()],
-                ['Total Time', `${(selected.totalMs / 60000).toFixed(1)}m`],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <div style={{ fontFamily: GG.mono, fontSize: 9, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontFamily: GG.mono, fontSize: 15, fontWeight: 700, color: GG.fg, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <Panel className="self-start xl:sticky xl:top-0" title="Statement details"
+          action={<Button variant="ghost" size="icon" className="size-7" onClick={() => setSelectedId(null)} aria-label="Close details"><X className="size-4" /></Button>}>
+          <pre className="mb-3 max-h-56 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap break-words">{selected.query}</pre>
+          <FactList rows={[
+            { label: 'Impact', value: <StatusBadge tone={severityTone(selected.impact)}>{selected.impact}</StatusBadge> },
+            { label: 'Average', value: `${selected.avgMs.toFixed(1)} ms` },
+            { label: 'Calls', value: selected.calls.toLocaleString() },
+            { label: 'Total time', value: `${(selected.totalMs / 60000).toFixed(1)} min` },
+            { label: 'Rows', value: selected.rows === null ? '—' : selected.rows.toLocaleString() },
+            { label: 'Fingerprint', value: <span className="font-mono text-xs">{selected.fingerprint}</span> },
+          ]} />
+          <Button className="mt-4 w-full" variant="outline" onClick={() => onOpenSql(selected.query)}>
+            <SquareTerminal className="size-4" /> Open in SQL editor
+          </Button>
+          {/\$\d/.test(selected.query) && (
+            <p className="mt-2 text-xs text-muted-foreground">The database recorded this statement with placeholders such as $1. Put in real values before you run or explain it.</p>
+          )}
+        </Panel>
       )}
     </div>
   );

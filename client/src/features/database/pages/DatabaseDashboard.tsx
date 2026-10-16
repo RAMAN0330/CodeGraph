@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { usePersistentState, writePersisted } from '../../../shared/hooks/usePersistentState';
 import SqlWorkspacePage from '../components/sql/SqlWorkspacePage';
 import { qualifiedName } from '../services/sqlApi';
@@ -16,7 +17,11 @@ import SecurityPage from '../components/pages/SecurityPage';
 import AlertsPage from '../components/pages/AlertsPage';
 import SchemaExplorer from '../components/schema/SchemaExplorer';
 import { dbTelemetryApi, useDbTelemetry } from '../services/dbTelemetryApi';
-import { DB_NAV_IDS, DB_NAV_LABELS, type DbNavId, type Schema, type SchemaTable, type TimeRange } from '../types';
+import { DB_NAV_IDS, DB_PAGES, type DbNavId, type Schema, type SchemaTable } from '../types';
+
+// Pages that lay themselves out to the full height (editors, grids, the
+// schema graph); the rest scroll inside the content column.
+const FILL_PAGES: DbNavId[] = ['sql', 'data', 'schema', 'performance'];
 
 interface DatabaseDashboardProps {
   projectId: number;
@@ -40,11 +45,12 @@ export default function DatabaseDashboard({
   const openSql = useCallback((sql: string) => { setPendingSql(sql); setSection('sql'); }, [setSection]);
   const browseTable = useCallback((table: SchemaTable) => { writePersisted(`cg.db.${projectId}.browseTable`, qualifiedName(table)); setSection('data'); }, [projectId, setSection]);
   const queryTable = useCallback((table: SchemaTable) => openSql(`SELECT *\nFROM ${qualifiedName(table)}\nLIMIT 100`), [openSql]);
-  const [range, setRange] = useState<TimeRange>('live');
   const [paused, setPaused] = useState(false);
 
   const overviewFetcher = useCallback(() => dbTelemetryApi.overview(projectId), [projectId]);
   const { data: overview, refresh } = useDbTelemetry(overviewFetcher, [projectId], { pollMs: paused ? 0 : 10000, paused });
+
+  const page = DB_PAGES[section];
 
   return (
     <div className="db-shell">
@@ -53,11 +59,8 @@ export default function DatabaseDashboard({
         onOpenWorkspace={onOpenWorkspace}
         projectName={projectName}
         onBackToProjects={onBackToProjects}
-        currentSectionLabel={DB_NAV_LABELS[section]}
         identity={overview?.identity ?? null}
         healthStatus={overview?.healthStatus ?? 'unknown'}
-        range={range}
-        onRangeChange={setRange}
         paused={paused}
         onTogglePause={() => setPaused(p => !p)}
         onRefresh={refresh}
@@ -65,26 +68,26 @@ export default function DatabaseDashboard({
         onNewConnection={onNewConnection}
         onOpenMigration={onOpenMigration}
       />
-      <DbSidebar active={section} onChange={setSection} />
-      <div className="db-content">
-        {/* A definite height here (matching db-content, which itself stretches
-            to the sidebar's height via the shell grid) lets a full-height page
-            like Schema fill exactly that space; pages with more natural
-            content simply overflow past it and the panel scrolls as before. */}
-        <div style={{ height: '100%' }}>
+      <DbSidebar active={section} onChange={setSection} alertCount={overview?.activeAlerts.length ?? 0} />
+      <main className="db-content">
+        <div className="flex min-w-0 items-baseline gap-3 px-6 pt-4 pb-3">
+          <h1 className="shrink-0 text-lg font-semibold tracking-tight">{page.label}</h1>
+          <p className="truncate text-sm text-muted-foreground">{page.description}</p>
+        </div>
+        <div className={cn('min-h-0 flex-1 px-6 pb-5', FILL_PAGES.includes(section) ? 'overflow-hidden' : 'overflow-y-auto')}>
           {section === 'overview' && <OverviewPage projectId={projectId} paused={paused} onNavigate={setSection} />}
           {section === 'performance' && <PerformancePage projectId={projectId} paused={paused} />}
-          {section === 'queries' && <QueriesPage projectId={projectId} paused={paused} />}
+          {section === 'queries' && <QueriesPage projectId={projectId} paused={paused} onOpenSql={openSql} />}
           {section === 'sql' && <SqlWorkspacePage projectId={projectId} schema={schema} pendingSql={pendingSql} onPendingSqlConsumed={clearPendingSql} />}
           {section === 'data' && <DataBrowserPage projectId={projectId} schema={schema} onOpenSql={openSql} />}
           {section === 'schema' && <SchemaExplorer schema={schema} onBrowse={browseTable} onQuery={queryTable} />}
-          {section === 'storage' && <StoragePage projectId={projectId} paused={paused} />}
+          {section === 'storage' && <StoragePage projectId={projectId} paused={paused} onBrowse={name => { writePersisted(`cg.db.${projectId}.browseTable`, name); setSection('data'); }} />}
           {section === 'replication' && <ReplicationPage projectId={projectId} paused={paused} />}
           {section === 'activity' && <ActivityPage projectId={projectId} paused={paused} />}
           {section === 'security' && <SecurityPage projectId={projectId} paused={paused} />}
           {section === 'alerts' && <AlertsPage projectId={projectId} paused={paused} />}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

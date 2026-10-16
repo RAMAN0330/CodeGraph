@@ -1,33 +1,28 @@
 import { useCallback } from 'react';
-import { AlertTriangle, ArrowRight, Server, Database, Clock, Activity, Gauge, Link2, Zap, HardDrive } from 'lucide-react';
-import { GG, GGErrorBanner } from '../dbConnectTheme';
-import KpiCard from '../ui/KpiCard';
-import MiniLineChart from '../ui/MiniLineChart';
+import { Activity, AlertTriangle, ArrowRight, Gauge, HardDrive, Link2, Radio, Terminal, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import LiveAreaChart from '../ui/LiveAreaChart';
+import { EmptyState, ErrorState, FactList, LoadingState, Panel, Stat, StatusBadge } from '../ui/dbkit';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import { useRollingSeries } from '../../services/useRollingSeries';
-import type { DbNavId, HealthStatus } from '../../types';
-import { Button } from '@/components/ui/button';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) return 'Not available';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes, i = 0;
-  while (value >= 1024 && i < units.length - 1) { value /= 1024; i += 1; }
-  return `${value.toFixed(value >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
-function statusColor(status: HealthStatus): string {
-  if (status === 'healthy') return GG.cyan;
-  if (status === 'warning') return 'var(--color-warning)';
-  if (status === 'critical') return 'var(--color-danger)';
-  return GG.fg4;
-}
+import { formatBytes, healthTone, severityTone, signedBytes } from '../../services/format';
+import type { DbNavId } from '../../types';
 
 const CATEGORY_LABEL: Record<string, string> = {
   connections: 'Connections', latency: 'Latency', queries: 'Queries', locks: 'Locks',
   replication: 'Replication', storage: 'Storage', cache: 'Cache', errors: 'Errors',
 };
+
+function formatUptime(seconds: number | null): string {
+  if (seconds === null) return 'Not available';
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  return days ? `${days}d ${hours}h` : `${hours}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
+function ViewAll({ onClick, label = 'View all' }: { onClick: () => void; label?: string }) {
+  return <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onClick}>{label} <ArrowRight className="size-3" /></Button>;
+}
 
 interface OverviewPageProps {
   projectId: number;
@@ -37,156 +32,102 @@ interface OverviewPageProps {
 
 export default function OverviewPage({ projectId, paused, onNavigate }: OverviewPageProps) {
   const fetcher = useCallback(() => dbTelemetryApi.overview(projectId), [projectId]);
-  const { data, loading, error } = useDbTelemetry(fetcher, [projectId], { pollMs: 10000, paused });
-
+  const { data, loading, error, refresh } = useDbTelemetry(fetcher, [projectId], { pollMs: 10000, paused });
   const opsHistory = useRollingSeries(data?.opsPerSecond ?? null, `ops-${projectId}`);
-  const latencyHistory = useRollingSeries(data?.latencyMs ?? null, `latency-${projectId}`);
 
-  if (loading && !data) return <div style={{ padding: 40, color: GG.fg3, fontFamily: GG.mono, fontSize: 12 }}>Loading overview…</div>;
-  if (error && !data) return <GGErrorBanner msg={error} />;
+  if (loading && !data) return <LoadingState label="Loading overview…" />;
+  if (error && !data) return <ErrorState message={error} onRetry={refresh} />;
   if (!data) return null;
 
-  const uptime = data.identity.uptimeSeconds !== null
-    ? `${Math.floor(data.identity.uptimeSeconds / 86400)}d ${Math.floor((data.identity.uptimeSeconds % 86400) / 3600)}h`
-    : 'Not available';
+  const { connections } = data;
+  const saturation = connections.max ? connections.total / connections.max : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%' }}>
-      {/* Header */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        {[
-          [Server, 'Host', data.identity.host],
-          [Database, 'Database', data.identity.database],
-          [Clock, 'Uptime', uptime],
-        ].map(([Icon, label, value]) => {
-          const IconComp = Icon as typeof Server;
-          return (
-            <div key={label as string} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 18px', background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-              <span style={{ display: 'grid', placeItems: 'center', width: 34, height: 34, flexShrink: 0, borderRadius: 9, background: `${GG.accent}18`, color: GG.accent }}>
-                <IconComp size={16} />
-              </span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: GG.mono, fontSize: 9, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>{label as string}</div>
-                <div style={{ fontFamily: GG.sans, fontSize: 13, color: GG.fg, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value as string}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
+    <div className="flex flex-col gap-4">
       {data.activeAlerts.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(224,108,117,.08)', border: '1px solid rgba(224,108,117,.3)', borderRadius: 8, color: 'var(--color-danger)', fontFamily: GG.mono, fontSize: 12 }}>
-          <AlertTriangle size={14} /> {data.activeAlerts.length} alert{data.activeAlerts.length === 1 ? '' : 's'} active
-          <Button variant="ghost" onClick={() => onNavigate('alerts')} style={{ marginLeft: 'auto', background: 'none', border: 0, color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View <ArrowRight size={12} /></Button>
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <AlertTriangle className="size-4" />
+          {data.activeAlerts.length} alert{data.activeAlerts.length === 1 ? ' is' : 's are'} firing on this connection.
+          <Button size="sm" variant="ghost" className="ml-auto h-7 text-red-700 hover:bg-red-100" onClick={() => onNavigate('alerts')}>Review <ArrowRight className="size-3" /></Button>
         </div>
       )}
 
-      {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
-        <KpiCard icon={<Activity size={14} />} value={data.healthScore} label="Database Health" sub={data.healthStatus === 'healthy' ? 'Healthy' : data.healthStatus === 'warning' ? 'Warning' : 'Critical'} subTone={data.healthStatus === 'healthy' ? 'good' : data.healthStatus === 'warning' ? 'neutral' : 'bad'} />
-        <KpiCard icon={<Gauge size={14} />} value={data.latencyMs === null ? '—' : `${data.latencyMs.toFixed(0)} ms`} label="Round-trip latency" sub={data.latencyMs === null ? 'Not available' : undefined} />
-        <KpiCard icon={<Link2 size={14} />} value={data.connections.active} label="Active Connections" sub={`${data.connections.total} total`} onClick={() => onNavigate('performance')} />
-        <KpiCard icon={<Zap size={14} />} value={data.opsPerSecond === null ? '—' : `${data.opsPerSecond.toFixed(0)}/s`} label="Operations" sub={data.opsPerSecond === null ? 'Warming up' : undefined} onClick={() => onNavigate('performance')} />
-        <KpiCard icon={<HardDrive size={14} />} value={formatBytes(data.databaseSizeBytes)} label="Database Size" sub={data.storageGrowthBytes7d === null ? 'Growth: collecting history' : `${data.storageGrowthBytes7d >= 0 ? '+' : ''}${formatBytes(data.storageGrowthBytes7d)} / 7d`} onClick={() => onNavigate('storage')} />
-        <KpiCard icon={<AlertTriangle size={14} />} value={data.activeIssues} label="Active Issues" sub={data.criticalIssues > 0 ? `${data.criticalIssues} critical` : undefined} subTone={data.criticalIssues > 0 ? 'bad' : 'neutral'} onClick={() => onNavigate('alerts')} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <Stat icon={Activity} label="Health score" value={data.healthScore} tone={healthTone(data.healthStatus)}
+          hint={data.healthStatus === 'healthy' ? 'All checks passing' : data.healthStatus === 'warning' ? 'Some checks need attention' : data.healthStatus === 'critical' ? 'Critical checks failing' : 'Checking'} />
+        <Stat icon={Gauge} label="Round-trip latency" value={data.latencyMs === null ? '—' : `${data.latencyMs.toFixed(0)} ms`} hint={data.latencyMs === null ? 'Not available' : 'From this server'} />
+        <Stat icon={Link2} label="Connections" value={connections.total}
+          hint={saturation === null ? `${connections.active} active` : `${Math.round(saturation * 100)}% of ${connections.max} max`}
+          tone={saturation !== null && saturation > 0.8 ? 'warn' : 'neutral'} onClick={() => onNavigate('performance')} />
+        <Stat icon={Zap} label="Operations" value={data.opsPerSecond === null ? '—' : `${data.opsPerSecond.toFixed(0)}/s`} hint={data.opsPerSecond === null ? 'Needs a second sample' : 'Server-wide, per second'} onClick={() => onNavigate('performance')} />
+        <Stat icon={HardDrive} label="Database size" value={formatBytes(data.databaseSizeBytes)}
+          hint={data.storageGrowthBytes7d === null ? 'Collecting growth history' : `${signedBytes(data.storageGrowthBytes7d)} in 7 days`} onClick={() => onNavigate('storage')} />
+        <Stat icon={AlertTriangle} label="Open issues" value={data.activeIssues} tone={data.criticalIssues > 0 ? 'bad' : data.activeIssues > 0 ? 'warn' : 'good'}
+          hint={data.criticalIssues > 0 ? `${data.criticalIssues} critical` : data.activeIssues > 0 ? 'Review health checks' : 'Nothing to review'} onClick={() => onNavigate('alerts')} />
       </div>
 
-      {/* Second row: throughput + connections */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 14 }}>Operations / second</div>
-          <MiniLineChart series={[{ label: 'Ops/sec', color: GG.accent, points: opsHistory }, { label: 'Latency (ms)', color: GG.magenta, points: latencyHistory }]} />
-        </div>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 14 }}>Connections</div>
-          {[
-            ['Active', data.connections.active],
-            ['Idle', data.connections.idle],
-            ['Waiting', data.connections.waiting],
-            ['Total', data.connections.total],
-          ].map(([label, value]) => (
-            <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderTop: `1px solid ${GG.line}`, fontFamily: GG.mono, fontSize: 12 }}>
-              <span style={{ color: GG.fg3 }}>{label}</span>
-              <strong style={{ color: GG.fg }}>{value}</strong>
-            </div>
-          ))}
-        </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Panel className="lg:col-span-2" title="Throughput" description="Operations per second, sampled while this page is open"
+          action={<ViewAll label="Performance" onClick={() => onNavigate('performance')} />} contentClassName="h-52 p-2">
+          <LiveAreaChart points={opsHistory} emptyLabel="Collecting samples…" />
+        </Panel>
+        <Panel title="Connection" action={<ViewAll label="Details" onClick={() => onNavigate('performance')} />}>
+          <FactList rows={[
+            { label: 'Host', value: <span className="font-mono text-xs">{data.identity.host}</span> },
+            { label: 'Database', value: <span className="font-mono text-xs">{data.identity.database}</span> },
+            { label: 'Uptime', value: formatUptime(data.identity.uptimeSeconds) },
+            { label: 'Active / idle', value: `${connections.active} / ${connections.idle}` },
+            { label: 'Waiting', value: <span className={connections.waiting > 0 ? 'text-amber-600' : undefined}>{connections.waiting}</span> },
+            { label: 'Largest table', value: data.largestObject ? `${data.largestObject.name} · ${formatBytes(data.largestObject.sizeBytes)}` : '—' },
+          ]} />
+        </Panel>
       </div>
 
-      {/* Third row: health matrix + live activity */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 10 }}>Database Health</div>
-          {data.healthMatrix.map(row => (
-            <div key={row.category} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderTop: `1px solid ${GG.line}`, fontFamily: GG.sans, fontSize: 12.5 }}>
-              <span style={{ color: GG.fg2 }}>{CATEGORY_LABEL[row.category]}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: statusColor(row.status), fontWeight: 700, fontSize: 11, textTransform: 'capitalize' }}>
-                {row.detail && <span style={{ color: GG.fg4, fontWeight: 400, fontFamily: GG.mono }}>{row.detail}</span>}
-                {row.status}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em' }}>Live Activity</span>
-            <Button variant="ghost" onClick={() => onNavigate('activity')} style={{ background: 'none', border: 0, color: GG.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View Activity <ArrowRight size={12} /></Button>
-          </div>
-          {data.recentActivity.length === 0 ? (
-            <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5, fontStyle: 'italic' }}>No notable events since the dashboard started polling.</p>
-          ) : data.recentActivity.map((event, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 0', borderTop: i > 0 ? `1px solid ${GG.line}` : 'none', fontFamily: GG.mono, fontSize: 11.5 }}>
-              <span style={{ color: GG.fg4, flex: '0 0 auto' }}>{new Date(event.at).toLocaleTimeString()}</span>
-              <span style={{ color: GG.fg2, flex: 1 }}>{event.summary}</span>
-              {event.detail && <span style={{ color: GG.fg4 }}>{event.detail}</span>}
-            </div>
-          ))}
-        </div>
-      </div>
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Panel title="Health checks">
+          <ul className="divide-y text-sm">
+            {data.healthMatrix.map(row => (
+              <li key={row.category} className="flex items-center gap-3 py-1.5 first:pt-0 last:pb-0">
+                <span className="flex-1">{CATEGORY_LABEL[row.category]}</span>
+                {row.detail && <span className="truncate text-xs text-muted-foreground">{row.detail}</span>}
+                <StatusBadge tone={healthTone(row.status)}>{row.status}</StatusBadge>
+              </li>
+            ))}
+          </ul>
+        </Panel>
 
-      {/* Fourth row: top problem queries + storage growth */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 24 }}>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em' }}>Top Problem Queries</span>
-            <Button variant="ghost" onClick={() => onNavigate('queries')} style={{ background: 'none', border: 0, color: GG.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View all <ArrowRight size={12} /></Button>
-          </div>
-          {Array.isArray(data.topQueries) ? (
-            data.topQueries.length === 0 ? <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5, fontStyle: 'italic' }}>No queries recorded yet.</p> : (
-              <Table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 11.5 }}>
-                <TableHeader><TableRow style={{ color: GG.fg4, textAlign: 'left' }}>
-                  <TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Query</TableHead><TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Avg</TableHead><TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Calls</TableHead><TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Impact</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {data.topQueries.map(q => (
-                    <TableRow key={q.fingerprint} style={{ borderTop: `1px solid ${GG.line}` }}>
-                      <TableCell style={{ padding: '7px 0', color: GG.fg2, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</TableCell>
-                      <TableCell style={{ color: GG.fg2 }}>{q.avgMs.toFixed(0)}ms</TableCell>
-                      <TableCell style={{ color: GG.fg2 }}>{q.calls.toLocaleString()}</TableCell>
-                      <TableCell style={{ color: q.impact === 'critical' ? 'var(--color-danger)' : q.impact === 'high' ? 'var(--color-warning)' : GG.fg3, fontWeight: 700, textTransform: 'capitalize' }}>{q.impact}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )
+        <Panel title="Slowest queries" action={<ViewAll onClick={() => onNavigate('queries')} />} contentClassName="p-0">
+          {!Array.isArray(data.topQueries) ? (
+            <EmptyState icon={Terminal} title="Query statistics are off">{data.topQueries.reason}</EmptyState>
+          ) : data.topQueries.length === 0 ? (
+            <EmptyState icon={Terminal} title="No queries recorded yet" />
           ) : (
-            <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5 }}>{data.topQueries.reason}</p>
+            <ul className="divide-y text-sm">
+              {data.topQueries.slice(0, 6).map(q => (
+                <li key={q.fingerprint} className="flex items-center gap-3 px-4 py-2">
+                  <code className="min-w-0 flex-1 truncate font-mono text-xs" title={q.query}>{q.query}</code>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{q.avgMs.toFixed(0)} ms</span>
+                  <StatusBadge tone={severityTone(q.impact)}>{q.impact}</StatusBadge>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 10 }}>Storage Growth</div>
-          <div style={{ fontFamily: GG.mono, fontSize: 20, fontWeight: 700, color: GG.fg }}>{formatBytes(data.databaseSizeBytes)}</div>
-          <div style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg4, marginTop: 4 }}>7 day growth</div>
-          <div style={{ fontFamily: GG.mono, fontSize: 13, color: data.storageGrowthBytes7d === null ? GG.fg4 : GG.cyan, marginBottom: 12 }}>
-            {data.storageGrowthBytes7d === null ? 'Collecting history' : `${data.storageGrowthBytes7d >= 0 ? '+' : ''}${formatBytes(data.storageGrowthBytes7d)}`}
-          </div>
-          {data.largestObject && (
-            <>
-              <div style={{ fontFamily: GG.mono, fontSize: 9, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.08em' }}>Largest object</div>
-              <div style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg2 }}>{data.largestObject.name} · {formatBytes(data.largestObject.sizeBytes)}</div>
-            </>
+        </Panel>
+
+        <Panel title="Recent activity" action={<ViewAll onClick={() => onNavigate('activity')} />} contentClassName="p-0">
+          {data.recentActivity.length === 0 ? (
+            <EmptyState icon={Radio} title="Quiet so far">Slow queries, locks and schema changes appear here as they are detected.</EmptyState>
+          ) : (
+            <ul className="divide-y text-sm">
+              {data.recentActivity.slice(0, 6).map((event, i) => (
+                <li key={i} className="flex items-center gap-3 px-4 py-2">
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground">{new Date(event.at).toLocaleTimeString()}</span>
+                  <span className="min-w-0 flex-1 truncate">{event.summary}</span>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
+        </Panel>
       </div>
     </div>
   );
