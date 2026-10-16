@@ -13,7 +13,7 @@ import bcrypt from 'bcryptjs';
 import { env, validateEnvironment } from './config/env';
 import type { SchemaColumn, SchemaForeignKey as SchemaFK, SchemaIndex, SchemaTable } from './types/schema';
 import { createJsonProxy } from './middleware/asyncProxy';
-import { GitHubApiError, fetchBlobContent, fetchFileContent, fetchLatestCommitSha, fetchRepositoryTree, fetchUserRepositories } from './services/githubService';
+import { GitHubApiError, fetchBlobContent, fetchFileContent, fetchLatestCommitSha, fetchRepositoryTree } from './services/githubService';
 import { githubAppConfigured, githubAppInstallUrl, verifyWebhookSignature } from './services/githubApp';
 import { MissingAnalysisError, buildPrReview, prReviewJobFromEvent } from './services/prReview';
 import { getCachedBlob, getCachedFile, getCachedTree, pruneStaleCacheEntries, saveBlobCache, saveFileCache, saveTreeCache, touchTreeCache } from './db/repoCache';
@@ -34,6 +34,7 @@ import { getAnalysis, type StoredAnalysis } from './db/analysisStore';
 import { createAlertRule, deleteAlertRule, listAlertRules } from './db/metricsSnapshots';
 import { buildActivity, buildOverview, buildPerformance, buildQueries, buildReplication, buildSecurity, buildStorage } from './services/telemetry/orchestrate';
 import { enqueueAnalysisJob, enqueuePrReviewJob, getAnalysisJobState, startAnalysisWorker, stopAnalysisWorker } from './queue/analysisQueue';
+import { forgetSharedPolls, sharedPoll } from './services/telemetry/sharedPoll';
 import { isAllowedProxyPath, proxyGithubGet } from './services/githubProxy';
 import { canReadRepository, isValidRepoSegment, parseGithubCloneUrl, sanitizeToken } from './services/repoAccess';
 
@@ -116,11 +117,14 @@ app.use(session({
   secret: env.sessionSecret,
   resave: false,
   saveUninitialized: false,
+  // Idle timeout: each request pushes expiry out by sessionIdleMs, so an
+  // abandoned session ends instead of living a fixed 30 days.
+  rolling: true,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
     secure: env.clientOrigin.startsWith('https://'),
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge: env.sessionIdleMs,
   },
 }));
 
@@ -626,27 +630,34 @@ app.get('/auth/me', (req: any, res: any) => {
   res.json(toPublicUser(req.user));
 });
 
-function endAuthenticatedSession(req: any, res: any, redirect: boolean) {
+function endAuthenticatedSession(req: any, res: any) {
   req.logout((logoutError: unknown) => {
     if (logoutError) return res.status(500).json({ error: 'Unable to sign out' });
     req.session.destroy((sessionError: unknown) => {
       if (sessionError) return res.status(500).json({ error: 'Unable to clear session' });
       res.clearCookie('connect.sid', { path: '/' });
       res.clearCookie('connect.sid', { path: '/', secure: false });
-      if (redirect) return res.redirect(env.clientOrigin);
       return res.status(204).end();
     });
   });
 }
 
-app.post('/auth/logout', authRateLimit, (req: any, res: any) => endAuthenticatedSession(req, res, false));
-app.get('/auth/logout', authRateLimit, (req: any, res: any) => endAuthenticatedSession(req, res, true));
+app.post('/auth/logout', authRateLimit, (req: any, res: any) => endAuthenticatedSession(req, res));
 
 // Fetch authenticated user's repos
 app.get('/api/github/repos', requireAuth, async (req: any, res: any) => {
   if (!req.user.github_token) return res.status(409).json({ error: 'Connect a GitHub account before browsing repositories.' });
   try {
-    const repos = await fetchUserRepositories(req.user.github_token);
+    // Up to 500 repositories, each page ETag-cached by the GitHub proxy, so
+    // reopening the picker is instant and doesn't spend rate limit.
+    const repos: unknown[] = [];
+    for (let page = 1; page <= 5; page++) {
+      const result = await proxyGithubGet(`/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member&page=${page}`, req.user.github_token);
+      if (result.status !== 200) throw new GitHubApiError(result.status, 'listing repositories failed');
+      const batch = JSON.parse(result.body) as unknown[];
+      repos.push(...batch);
+      if (batch.length < 100) break;
+    }
     res.json({ repos });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -752,6 +763,7 @@ app.post('/api/projects/:id/schema', requireAuth, async (req: any, res: any) => 
 app.put('/api/projects/:id/db-connection', requireAuth, async (req: any, res: any) => {
   try {
     const summary = await updateDbConnection(actorOf(req), Number(req.params.id), req.body?.dbConnection);
+    forgetSharedPolls(`${Number(req.params.id)}:`);
     res.json(summary);
   } catch (error: any) {
     res.status(errorStatus(error, 400)).json({ error: error.message });
@@ -759,82 +771,29 @@ app.put('/api/projects/:id/db-connection', requireAuth, async (req: any, res: an
 });
 
 // --- Database Dashboard telemetry (Postgres/MySQL projects only) ---
-app.get('/api/projects/:id/db/overview', requireAuth, async (req: any, res: any) => {
-  try {
-    const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildOverview(projectId, connection);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/projects/:id/db/performance', requireAuth, async (req: any, res: any) => {
-  try {
-    const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildPerformance(projectId, connection);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/projects/:id/db/queries', requireAuth, async (req: any, res: any) => {
-  try {
-    const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildQueries(projectId, connection);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/projects/:id/db/storage', requireAuth, async (req: any, res: any) => {
-  try {
-    const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildStorage(projectId, connection);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/projects/:id/db/replication', requireAuth, async (req: any, res: any) => {
-  try {
-    const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildReplication(projectId, connection);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/projects/:id/db/activity', requireAuth, async (req: any, res: any) => {
-  try {
-    const projectId = Number(req.params.id);
-    await getDecryptedConnection(actorOf(req), projectId); // ownership check
-    const data = await buildActivity(projectId);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/projects/:id/db/security', requireAuth, async (req: any, res: any) => {
-  try {
-    const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildSecurity(connection);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
+// Each page's builder runs at most once per few seconds per project however
+// many people are watching (see sharedPoll). Access is still checked per request.
+const telemetryBuilders: Record<string, (projectId: number, connection: any) => Promise<unknown>> = {
+  overview: buildOverview,
+  performance: buildPerformance,
+  queries: buildQueries,
+  storage: buildStorage,
+  replication: buildReplication,
+  activity: projectId => buildActivity(projectId),
+  security: (_projectId, connection) => buildSecurity(connection),
+};
+for (const [page, build] of Object.entries(telemetryBuilders)) {
+  app.get(`/api/projects/:id/db/${page}`, requireAuth, async (req: any, res: any) => {
+    try {
+      const projectId = Number(req.params.id);
+      const connection = await getDecryptedConnection(actorOf(req), projectId);
+      const data = await sharedPoll(`${projectId}:${page}`, () => build(projectId, connection));
+      res.json({ success: true, data });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+}
 
 app.get('/api/projects/:id/db/alerts', requireAuth, async (req: any, res: any) => {
   try {

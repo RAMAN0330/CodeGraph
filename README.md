@@ -407,6 +407,7 @@ For GitHub sign-in over the LAN, start the stack with `npm run docker:lan`. It d
 | `OPENAI_API_KEY` | — | Optional. Enables architecture explanations. |
 | `OPENAI_MODEL` | `gpt-5-mini` | Model used for enrichment |
 | `REPO_CACHE_TTL_MS` | `21600000` | Repository cache lifetime (6 hours) |
+| `SESSION_IDLE_MS` | `604800000` | Sign-in session idle timeout (7 days); each request extends it |
 | `TRUST_PROXY_HOPS` | `1` | Reverse proxies in front of the API. Set to `2` behind nginx + the Go gateway (the compose files do) so rate limits key on the real client IP. |
 
 > **Production safeguard:** the API refuses to start if `SESSION_SECRET` or `DB_CREDENTIALS_SECRET` still hold their development defaults, or if `DATABASE_URL` or `REDIS_URL` is missing.

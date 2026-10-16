@@ -62,8 +62,12 @@ export function useDbTelemetry<T>(fetcher: () => Promise<T>, deps: unknown[], op
     setLoading(true);
     void refresh();
     if (paused || !pollMs) return;
-    const id = setInterval(() => void refresh(), pollMs);
-    return () => clearInterval(id);
+    // Hidden tabs stop polling (each poll queries the customer's database) and
+    // catch up immediately when shown again.
+    const id = setInterval(() => { if (!document.hidden) void refresh(); }, pollMs);
+    const onVisible = () => { if (!document.hidden) void refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, paused, pollMs]);
 
