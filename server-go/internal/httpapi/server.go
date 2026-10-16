@@ -56,6 +56,7 @@ func New(cfg config.Config) http.Handler {
 	mux.Handle("/api/organization/", api.legacy)
 	mux.Handle("/api/coverage/", api.legacy)
 	mux.Handle("/api/views/", api.legacy)
+	mux.Handle("/api/me/", api.legacy)
 	return chain(http.MaxBytesHandler(mux, cfg.MaxBodyBytes), recoverer, requestLog, concurrencyLimit(cfg.MaxConcurrentRequests), rateLimit(cfg.RateLimitPerSecond, cfg.TrustProxyHeader), cors(cfg.ClientOrigin))
 }
 

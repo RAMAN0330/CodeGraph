@@ -40,10 +40,14 @@
   --transition-smooth: all 0.2s ease;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* The reset lives in the base layer so Tailwind utilities (shadcn components'
+   padding and margins) win over it; unlayered page CSS still wins over both. */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 body {
@@ -150,7 +154,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Imported from index.html */
 
 :root{--bg-secondary:var(--surface-card);--bg0:var(--bg-canvas);--bg1:var(--surface-card);--bg2:var(--surface-card);--bg3:var(--surface-subtle);--bg4:var(--surface-hover);--hover:var(--surface-hover);--border:var(--border-subtle);--border2:var(--border-medium);--t0:var(--text-primary);--t1:var(--text-secondary);--t2:var(--text-muted);--t3:var(--text-muted);--acc:var(--teal-500);--acc2:var(--teal-600);--accbg:color-mix(in srgb,var(--teal-500) 8%,transparent);--accbg2:color-mix(in srgb,var(--teal-500) 12%,transparent);--blue:var(--color-info);--purple:var(--chart-purple);--orange:var(--color-warning);--red:var(--color-danger);--cyan:var(--chart-cyan);--pink:var(--chart-purple);--green:var(--color-success);--shadow-sm:0 1px 3px rgba(20,24,32,.08),0 1px 2px rgba(20,24,32,.05);--shadow-md:0 4px 16px rgba(20,24,32,.10),0 2px 6px rgba(20,24,32,.06);--shadow-lg:0 8px 32px rgba(20,24,32,.14),0 4px 12px rgba(20,24,32,.08);--glow-acc:0 0 12px color-mix(in srgb,var(--teal-500) 18%,transparent);--gradient-acc:linear-gradient(135deg,var(--teal-500),var(--teal-600));--transition:.18s ease}
-*{margin:0;padding:0;box-sizing:border-box}
+@layer base{*{margin:0;padding:0;box-sizing:border-box}}
 body{font-family:var(--font-sans);font-weight:400;background:#ffffff;color:var(--text-primary)}
 .app{display:flex;height:100vh;flex-direction:column;overflow:hidden}
 .topbar{height:64px;background:var(--bg0);border-bottom:none;display:flex;align-items:center;padding:10px 10px 0;gap:10px;flex-shrink:0}

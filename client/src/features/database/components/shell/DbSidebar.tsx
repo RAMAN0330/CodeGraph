@@ -1,15 +1,17 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import {
-  LayoutDashboard, Activity, Terminal, Network, HardDrive, GitCompare, Radio, ShieldCheck, AlertTriangle,
+  LayoutDashboard, Activity, Terminal, Network, SquareTerminal, Rows3, HardDrive, GitCompare, Radio, ShieldCheck, AlertTriangle,
 } from 'lucide-react';
 import type { DbNavId } from '../../types';
 import { Button } from '@/components/ui/button';
 
 const NAV_ITEMS: { id: DbNavId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'performance', label: 'Performance', icon: Activity },
-  { id: 'queries', label: 'Queries', icon: Terminal },
+  { id: 'sql', label: 'SQL editor', icon: SquareTerminal },
+  { id: 'data', label: 'Data', icon: Rows3 },
   { id: 'schema', label: 'Schema', icon: Network },
+  { id: 'performance', label: 'Performance', icon: Activity },
+  { id: 'queries', label: 'Query stats', icon: Terminal },
   { id: 'storage', label: 'Storage', icon: HardDrive },
   { id: 'replication', label: 'Replication', icon: GitCompare },
   { id: 'activity', label: 'Activity', icon: Radio },

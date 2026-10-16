@@ -30,11 +30,12 @@ GitHub token kept on the server, ETag-cached GitHub proxy, encrypted job tokens,
 - Sync status: compare the analysed commit with the branch HEAD (one conditional request) and show "up to date" or "N commits behind, re-analyse".
 - Cache branches, commits, contributors and blame per repo and branch in the client, keyed by the head sha, so switching sections never refetches unchanged data.
 - Clear messages for 401 (reconnect GitHub), 403/429 rate limits (with the reset time from the forwarded headers), and 404 (no access).
-- Server-side workspace state per user (repo, branch, open file, section, filters, database page), saved with debounced, batched writes and restored on any device without re-running the analysis. No secrets in browser storage.
+- **Done (PR #1):** server-side workspace state per user (repo, branch, open file, section, filters, database page), saved with debounced, batched writes and restored on any device without re-running the analysis. No secrets in browser storage.
 - Split `LegacyWorkspaceEngine.tsx` by section as part of this work, measuring re-renders before and after.
 
 ## Phase 3: database workspace
 
+- **Done (PR #1):** SQL editor, query history and saved queries, explain plans, and the data browser (column picker and formatting still to come). Details below.
 - SQL editor with syntax highlighting, schema-aware autocomplete, formatting, a result-row limit, and a statement timeout. It runs on the existing read-only connection; write access is opt-in per connection and gated by role in Phase 4.
 - Query history and saved queries per project; `EXPLAIN` plans for Postgres and MySQL; duration and row count on every result.
 - Data browser: paginated table view with sort, filter, column picker and search, which you can open from the schema explorer and from any query result.

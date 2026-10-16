@@ -19,7 +19,7 @@ import { MissingAnalysisError, buildPrReview, prReviewJobFromEvent } from './ser
 import { getCachedBlob, getCachedFile, getCachedTree, pruneStaleCacheEntries, saveBlobCache, saveFileCache, saveTreeCache, touchTreeCache } from './db/repoCache';
 import { initSchema } from './db/pool';
 import { UsernameTakenError, clearGithubConnection, createOrganizationWithAdmin, findUserById, findUserByUsername, setGithubConnection, toPublicUser, type UserRow } from './db/users';
-import { AccessError, NotFoundError, addMember, assertCanEditProject, createProject, createWorkspace, getAlertWebhook, getDecryptedConnection, listProjects, listWorkspaces, removeMember, removeProject, removeWorkspace, setAlertWebhook, updateDbConnection, type Actor } from './db/projectStore';
+import { AccessError, NotFoundError, addMember, assertCanEditProject, createProject, createWorkspace, getAlertWebhook, getConnectionForQuerying, getDecryptedConnection, listProjects, listWorkspaces, removeMember, removeProject, removeWorkspace, setAlertWebhook, updateDbConnection, type Actor } from './db/projectStore';
 import { listAlerts, listSnapshots } from './db/analysisHistory';
 import { InviteUnavailableError, createInvite, findOpenInvite, joinOrganizationWithInvite, listMembers } from './db/organization';
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation, validateNote } from './db/annotations';
@@ -34,6 +34,9 @@ import { getAnalysis, type StoredAnalysis } from './db/analysisStore';
 import { createAlertRule, deleteAlertRule, listAlertRules } from './db/metricsSnapshots';
 import { buildActivity, buildOverview, buildPerformance, buildQueries, buildReplication, buildSecurity, buildStorage } from './services/telemetry/orchestrate';
 import { enqueueAnalysisJob, enqueuePrReviewJob, getAnalysisJobState, startAnalysisWorker, stopAnalysisWorker } from './queue/analysisQueue';
+import { SqlInputError, browseTable, explainQuery, runQuery } from './services/sqlWorkspace';
+import { deleteSavedQuery, listHistory, listSavedQueries, recordHistory, saveQuery, validateSavedQuery } from './db/sqlQueries';
+import { UiStateError, getUiState, patchUiState } from './db/uiState';
 import { forgetSharedPolls, sharedPoll } from './services/telemetry/sharedPoll';
 import { isAllowedProxyPath, proxyGithubGet } from './services/githubProxy';
 import { canReadRepository, isValidRepoSegment, parseGithubCloneUrl, sanitizeToken } from './services/repoAccess';
@@ -630,6 +633,24 @@ app.get('/auth/me', (req: any, res: any) => {
   res.json(toPublicUser(req.user));
 });
 
+// Workspace UI state (sections, selections, drafts) synced across devices.
+app.get('/api/me/state', requireAuth, async (req: any, res: any) => {
+  try {
+    res.json(await getUiState(req.user.id));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/me/state', requireAuth, async (req: any, res: any) => {
+  try {
+    await patchUiState(req.user.id, req.body?.entries);
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(error instanceof UiStateError ? 400 : 500).json({ error: error.message });
+  }
+});
+
 function endAuthenticatedSession(req: any, res: any) {
   req.logout((logoutError: unknown) => {
     if (logoutError) return res.status(500).json({ error: 'Unable to sign out' });
@@ -794,6 +815,91 @@ for (const [page, build] of Object.entries(telemetryBuilders)) {
     }
   });
 }
+
+// --- SQL workspace (database projects) ---
+// Statements run read-only with a timeout and row cap (see sqlWorkspace).
+const sqlRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
+const viewerOf = (req: any) => ({ id: req.user.id, isAdmin: req.user.role === 'admin' });
+
+app.post('/api/projects/:id/sql/run', requireAuth, sqlRateLimit, async (req: any, res: any) => {
+  const projectId = Number(req.params.id);
+  const sql = String(req.body?.sql ?? '');
+  let connection;
+  try {
+    connection = await getConnectionForQuerying(actorOf(req), projectId);
+  } catch (error: any) {
+    return res.status(errorStatus(error, 400)).json({ error: error.message });
+  }
+  try {
+    const result = req.body?.explain ? await explainQuery(connection, sql) : await runQuery(connection, sql, req.body?.limit);
+    await recordHistory(projectId, req.user.id, { sql, durationMs: result.durationMs, rowCount: 'rowCount' in result ? result.rowCount : null }).catch(() => undefined);
+    res.json(result);
+  } catch (error: any) {
+    if (!(error instanceof SqlInputError)) await recordHistory(projectId, req.user.id, { sql, error: error.message }).catch(() => undefined);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/projects/:id/sql/browse', requireAuth, sqlRateLimit, async (req: any, res: any) => {
+  try {
+    const connection = await getConnectionForQuerying(actorOf(req), Number(req.params.id));
+    const q = req.query;
+    res.json(await browseTable(connection, {
+      schema: typeof q.schema === 'string' ? q.schema : undefined,
+      table: String(q.table ?? ''),
+      page: q.page, pageSize: q.pageSize,
+      sortColumn: typeof q.sort === 'string' ? q.sort : undefined,
+      sortDir: typeof q.dir === 'string' ? q.dir : undefined,
+      filterColumn: typeof q.filterColumn === 'string' ? q.filterColumn : undefined,
+      filterValue: typeof q.filter === 'string' ? q.filter : undefined,
+    }));
+  } catch (error: any) {
+    res.status(errorStatus(error, 400)).json({ error: error.message });
+  }
+});
+
+app.get('/api/projects/:id/sql/history', requireAuth, async (req: any, res: any) => {
+  try {
+    const projectId = Number(req.params.id);
+    await getConnectionForQuerying(actorOf(req), projectId);
+    res.json(await listHistory(projectId));
+  } catch (error: any) {
+    res.status(errorStatus(error, 400)).json({ error: error.message });
+  }
+});
+
+app.get('/api/projects/:id/sql/saved', requireAuth, async (req: any, res: any) => {
+  try {
+    const projectId = Number(req.params.id);
+    await getConnectionForQuerying(actorOf(req), projectId);
+    res.json(await listSavedQueries(projectId, viewerOf(req)));
+  } catch (error: any) {
+    res.status(errorStatus(error, 400)).json({ error: error.message });
+  }
+});
+
+app.post('/api/projects/:id/sql/saved', requireAuth, async (req: any, res: any) => {
+  try {
+    const projectId = Number(req.params.id);
+    await getConnectionForQuerying(actorOf(req), projectId);
+    const id = await saveQuery(projectId, req.user.id, validateSavedQuery(req.body ?? {}));
+    res.status(201).json({ id });
+  } catch (error: any) {
+    res.status(errorStatus(error, 400)).json({ error: error.message });
+  }
+});
+
+app.delete('/api/projects/:id/sql/saved/:queryId', requireAuth, async (req: any, res: any) => {
+  try {
+    const projectId = Number(req.params.id);
+    await getConnectionForQuerying(actorOf(req), projectId);
+    const deleted = await deleteSavedQuery(projectId, Number(req.params.queryId), viewerOf(req));
+    if (!deleted) return res.status(404).json({ error: 'Saved query not found, or not yours to delete.' });
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(errorStatus(error, 400)).json({ error: error.message });
+  }
+});
 
 app.get('/api/projects/:id/db/alerts', requireAuth, async (req: any, res: any) => {
   try {

@@ -499,6 +499,19 @@ The Go gateway reads `TRUST_PROXY_HEADER=true` (set in both compose files) to ra
 | `POST` | `/api/projects/{id}/members` | Add an organization member to a project by `username` (grants edit rights) |
 | `DELETE` | `/api/projects/{id}/members/{memberId}` | Remove a member |
 
+### SQL workspace and saved state
+
+Queries run on the project's connection inside a read-only transaction with a 15 s statement timeout, one statement at a time, capped at 5,000 rows. Editing rights on the project are required.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/projects/{id}/sql/run` | Run `{ sql, limit }`, or `{ sql, explain: true }` for the plan without executing; recorded in history |
+| `GET` | `/api/projects/{id}/sql/browse` | Page through a table: `table`, `schema`, `page`, `pageSize`, `sort`, `dir`, `filterColumn`, `filter` |
+| `GET` | `/api/projects/{id}/sql/history` | Recent statements for the project (last 200 kept) |
+| `GET` / `POST` | `/api/projects/{id}/sql/saved` | List saved queries, or save `{ name, sql }` (same name updates) |
+| `DELETE` | `/api/projects/{id}/sql/saved/{queryId}` | Delete a saved query (its author or an admin) |
+| `GET` / `PATCH` | `/api/me/state` | The signed-in user's workspace settings (`cg.*` keys, newest write wins per key); no secrets |
+
 ### Databases
 
 | Method | Endpoint | Description |

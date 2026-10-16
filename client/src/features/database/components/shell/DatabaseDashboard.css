@@ -63,7 +63,7 @@
   z-index: 20;
   transition: width .26s cubic-bezier(.4, 0, .2, 1), padding .26s cubic-bezier(.4, 0, .2, 1);
 }
-.db-sidebar:hover, .db-sidebar:focus-within {
+.db-sidebar:hover, .db-sidebar:has(:focus-visible) {
   width: 250px;
   padding: 14px 12px 12px;
   box-shadow: 0 16px 36px rgba(20,24,32,0.12);
@@ -75,7 +75,7 @@
   opacity: 1;
   transition: opacity .16s ease, max-width .22s cubic-bezier(.4, 0, .2, 1);
 }
-.db-sidebar:not(:hover):not(:focus-within) .db-sidebar-label {
+.db-sidebar:not(:hover):not(:has(:focus-visible)) .db-sidebar-label {
   opacity: 0;
   max-width: 0;
   pointer-events: none;

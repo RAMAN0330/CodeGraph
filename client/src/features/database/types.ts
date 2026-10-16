@@ -165,11 +165,13 @@ export interface SecurityResponse {
 
 export type TimeRange = 'live' | '15m' | '1h' | '6h' | '24h' | '7d';
 
-export const DB_NAV_IDS = ['overview', 'performance', 'queries', 'schema', 'storage', 'replication', 'activity', 'security', 'alerts'] as const;
+export const DB_NAV_IDS = ['overview', 'sql', 'data', 'schema', 'performance', 'queries', 'storage', 'replication', 'activity', 'security', 'alerts'] as const;
 export type DbNavId = typeof DB_NAV_IDS[number];
 
 export const DB_NAV_LABELS: Record<DbNavId, string> = {
   overview: 'Overview',
+  sql: 'SQL',
+  data: 'Data',
   performance: 'Performance',
   queries: 'Queries',
   schema: 'Schema',

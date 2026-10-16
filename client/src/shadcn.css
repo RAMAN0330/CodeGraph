@@ -14,6 +14,15 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-destructive: var(--destructive);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--foreground);
+  --color-secondary: var(--muted);
+  --color-secondary-foreground: var(--foreground);
 }
 
 /* Points at the same semantic tokens defined in index.css, so shadcn
@@ -28,6 +37,9 @@
   --primary-foreground: #ffffff;
   --muted-foreground: var(--text-secondary);
   --destructive: var(--color-danger);
+  --card: var(--surface-card);
+  --muted: var(--surface-subtle);
+  --accent: var(--surface-hover);
 }
 
 /* No Tailwind preflight is loaded. Without this, form controls fall back to the
@@ -35,5 +47,8 @@
    border/background wherever a page class doesn't restyle them. */
 @layer base {
   button, input, select, textarea { font-family: inherit; }
-  [data-slot="button"] { border: 0 solid; background-color: transparent; color: inherit; }
+  [data-slot="button"] { border: 0 solid var(--border); background-color: transparent; color: inherit; }
+  /* Tailwind's preflight would give utility borders this colour; any page CSS
+     that sets its own border colour is unlayered and still wins. */
+  *, ::before, ::after { border-color: var(--border); }
 }
