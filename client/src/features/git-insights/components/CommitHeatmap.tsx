@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { buildHeatmap, fetchCommitActivity, type Heatmap, type WeekActivity } from '../services/heatmap';
+import { githubFetch } from '../../repository/services/github';
 
 // A year of commits, one square per day (services/heatmap.ts). GitHub only
 // computes these statistics for the default branch.
@@ -33,7 +34,8 @@ export default function CommitHeatmap({ owner, repo, token, selectedDay, onSelec
     let cancelled = false;
     setActivity(undefined);
     setError('');
-    fetchCommitActivity(owner, repo, token)
+    // Without a token, githubFetch routes the request through the server's GitHub proxy.
+    fetchCommitActivity(owner, repo, token, ((url: string, init?: RequestInit) => githubFetch(url, null, init)) as typeof fetch)
       .then(a => { if (a) activityCache.set(key, a); if (!cancelled) setActivity(a); })
       .catch(e => { if (!cancelled) setError(e.message); });
     return () => { cancelled = true; };

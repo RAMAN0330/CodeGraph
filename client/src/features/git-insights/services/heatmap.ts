@@ -1,8 +1,6 @@
 // GitHub-style contribution heatmap from /repos/{owner}/{repo}/stats/commit_activity:
 // 52 weeks, each starting Sunday 00:00 UTC, with commit counts per weekday.
 
-import { githubFetch } from '../../repository/services/github';
-
 export interface WeekActivity { week: number; total: number; days: number[] }
 export interface HeatCell { date: string; count: number; level: 0 | 1 | 2 | 3 | 4; future: boolean }
 export interface Heatmap {
@@ -69,10 +67,12 @@ export function buildHeatmap(activity: WeekActivity[], today = new Date()): Heat
 
 // GitHub computes these statistics in the background: the first request may
 // answer 202 with no body. Ask again a few times before giving up.
-export async function fetchCommitActivity(owner: string, repo: string, token: string | null | undefined, fetchImpl: (url: string, token?: string | null) => Promise<Response> = githubFetch, attempts = 5, waitMs = 2000): Promise<WeekActivity[] | null> {
+export async function fetchCommitActivity(owner: string, repo: string, token: string | null | undefined, fetchImpl: typeof fetch = fetch, attempts = 5, waitMs = 2000): Promise<WeekActivity[] | null> {
+  const headers: Record<string, string> = { Accept: 'application/vnd.github+json' };
+  if (token) headers.Authorization = `token ${token}`;
   const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/stats/commit_activity`;
   for (let i = 0; i < attempts; i++) {
-    const res = await fetchImpl(url, token);
+    const res = await fetchImpl(url, { headers });
     if (res.status === 202) { await new Promise(r => setTimeout(r, waitMs)); continue; }
     if (res.status === 204) return [];
     if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);

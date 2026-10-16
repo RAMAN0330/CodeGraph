@@ -1,15 +1,15 @@
 # Improvement roadmap
 
-Prioritized follow-ups after audit cycle 1 (2026-10-02). Items are ordered by risk, then user impact.
+Prioritized follow-ups after audit cycle 1 (2026-10-02). Items are ordered by risk, then user impact. The phased plan that supersedes this list is [MODERNIZATION_PLAN.md](../MODERNIZATION_PLAN.md).
 
 ## Next (P1–P2)
 
 1. **Run the real analysis path end to end** with a GitHub token (or OAuth app) and re-check the workspace graph, git insights, security and patterns sections in a browser. This cycle could not, because GitHub rate-limited anonymous requests from the test machine. Done when: a public and a private repository analyse successfully and every workspace section renders without console errors.
 2. **Decide the 16 stale tests** listed in [TEST_COVERAGE.md](TEST_COVERAGE.md): update each to the current DESIGN.md behavior or restore the behavior it guards. Done when: `node --test tests/` is green.
 3. **Bring up `docker-compose.production.yml`** once with real secrets and confirm `/health/ready`, login, and an analysis job across nginx → gateway → API → FastAPI.
-4. **Stop exposing the GitHub token to the browser** (SEC-R1). Route the client's remaining direct GitHub calls (branches, commits, blame) through the API, then remove `GET /api/github/token`.
-5. **Keep tokens out of Redis job data** (SEC-R2): enqueue a user id and resolve the token in the worker.
-6. **Session hardening** (SEC-R3): idle timeout, rotate on privilege change, make logout POST-only.
+4. ~~**Stop exposing the GitHub token to the browser** (SEC-R1).~~ Done in PR #1. Route the client's remaining direct GitHub calls (branches, commits, blame) through the API, then remove `GET /api/github/token`.
+5. ~~**Keep tokens out of Redis job data** (SEC-R2):~~ Done in PR #1 (encrypted in job data). enqueue a user id and resolve the token in the worker.
+6. ~~**Session hardening** (SEC-R3):~~ Idle timeout and POST-only logout done in PR #1; rotation on privilege change is still open. idle timeout, rotate on privilege change, make logout POST-only.
 
 ## Then (P2–P3)
 
