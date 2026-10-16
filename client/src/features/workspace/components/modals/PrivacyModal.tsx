@@ -28,22 +28,22 @@ export default function PrivacyModal({ onClose }: Props) {
           <div className="privacy-item">
             <div className="privacy-icon"><Icon name="key" size="l" /></div>
             <div>
-              <div className="privacy-title">Your Token Stays Local</div>
-              <div className="privacy-text">Your GitHub token is stored only in your browser&apos;s memory. It&apos;s never saved, logged, or transmitted anywhere except directly to GitHub&apos;s API.</div>
+              <div className="privacy-title">Your Token Stays on the Server</div>
+              <div className="privacy-text">A connected GitHub account&apos;s token is stored encrypted on the server and never sent to your browser. A personal access token you paste here stays in this tab&apos;s memory and goes only to GitHub.</div>
             </div>
           </div>
           <div className="privacy-item">
             <div className="privacy-icon"><Icon name="share" size="l" /></div>
             <div>
-              <div className="privacy-title">Direct API Calls</div>
-              <div className="privacy-text">All GitHub API calls go directly from your browser to api.github.com. We have no proxy, no middleware, no way to intercept your data.</div>
+              <div className="privacy-title">Read-Only, Cached GitHub Access</div>
+              <div className="privacy-text">Reads go through the server&apos;s read-only GitHub proxy, which only allows repository, repository-list and rate-limit endpoints and caches responses by ETag so repeat views don&apos;t spend your rate limit.</div>
             </div>
           </div>
           <div className="privacy-item">
             <div className="privacy-icon"><Icon name="ban" size="l" /></div>
             <div>
-              <div className="privacy-title">Nothing Persisted</div>
-              <div className="privacy-text">Close the tab and everything is gone. No cookies, no local storage, no tracking. Check the source code - it&apos;s all in one HTML file!</div>
+              <div className="privacy-title">What Is Stored</div>
+              <div className="privacy-text">Your sign-in session cookie, analysis results and repository file caches on the server, and your layout (open section, sidebar width) in this browser. No tracking.</div>
             </div>
           </div>
           <div style={{ marginTop: 16, padding: 12, background: 'var(--accbg)', borderRadius: 8, fontSize: 10, color: 'var(--t1)' }}>

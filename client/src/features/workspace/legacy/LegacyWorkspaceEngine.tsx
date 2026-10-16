@@ -48,6 +48,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { githubFetch } from '../../repository/services/github';
+import { readPersisted, usePersistentState, writePersisted } from '../../../shared/hooks/usePersistentState';
 
 const extractManifestDeps = extractManifestDependencies;
 const BranchDiff = React.lazy(() => import('../../git-insights/components/BranchDiff'));
@@ -121,7 +123,7 @@ export default function LegacyWorkspaceEngine(){
     var _x=useState<any>(null),folderFilter=_x[0],setFolderFilter=_x[1];
     var _y=useState<any>(new Set()),expandedFns=_y[0],setExpandedFns=_y[1];
     var _z=useState<any>(false),showUnused=_z[0],setShowUnused=_z[1];
-    var _ac=useState<any>(292),sidebarWidth=_ac[0],setSidebarWidth=_ac[1];
+    var _ac=usePersistentState<number>('cg.workspace.sidebarWidth',292),sidebarWidth=_ac[0],setSidebarWidth=_ac[1];
     var _xv=useState<'graph'|'files'>('graph'),explorerView=_xv[0],setExplorerView=_xv[1];
     useEffect(function(){if(!selected&&explorerView==='files')setExplorerView('graph');},[selected,explorerView]);
     var _af=useState<any>(null),filePreview=_af[0],setFilePreview=_af[1];// {path, content, line, filename, loading, error}
@@ -148,6 +150,20 @@ export default function LegacyWorkspaceEngine(){
     var _regAlerts=useState<any[]>([]),regressionAlerts=_regAlerts[0],setRegressionAlerts=_regAlerts[1];
     // Active sidebar section
     var _sec=useState<any>('overview'),activeSection=_sec[0],setActiveSection=_sec[1];
+    // Reopen each repository on the section the user last had open. Restored
+    // only once its analysis is loaded, since 'overview' without data is the
+    // start screen.
+    var sectionKey=repoInfo?'cg.workspace.section.'+repoInfo.owner+'/'+repoInfo.repo:null;
+    var restoredSectionRef=useRef<string|null>(null);
+    useEffect(function(){
+        if(!data||!sectionKey||restoredSectionRef.current===sectionKey)return;
+        restoredSectionRef.current=sectionKey;
+        var saved=readPersisted<string|null>(sectionKey,null);
+        if(saved&&saved!==activeSection)setActiveSection(saved);
+    },[data,sectionKey]);// eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(function(){
+        if(data&&sectionKey&&restoredSectionRef.current===sectionKey)writePersisted(sectionKey,activeSection);
+    },[data,sectionKey,activeSection]);
     var _pal=useState<any>(false),showPalette=_pal[0],setShowPalette=_pal[1];
     var _vuln=useState<any>([]),vulns=_vuln[0],setVulns=_vuln[1];
     var _vulnLoad=useState<any>(false),vulnLoading=_vulnLoad[0],setVulnLoading=_vulnLoad[1];
@@ -175,15 +191,9 @@ export default function LegacyWorkspaceEngine(){
         .then(function(results){
           var config=results[0],user=results[1];
           if(!user&&config.github){window.location.href='/';return;}
-          if(user){
-            setAuthUser(user);
-            if(user.github){
-              fetch(`${appConfig.apiUrl}/api/github/token`,{credentials:'include'})
-                .then(function(r){return r.ok?r.json():null;})
-                .then(function(data){if(data&&data.token)setToken(data.token);})
-                .catch(function(){});
-            }
-          }
+          // A connected GitHub account is used server-side through
+          // /api/github/proxy; its token is never sent to the browser.
+          if(user)setAuthUser(user);
           setAuthResolved(true);
         })
         .catch(function(){setAuthResolved(true);});
@@ -261,10 +271,7 @@ export default function LegacyWorkspaceEngine(){
                 var fp=f.filename||f.path||'';
                 if(!fp)continue;
                 try{
-                    var res=await fetch(
-                        'https://api.github.com/repos/'+repoInfo.owner+'/'+repoInfo.repo+'/commits?per_page=20&path='+encodeURIComponent(fp),
-                        {headers:token?{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}:{'Accept':'application/vnd.github.v3+json'}}
-                    );
+                    var res=await githubFetch('https://api.github.com/repos/'+repoInfo.owner+'/'+repoInfo.repo+'/commits?per_page=20&path='+encodeURIComponent(fp), token);
                     if(res.ok){
                         var commits=await res.json();
                         if(Array.isArray(commits)){

@@ -42,6 +42,29 @@ function decodeBase64Utf8(content: string): string | null {
     }
 }
 
+const GITHUB_API = 'https://api.github.com/';
+// Set after the server says the user has no connected GitHub account, so the
+// rest of the session calls GitHub directly instead of asking again.
+var proxyUnavailable = false;
+
+// Every browser-side GitHub read goes through here. With an explicit token (a
+// pasted PAT or GitHub App installation token) the browser calls GitHub
+// itself; otherwise the server proxies the call with the signed-in user's
+// connected account, so that token never reaches the browser and repeat reads
+// are served from the server's ETag cache.
+export async function githubFetch(url: string, token?: string | null, init?: RequestInit): Promise<Response> {
+    var headers: Record<string, string> = { Accept: 'application/vnd.github+json' };
+    if (init && init.headers) Object.assign(headers, init.headers as Record<string, string>);
+    var explicitAuth = Boolean(token) || Boolean(headers.Authorization);
+    if (!explicitAuth && !proxyUnavailable && url.startsWith(GITHUB_API)) {
+        var proxied = await fetch(appConfig.apiUrl + '/api/github/proxy/' + url.slice(GITHUB_API.length), { credentials: 'include', signal: init && init.signal });
+        if (proxied.status !== 409 && proxied.status !== 401) return proxied;
+        proxyUnavailable = true;
+    }
+    if (token && !headers.Authorization) headers.Authorization = 'Bearer ' + token;
+    return fetch(url, Object.assign({}, init, { headers: headers }));
+}
+
 var GitHub: any = {
     token: null as string | null,
     appId: null as string | null,
@@ -109,12 +132,13 @@ var GitHub: any = {
             if (cached) return Promise.resolve(cached);
         }
 
-        var h = Object.assign({ 'Accept': 'application/vnd.github.v3+json' }, options && options.headers ? options.headers : {});
-        if (this.token && !h.Authorization) h.Authorization = 'Bearer ' + this.token;
         var controller = new AbortController();
         var timeoutId = setTimeout(() => controller.abort(), this.requestTimeoutMs);
-        var requestOptions = Object.assign({}, options || {}, { headers: h, signal: controller.signal });
-        return fetch(url, requestOptions).then(function (r) {
+        var requestOptions = Object.assign({}, options || {}, { signal: controller.signal });
+        var send = method === 'GET'
+            ? githubFetch(url, this.token, requestOptions)
+            : fetch(url, Object.assign(requestOptions, { headers: Object.assign({ 'Accept': 'application/vnd.github.v3+json' }, this.token ? { Authorization: 'Bearer ' + this.token } : {}, options && options.headers ? options.headers : {}) }));
+        return send.then(function (r) {
             var rem = r.headers.get('x-ratelimit-remaining');
             var lim = r.headers.get('x-ratelimit-limit');
             var rst = r.headers.get('x-ratelimit-reset');

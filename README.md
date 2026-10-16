@@ -484,7 +484,7 @@ The Go gateway reads `TRUST_PROXY_HEADER=true` (set in both compose files) to ra
 | `POST` | `/api/github/repo` | Fetch a repository tree (cached, ETag-revalidated) |
 | `POST` | `/api/github/file` | Fetch file contents |
 | `GET` | `/api/github/repos` | List repositories for the signed-in user |
-| `GET` | `/api/github/token` | Retrieve the session's GitHub token |
+| `GET` | `/api/github/proxy/<path>` | Read-only, ETag-cached GitHub API proxy using the session's token (repo paths, `user/repos`, `rate_limit`) |
 
 ### Workspaces & Projects
 

@@ -34,6 +34,7 @@ import { getAnalysis, type StoredAnalysis } from './db/analysisStore';
 import { createAlertRule, deleteAlertRule, listAlertRules } from './db/metricsSnapshots';
 import { buildActivity, buildOverview, buildPerformance, buildQueries, buildReplication, buildSecurity, buildStorage } from './services/telemetry/orchestrate';
 import { enqueueAnalysisJob, enqueuePrReviewJob, getAnalysisJobState, startAnalysisWorker, stopAnalysisWorker } from './queue/analysisQueue';
+import { isAllowedProxyPath, proxyGithubGet } from './services/githubProxy';
 import { canReadRepository, isValidRepoSegment, parseGithubCloneUrl, sanitizeToken } from './services/repoAccess';
 
 declare global {
@@ -661,11 +662,27 @@ app.get('/api/github/access/:owner/:repo', requireAuth, async (req: any, res: an
   res.json({ accessible: await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)) });
 });
 
-// Hand the connected GitHub token to the client so it can authenticate its own
-// direct-to-GitHub API calls (repo scans, branch/commit browsing, etc).
-app.get('/api/github/token', requireAuth, (req: any, res: any) => {
-  if (!req.user.github_token) return res.status(409).json({ error: 'Connect a GitHub account before browsing repositories.' });
-  res.json({ token: req.user.github_token });
+// Read-only GitHub API proxy for the browser's commit/branch/contributor
+// views. The connected OAuth token never leaves the server, and responses are
+// ETag-cached (see githubProxy) so repeat views are instant and rate-limit free.
+// 409 tells the client there is no connected account, so it calls GitHub itself.
+const githubProxyRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 600, standardHeaders: true, legacyHeaders: false });
+app.use('/api/github/proxy', requireAuth, githubProxyRateLimit, async (req: any, res: any) => {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Only GET is proxied.' });
+  if (!isAllowedProxyPath(req.url)) return res.status(400).json({ error: 'This GitHub path is not proxied.' });
+  const token = sanitizeToken(req.user.github_token);
+  if (!token) return res.status(409).json({ error: 'No connected GitHub account.' });
+  try {
+    const result = await proxyGithubGet(req.url, token);
+    const { remaining, limit, reset } = result.rateLimit;
+    if (remaining) res.set('X-RateLimit-Remaining', remaining);
+    if (limit) res.set('X-RateLimit-Limit', limit);
+    if (reset) res.set('X-RateLimit-Reset', reset);
+    res.set('X-Cache', result.cached ? 'HIT' : 'MISS');
+    res.status(result.status).type('application/json').send(result.body);
+  } catch (error: any) {
+    res.status(502).json({ error: error.message });
+  }
 });
 
 // --- Projects / workspaces (server-backed, replacing client localStorage) ---

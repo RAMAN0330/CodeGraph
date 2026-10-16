@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { githubFetch } from '../../repository/services/github';
 
 interface BlameCommit {
   sha: string;
@@ -32,10 +33,7 @@ export default function BlameHeatmap({ owner, repo, token, filePath }: BlameHeat
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/commits?per_page=20&path=${encodeURIComponent(filePath)}`,
-          { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' } }
-        );
+        const res = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=20&path=${encodeURIComponent(filePath)}`, token);
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled && Array.isArray(data)) setCommits(data);

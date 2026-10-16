@@ -47,7 +47,7 @@ func New(cfg config.Config) http.Handler {
 	mux.Handle("POST /api/github/file", validateRepositoryBody(api.legacy))
 	mux.Handle("GET /api/github/repos", api.legacy)
 	mux.Handle("GET /api/github/access/{owner}/{repo}", api.legacy)
-	mux.Handle("GET /api/github/token", api.legacy)
+	mux.Handle("GET /api/github/proxy/", api.legacy)
 	// GitHub App webhook (signature-checked by the legacy API against the raw
 	// body, which this proxy forwards untouched) and the in-app PR review.
 	mux.Handle("POST /api/github/webhook", api.legacy)

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { githubFetch } from '../../repository/services/github';
 
 interface StaleFile {
   path: string;
@@ -78,10 +79,7 @@ export default function StaleCodeRadar({ owner, repo, token, files, connections 
           let lastModified = 'unknown';
 
           try {
-            const res = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/commits?per_page=1&path=${encodeURIComponent(filePath)}`,
-              { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' } }
-            );
+            const res = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=1&path=${encodeURIComponent(filePath)}`, token);
             if (res.ok) {
               const data = await res.json();
               if (Array.isArray(data) && data.length > 0) {
