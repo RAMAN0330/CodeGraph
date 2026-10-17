@@ -47,9 +47,7 @@
    border/background wherever a page class doesn't restyle them. */
 @layer base {
   button, input, select, textarea { font-family: inherit; }
-  /* Any shadcn button, including triggers rendered asChild, starts unstyled. */
-  button[data-slot] { border: 0 solid var(--border); background-color: transparent; color: inherit; }
-  table[data-slot="table"] { border-collapse: collapse; }
+  [data-slot="button"] { border: 0 solid var(--border); background-color: transparent; color: inherit; }
   /* Tailwind's preflight would give utility borders this colour; any page CSS
      that sets its own border colour is unlayered and still wins. */
   *, ::before, ::after { border-color: var(--border); }

@@ -1,24 +1,34 @@
-import { Layers } from 'lucide-react';
+import { GG } from '../dbConnectTheme';
 import type { SchemaTable } from '../../types';
+import { Button } from '@/components/ui/button';
 
 interface DomainMapProps {
   tablesBySchema: Map<string, SchemaTable[]>;
   onSelectSchema: (name: string) => void;
 }
 
-const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
-
 export default function DomainMap({ tablesBySchema, onSelectSchema }: DomainMapProps) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, padding: 24 }}>
       {Array.from(tablesBySchema.entries()).map(([schemaName, tables]) => {
-        const relations = tables.reduce((sum, t) => sum + t.foreignKeys.length, 0);
+        const relationCount = tables.reduce((sum, t) => sum + t.foreignKeys.length, 0);
         return (
-          <button key={schemaName} type="button" onClick={() => onSelectSchema(schemaName)}
-            className="flex cursor-pointer flex-col gap-1 rounded-xl border bg-card p-4 text-left shadow-xs transition-colors hover:border-primary/40 hover:bg-accent/40">
-            <span className="flex items-center gap-2 font-mono text-sm font-semibold"><Layers className="size-4 text-primary" />{schemaName}</span>
-            <span className="text-xs text-muted-foreground">{plural(tables.length, 'table')} · {plural(relations, 'relationship')}</span>
-          </button>
+          <Button
+            key={schemaName}
+            variant="ghost"
+            onClick={() => onSelectSchema(schemaName)}
+            style={{
+              display: 'flex', flexDirection: 'column', gap: 6, padding: 18, textAlign: 'left',
+              background: GG.bg1, border: `1px solid ${GG.lineStrong}`, borderRadius: 10, cursor: 'pointer',
+              transition: 'border-color .15s ease',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = GG.accent + '55')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = GG.lineStrong)}
+          >
+            <div style={{ fontFamily: GG.mono, fontSize: 14, fontWeight: 700, color: GG.fg }}>{schemaName}</div>
+            <div style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg3 }}>{tables.length} table{tables.length === 1 ? '' : 's'}</div>
+            <div style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg4 }}>{relationCount} relation{relationCount === 1 ? '' : 's'}</div>
+          </Button>
         );
       })}
     </div>

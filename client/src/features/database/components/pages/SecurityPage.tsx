@@ -1,65 +1,65 @@
 import { useCallback } from 'react';
-import { KeyRound, ShieldCheck, Users } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { EmptyState, ErrorState, LoadingState, Panel, Stat, StatusBadge } from '../ui/dbkit';
+import { ShieldCheck, Users, KeyRound } from 'lucide-react';
+import { GG, GGErrorBanner } from '../dbConnectTheme';
+import KpiCard from '../ui/KpiCard';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
-import { severityTone } from '../../services/format';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+
+function severityColor(severity: 'low' | 'medium' | 'high'): string {
+  if (severity === 'high') return 'var(--color-danger)';
+  if (severity === 'medium') return 'var(--color-warning)';
+  return GG.fg3;
+}
 
 interface SecurityPageProps { projectId: number; paused: boolean; }
 
 export default function SecurityPage({ projectId, paused }: SecurityPageProps) {
   const fetcher = useCallback(() => dbTelemetryApi.security(projectId), [projectId]);
-  const { data, loading, error, refresh } = useDbTelemetry(fetcher, [projectId], { pollMs: 30000, paused });
+  const { data, loading, error } = useDbTelemetry(fetcher, [projectId], { pollMs: 30000, paused });
 
-  if (loading && !data) return <LoadingState label="Loading security posture…" />;
-  if (error && !data) return <ErrorState message={error} onRetry={refresh} />;
+  if (loading && !data) return <div style={{ padding: 40, color: GG.fg3, fontFamily: GG.mono, fontSize: 12 }}>Loading security posture…</div>;
+  if (error && !data) return <GGErrorBanner msg={error} />;
   if (!data) return null;
 
-  const scoreTone = data.securityScore >= 80 ? 'good' : data.securityScore >= 60 ? 'warn' : 'bad';
-
   return (
-    <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat icon={ShieldCheck} label="Security score" value={data.securityScore} tone={scoreTone}
-          hint={scoreTone === 'good' ? 'No serious findings' : `${data.findings.length} finding${data.findings.length === 1 ? '' : 's'} to review`} />
-        <Stat icon={Users} label="Database roles" value={data.totalUsers} hint="Roles that can sign in" />
-        <Stat icon={KeyRound} label="Privileged roles" value={data.privilegedAccounts} tone={data.privilegedAccounts > 1 ? 'warn' : 'neutral'}
-          hint={data.privilegedAccounts > 1 ? 'Keep superusers to a minimum' : 'Superuser access is limited'} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', paddingBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <KpiCard icon={<ShieldCheck size={14} />} value={data.securityScore} label="Security Score" subTone={data.securityScore >= 80 ? 'good' : data.securityScore >= 60 ? 'neutral' : 'bad'} />
+        <KpiCard icon={<Users size={14} />} value={data.totalUsers} label="Database Users" />
+        <KpiCard icon={<KeyRound size={14} />} value={data.privilegedAccounts} label="Privileged Accounts" subTone={data.privilegedAccounts > 1 ? 'bad' : 'neutral'} />
       </div>
 
-      <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <Panel title="Roles" contentClassName="p-0">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow><TableHead>Role</TableHead><TableHead>Type</TableHead><TableHead>Privilege</TableHead></TableRow>
-            </TableHeader>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12, alignItems: 'start' }}>
+        <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', borderBottom: `1px solid ${GG.line}` }}>Database Users</div>
+          <Table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 12 }}>
+            <TableHeader><TableRow style={{ background: GG.bg2, textAlign: 'left' }}>
+              {['User', 'Role', 'Privilege'].map(h => <TableHead key={h} style={{ padding: '9px 18px', color: GG.fg4, fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</TableHead>)}
+            </TableRow></TableHeader>
             <TableBody>
               {data.users.map(u => (
-                <TableRow key={u.name}>
-                  <TableCell className="font-mono text-xs">{u.name}</TableCell>
-                  <TableCell className="capitalize">{u.role}</TableCell>
-                  <TableCell><StatusBadge tone={u.privilege === 'Full' ? 'warn' : 'neutral'}>{u.privilege}</StatusBadge></TableCell>
+                <TableRow key={u.name} style={{ borderTop: `1px solid ${GG.line}` }}>
+                  <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{u.name}</TableCell>
+                  <TableCell style={{ padding: '9px 18px', color: GG.fg3, textTransform: 'capitalize' }}>{u.role}</TableCell>
+                  <TableCell style={{ padding: '9px 18px', color: u.privilege === 'Full' ? 'var(--color-warning)' : GG.fg2, fontWeight: u.privilege === 'Full' ? 700 : 400 }}>{u.privilege}</TableCell>
                 </TableRow>
               ))}
-              {data.users.length === 0 && <TableRow><TableCell colSpan={3} className="py-8 text-center text-muted-foreground">No roles found.</TableCell></TableRow>}
+              {data.users.length === 0 && <TableRow><TableCell colSpan={3} style={{ padding: 20, textAlign: 'center', color: GG.fg4 }}>No users found.</TableCell></TableRow>}
             </TableBody>
           </Table>
-        </Panel>
+        </div>
 
-        <Panel title="Findings" contentClassName="p-0">
+        <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, padding: 18 }}>
+          <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 12 }}>Findings</div>
           {data.findings.length === 0 ? (
-            <EmptyState icon={ShieldCheck} title="No findings">Nothing in this database's role setup needs attention.</EmptyState>
-          ) : (
-            <ul className="divide-y text-sm">
-              {data.findings.map((f, i) => (
-                <li key={i} className="flex items-start gap-3 px-4 py-2.5">
-                  <StatusBadge tone={severityTone(f.severity)} className="mt-0.5 w-16 justify-center">{f.severity}</StatusBadge>
-                  <span>{f.summary}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+            <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 12 }}>No security findings detected.</p>
+          ) : data.findings.map((f, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10, padding: '9px 0', borderTop: i > 0 ? `1px solid ${GG.line}` : 'none' }}>
+              <span style={{ fontFamily: GG.mono, fontSize: 10, fontWeight: 700, color: severityColor(f.severity), textTransform: 'uppercase', flex: '0 0 auto', width: 56 }}>{f.severity}</span>
+              <span style={{ fontFamily: GG.sans, fontSize: 12.5, color: GG.fg2 }}>{f.summary}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

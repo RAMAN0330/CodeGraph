@@ -163,27 +163,21 @@ export interface SecurityResponse {
   findings: SecurityFinding[];
 }
 
+export type TimeRange = 'live' | '15m' | '1h' | '6h' | '24h' | '7d';
+
 export const DB_NAV_IDS = ['overview', 'sql', 'data', 'schema', 'performance', 'queries', 'storage', 'replication', 'activity', 'security', 'alerts'] as const;
 export type DbNavId = typeof DB_NAV_IDS[number];
 
-// One entry per dashboard page: the sidebar, header and page title all read
-// from here so a page is named the same everywhere.
-export const DB_PAGES: Record<DbNavId, { label: string; description: string }> = {
-  overview: { label: 'Overview', description: 'Health, load and storage for this connection at a glance.' },
-  sql: { label: 'SQL editor', description: 'Run read-only queries, inspect plans and keep the ones you reuse.' },
-  data: { label: 'Data', description: 'Browse table rows with sorting and filtering, without writing SQL.' },
-  schema: { label: 'Schema', description: 'Tables, relationships and indexes, from domains down to columns.' },
-  performance: { label: 'Performance', description: 'Live throughput, latency percentiles and connection pool state.' },
-  queries: { label: 'Query stats', description: 'The statements costing this database the most time.' },
-  storage: { label: 'Storage', description: 'Database size, growth and the largest tables.' },
-  replication: { label: 'Replication', description: 'Replica state and lag for this instance.' },
-  activity: { label: 'Activity', description: 'Events detected while the dashboard is polling.' },
-  security: { label: 'Security', description: 'Database roles, privileges and findings to review.' },
-  alerts: { label: 'Alerts', description: 'Threshold rules and the alerts they are raising now.' },
+export const DB_NAV_LABELS: Record<DbNavId, string> = {
+  overview: 'Overview',
+  sql: 'SQL',
+  data: 'Data',
+  performance: 'Performance',
+  queries: 'Queries',
+  schema: 'Schema',
+  storage: 'Storage',
+  replication: 'Replication',
+  activity: 'Activity',
+  security: 'Security',
+  alerts: 'Alerts',
 };
-
-export const DB_NAV_GROUPS: { label: string; ids: DbNavId[] }[] = [
-  { label: 'Workspace', ids: ['overview', 'sql', 'data', 'schema'] },
-  { label: 'Monitoring', ids: ['performance', 'queries', 'storage', 'replication', 'activity'] },
-  { label: 'Governance', ids: ['security', 'alerts'] },
-];
