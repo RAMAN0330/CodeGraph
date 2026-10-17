@@ -5,6 +5,9 @@ import './index.css'
 import './shadcn.css'
 import 'highlight.js/styles/github.css'
 import App from './App.tsx'
+import { hydrateStateFromServer } from './shared/services/stateSync'
+
+void hydrateStateFromServer()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

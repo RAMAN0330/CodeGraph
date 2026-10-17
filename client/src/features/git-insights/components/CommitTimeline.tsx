@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import CommitHeatmap from './CommitHeatmap';
+import { githubFetch } from '../../repository/services/github';
 
 const AUTHOR_COLORS = ['var(--color-success)','var(--acc2)','var(--accent-orange)','var(--chart-purple)','var(--color-danger)','var(--teal-500)','var(--accent-orange)','var(--chart-purple)'];
 
@@ -121,12 +122,7 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
     (async () => {
       try {
         const range = selectedDay ? `&since=${selectedDay}T00:00:00Z&until=${selectedDay}T23:59:59Z` : '';
-        const headers: Record<string, string> = { 'Accept': 'application/vnd.github.v3+json' };
-        if (token) headers.Authorization = 'token ' + token;
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/commits?per_page=${selectedDay ? 100 : 30}&sha=${encodeURIComponent(branch)}${range}`,
-          { headers }
-        );
+        const res = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=${selectedDay ? 100 : 30}&sha=${encodeURIComponent(branch)}${range}`, token);
         if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
         const data = await res.json();
         if (!cancelled) setCommits(data);

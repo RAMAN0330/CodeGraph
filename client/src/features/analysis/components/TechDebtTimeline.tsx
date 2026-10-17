@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import * as d3 from 'd3';
+import { githubFetch } from '../../repository/services/github';
 
 interface DataPoint {
   index: number;
@@ -30,13 +31,9 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
 
     (async () => {
       try {
-        const headers = { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' };
 
         // Fetch last 10 commits
-        const commitsRes = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/commits?per_page=10`,
-          { headers }
-        );
+        const commitsRes = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=10`, token);
         if (!commitsRes.ok) throw new Error(`GitHub API error: ${commitsRes.status}`);
         const commits: any[] = await commitsRes.json();
         if (!Array.isArray(commits) || commits.length === 0) throw new Error('No commits found');
@@ -70,10 +67,7 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
           } else {
             // Fetch tree for historical commits
             try {
-              const treeRes = await fetch(
-                `https://api.github.com/repos/${owner}/${repo}/git/trees/${sha}?recursive=1`,
-                { headers }
-              );
+              const treeRes = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/${sha}?recursive=1`, token);
               if (treeRes.ok) {
                 const treeData = await treeRes.json();
                 const blobs = (treeData.tree || []).filter((item: any) => item.type === 'blob');

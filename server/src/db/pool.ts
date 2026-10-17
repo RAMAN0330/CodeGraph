@@ -220,6 +220,39 @@ export async function initSchema(): Promise<void> {
     -- Threshold alert rules for a connected database project (Alerts page).
     -- Evaluated inline against live metrics on each Overview/Performance
     -- poll rather than via a background worker.
+    -- Per-user workspace state (open sections, selected tables, editor
+    -- drafts, layout) so a user returns to the same place on any device.
+    -- Never holds credentials; see db/uiState.ts for the key/size limits.
+    CREATE TABLE IF NOT EXISTS user_ui_state (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      state JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    -- SQL workspace: every statement a user runs against a database project
+    -- (trimmed to the newest 200 per project) and the queries they saved.
+    CREATE TABLE IF NOT EXISTS db_query_history (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      sql TEXT NOT NULL,
+      duration_ms NUMERIC,
+      row_count INTEGER,
+      error TEXT,
+      ran_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_db_query_history_project ON db_query_history(project_id, ran_at DESC);
+    CREATE TABLE IF NOT EXISTS db_saved_queries (
+      id SERIAL PRIMARY KEY,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      name TEXT NOT NULL,
+      sql TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_db_saved_queries_project ON db_saved_queries(project_id);
+
     CREATE TABLE IF NOT EXISTS db_alert_rules (
       id SERIAL PRIMARY KEY,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,

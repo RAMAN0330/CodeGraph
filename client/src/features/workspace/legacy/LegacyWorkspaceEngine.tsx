@@ -17,7 +17,6 @@ import PatternsSection from '../components/sections/PatternsSection';
 import ActionsSection from '../components/sections/ActionsSection';
 import SettingsSection from '../components/sections/SettingsSection';
 import PrivacyModal from '../components/modals/PrivacyModal';
-import GithubAppKeyModal from '../components/modals/GithubAppKeyModal';
 import ExcludePatternModal from '../components/modals/ExcludePatternModal';
 import UnusedFunctionsModal from '../components/modals/UnusedFunctionsModal';
 import ConfirmDialog from '../components/modals/ConfirmDialog';
@@ -48,6 +47,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { githubFetch } from '../../repository/services/github';
+import { readPersisted, usePersistentState, writePersisted } from '../../../shared/hooks/usePersistentState';
 
 const extractManifestDeps = extractManifestDependencies;
 const BranchDiff = React.lazy(() => import('../../git-insights/components/BranchDiff'));
@@ -97,10 +98,6 @@ export default function LegacyWorkspaceEngine(){
     var _auth=useState<any>(null),authUser=_auth[0],setAuthUser=_auth[1];
     var _authResolved=useState<any>(false),authResolved=_authResolved[0],setAuthResolved=_authResolved[1];
     var _autoRunRepo=useState<any>(null),autoRunRepo=_autoRunRepo[0],setAutoRunRepo=_autoRunRepo[1];
-    var _authMethod=useState<any>('none'),authMethod=_authMethod[0],setAuthMethod=_authMethod[1];// 'none', 'pat', 'github_app'
-    var _appId=useState<any>(''),appId=_appId[0],setAppId=_appId[1];
-    var _privateKey=useState<any>(''),privateKey=_privateKey[0],setPrivateKey=_privateKey[1];
-    var _showKeyModal=useState<any>(false),showKeyModal=_showKeyModal[0],setShowKeyModal=_showKeyModal[1];
     var _d=useState<any>(false),loading=_d[0],setLoading=_d[1];
     var _e=useState<any>(''),progress=_e[0],setProgress=_e[1];
     var _f=useState<any>(null),error=_f[0],setError=_f[1];
@@ -121,7 +118,7 @@ export default function LegacyWorkspaceEngine(){
     var _x=useState<any>(null),folderFilter=_x[0],setFolderFilter=_x[1];
     var _y=useState<any>(new Set()),expandedFns=_y[0],setExpandedFns=_y[1];
     var _z=useState<any>(false),showUnused=_z[0],setShowUnused=_z[1];
-    var _ac=useState<any>(292),sidebarWidth=_ac[0],setSidebarWidth=_ac[1];
+    var _ac=usePersistentState<number>('cg.workspace.sidebarWidth',292),sidebarWidth=_ac[0],setSidebarWidth=_ac[1];
     var _xv=useState<'graph'|'files'>('graph'),explorerView=_xv[0],setExplorerView=_xv[1];
     useEffect(function(){if(!selected&&explorerView==='files')setExplorerView('graph');},[selected,explorerView]);
     var _af=useState<any>(null),filePreview=_af[0],setFilePreview=_af[1];// {path, content, line, filename, loading, error}
@@ -148,6 +145,20 @@ export default function LegacyWorkspaceEngine(){
     var _regAlerts=useState<any[]>([]),regressionAlerts=_regAlerts[0],setRegressionAlerts=_regAlerts[1];
     // Active sidebar section
     var _sec=useState<any>('overview'),activeSection=_sec[0],setActiveSection=_sec[1];
+    // Reopen each repository on the section the user last had open. Restored
+    // only once its analysis is loaded, since 'overview' without data is the
+    // start screen.
+    var sectionKey=repoInfo?'cg.workspace.section.'+repoInfo.owner+'/'+repoInfo.repo:null;
+    var restoredSectionRef=useRef<string|null>(null);
+    useEffect(function(){
+        if(!data||!sectionKey||restoredSectionRef.current===sectionKey)return;
+        restoredSectionRef.current=sectionKey;
+        var saved=readPersisted<string|null>(sectionKey,null);
+        if(saved&&saved!==activeSection)setActiveSection(saved);
+    },[data,sectionKey]);// eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(function(){
+        if(data&&sectionKey&&restoredSectionRef.current===sectionKey)writePersisted(sectionKey,activeSection);
+    },[data,sectionKey,activeSection]);
     var _pal=useState<any>(false),showPalette=_pal[0],setShowPalette=_pal[1];
     var _vuln=useState<any>([]),vulns=_vuln[0],setVulns=_vuln[1];
     var _vulnLoad=useState<any>(false),vulnLoading=_vulnLoad[0],setVulnLoading=_vulnLoad[1];
@@ -175,15 +186,9 @@ export default function LegacyWorkspaceEngine(){
         .then(function(results){
           var config=results[0],user=results[1];
           if(!user&&config.github){window.location.href='/';return;}
-          if(user){
-            setAuthUser(user);
-            if(user.github){
-              fetch(`${appConfig.apiUrl}/api/github/token`,{credentials:'include'})
-                .then(function(r){return r.ok?r.json():null;})
-                .then(function(data){if(data&&data.token)setToken(data.token);})
-                .catch(function(){});
-            }
-          }
+          // A connected GitHub account is used server-side through
+          // /api/github/proxy; its token is never sent to the browser.
+          if(user)setAuthUser(user);
           setAuthResolved(true);
         })
         .catch(function(){setAuthResolved(true);});
@@ -261,10 +266,7 @@ export default function LegacyWorkspaceEngine(){
                 var fp=f.filename||f.path||'';
                 if(!fp)continue;
                 try{
-                    var res=await fetch(
-                        'https://api.github.com/repos/'+repoInfo.owner+'/'+repoInfo.repo+'/commits?per_page=20&path='+encodeURIComponent(fp),
-                        {headers:token?{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}:{'Accept':'application/vnd.github.v3+json'}}
-                    );
+                    var res=await githubFetch('https://api.github.com/repos/'+repoInfo.owner+'/'+repoInfo.repo+'/commits?per_page=20&path='+encodeURIComponent(fp), token);
                     if(res.ok){
                         var commits=await res.json();
                         if(Array.isArray(commits)){
@@ -436,34 +438,15 @@ export default function LegacyWorkspaceEngine(){
         if(!p){setError('Invalid URL. Use format: owner/repo');return;}
         var currentExcludePatterns=activeExcludePatterns;
         
-        // Validate authentication inputs
-        if(authMethod==='pat'&&!token){
-            setError('Please enter a Personal Access Token');return;
-        }
-        if(authMethod==='github_app'){
-            if(!appId){setError('Please enter the GitHub App ID');return;}
-            if(!privateKey){setError('Please set the GitHub App private key');return;}
-        }
-        
         resetAnalysisState();
         analysisContentCacheRef.current={};
         setLocalDirHandle(null);
         setLoading(true);
         setProgress('Initializing...');
         
-        // Configure GitHub authentication based on method
-        GitHub.token=null;
-        GitHub.appId=null;
-        GitHub.privateKey=null;
-        GitHub.installationToken=null;
-
-        if(authMethod==='pat'||authMethod==='none'){
-            // 'none' means OAuth session auth — token is set from /auth/me
-            GitHub.token=tokenOverride||token||null;
-        }else if(authMethod==='github_app'){
-            GitHub.appId=appId;
-            GitHub.privateKey=privateKey;
-        }
+        // A pasted personal access token is used directly; otherwise
+        // reads go through the server proxy with the connected account.
+        GitHub.token=tokenOverride||token||null;
         
         setRepoInfo(p);
         // Fetch branches list in background
@@ -1337,7 +1320,6 @@ export default function LegacyWorkspaceEngine(){
         showPR&&React.createElement(PrReviewModal,{prUrl:prUrl,onPrUrlChange:setPrUrl,onAnalyze:analyzePR,prData:prData,revertCounts:revertCounts,onClose:function(){setShowPR(false);}}),
         drillDown&&React.createElement(DrillDownModal,{drillDown:drillDown,onClose:function(){setDrillDown(null);},onSelectFile:selectFile,onViewSource:openFilePreview}),
         showPrivacy&&React.createElement(PrivacyModal,{onClose:function(){setShowPrivacy(false);}}),
-        showKeyModal&&React.createElement(GithubAppKeyModal,{privateKey:privateKey,onPrivateKeyChange:setPrivateKey,onClose:function(){setShowKeyModal(false);}}),
         showUnused&&data&&(data as any).deadFunctions&&React.createElement(UnusedFunctionsModal,{deadFunctions:(data as any).deadFunctions,expandedFns:expandedFns,setExpandedFns:setExpandedFns,onClose:function(){setShowUnused(false);},onViewSource:openFilePreview}),
         confirmDialog&&React.createElement(ConfirmDialog,{dialog:confirmDialog,onResolve:closeConfirmDialog}),
         toast&&React.createElement(Alert,{className:'toast '+(toast.type||'success')},React.createElement(AlertDescription,{className:'text-inherit'},toast.msg)),

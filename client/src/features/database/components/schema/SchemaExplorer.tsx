@@ -6,7 +6,7 @@ import DomainMap from './DomainMap';
 import TableMap from './TableMap';
 import ObjectsPanel from './ObjectsPanel';
 import DetailDrawer from './DetailDrawer';
-import type { Schema } from '../../types';
+import type { Schema, SchemaTable } from '../../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -26,9 +26,9 @@ function groupBySchema(tables: Schema['tables']): Map<string, Schema['tables']> 
   return map;
 }
 
-interface SchemaExplorerProps { schema: Schema; }
+interface SchemaExplorerProps { schema: Schema; onBrowse?: (table: SchemaTable) => void; onQuery?: (table: SchemaTable) => void; }
 
-export default function SchemaExplorer({ schema }: SchemaExplorerProps) {
+export default function SchemaExplorer({ schema, onBrowse, onQuery }: SchemaExplorerProps) {
   const [tab, setTab] = useState<ExplorerTab>('graph');
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState<GraphLevel>('domain');
@@ -102,7 +102,7 @@ export default function SchemaExplorer({ schema }: SchemaExplorerProps) {
               </div>
               {activeTable && (
                 <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 10, padding: 16, overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
-                  <DetailDrawer table={activeTable} allTables={schema.tables} />
+                  <DetailDrawer table={activeTable} allTables={schema.tables} onBrowse={onBrowse} onQuery={onQuery} />
                 </div>
               )}
             </div>

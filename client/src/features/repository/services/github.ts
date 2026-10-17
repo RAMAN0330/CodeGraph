@@ -1,4 +1,3 @@
-import { KJUR } from 'jsrsasign';
 import { appConfig } from '../../../app/config';
 import { repoCache } from './cache';
 import { Parser, shouldExcludeFile, shouldIgnoreDirectory } from '../../analysis/services/parser';
@@ -42,62 +41,33 @@ function decodeBase64Utf8(content: string): string | null {
     }
 }
 
+const GITHUB_API = 'https://api.github.com/';
+// Set after the server says the user has no connected GitHub account, so the
+// rest of the session calls GitHub directly instead of asking again.
+var proxyUnavailable = false;
+
+// Every browser-side GitHub read goes through here. With an explicit token (a
+// pasted PAT or GitHub App installation token) the browser calls GitHub
+// itself; otherwise the server proxies the call with the signed-in user's
+// connected account, so that token never reaches the browser and repeat reads
+// are served from the server's ETag cache.
+export async function githubFetch(url: string, token?: string | null, init?: RequestInit): Promise<Response> {
+    var headers: Record<string, string> = { Accept: 'application/vnd.github+json' };
+    if (init && init.headers) Object.assign(headers, init.headers as Record<string, string>);
+    var explicitAuth = Boolean(token) || Boolean(headers.Authorization);
+    if (!explicitAuth && !proxyUnavailable && url.startsWith(GITHUB_API)) {
+        var proxied = await fetch(appConfig.apiUrl + '/api/github/proxy/' + url.slice(GITHUB_API.length), { credentials: 'include', signal: init && init.signal });
+        if (proxied.status !== 409 && proxied.status !== 401) return proxied;
+        proxyUnavailable = true;
+    }
+    if (token && !headers.Authorization) headers.Authorization = 'Bearer ' + token;
+    return fetch(url, Object.assign({}, init, { headers: headers }));
+}
+
 var GitHub: any = {
     token: null as string | null,
-    appId: null as string | null,
-    privateKey: null as string | null,
-    installationToken: null as string | null,
-    installationTokenExpiry: null as number | null,
     rateLimit: { remaining: 60, limit: 60, reset: 0 },
     requestTimeoutMs: 15000,
-
-    generateJWT(): string | null {
-        if (!this.appId || !this.privateKey) return null;
-        try {
-            var now = Math.floor(Date.now() / 1000);
-            var payload = { iat: now - 60, exp: now + 600, iss: this.appId };
-            var header = { alg: 'RS256', typ: 'JWT' };
-            return KJUR.jws.JWS.sign('RS256', JSON.stringify(header), JSON.stringify(payload), this.privateKey);
-        } catch (e) {
-            console.error('JWT generation failed:', e);
-            return null;
-        }
-    },
-
-    getRepoInstallation(owner: string, repo: string) {
-        var jwt = this.generateJWT();
-        if (!jwt) return Promise.reject(new Error('Failed to generate JWT'));
-        return this.request(buildGitHubApiUrl(['repos', owner, repo, 'installation']), {
-            headers: { 'Accept': 'application/vnd.github.v3+json', 'Authorization': 'Bearer ' + jwt }
-        }, { 401: 'Invalid App credentials', 404: 'GitHub App not installed on this repo' });
-    },
-
-    getInstallationToken(installationId: number) {
-        var self = this;
-        var jwt = this.generateJWT();
-        if (!jwt) return Promise.reject(new Error('Failed to generate JWT'));
-        return this.request(buildGitHubApiUrl(['app', 'installations', String(installationId), 'access_tokens']), {
-            method: 'POST',
-            headers: { 'Accept': 'application/vnd.github.v3+json', 'Authorization': 'Bearer ' + jwt }
-        }, { 401: 'Invalid App credentials', 404: 'Installation not found' }).then(function (data: any) {
-            self.installationToken = data.token;
-            self.installationTokenExpiry = new Date(data.expires_at).getTime();
-            self.token = data.token;
-            return data.token;
-        });
-    },
-
-    authenticateApp(owner: string, repo: string) {
-        var self = this;
-        if (this.installationToken && this.installationTokenExpiry && Date.now() < this.installationTokenExpiry - 60000) {
-            this.token = this.installationToken;
-            return Promise.resolve(this.installationToken);
-        }
-        return this.getRepoInstallation(owner, repo).then(function (installation: any) {
-            if (!installation || !installation.id) throw new Error('No installation found for this repository');
-            return self.getInstallationToken(installation.id);
-        });
-    },
 
     request(url: string, options?: any, errorMap?: any, retriesLeft?: number) {
         var self = this;
@@ -109,12 +79,13 @@ var GitHub: any = {
             if (cached) return Promise.resolve(cached);
         }
 
-        var h = Object.assign({ 'Accept': 'application/vnd.github.v3+json' }, options && options.headers ? options.headers : {});
-        if (this.token && !h.Authorization) h.Authorization = 'Bearer ' + this.token;
         var controller = new AbortController();
         var timeoutId = setTimeout(() => controller.abort(), this.requestTimeoutMs);
-        var requestOptions = Object.assign({}, options || {}, { headers: h, signal: controller.signal });
-        return fetch(url, requestOptions).then(function (r) {
+        var requestOptions = Object.assign({}, options || {}, { signal: controller.signal });
+        var send = method === 'GET'
+            ? githubFetch(url, this.token, requestOptions)
+            : fetch(url, Object.assign(requestOptions, { headers: Object.assign({ 'Accept': 'application/vnd.github.v3+json' }, this.token ? { Authorization: 'Bearer ' + this.token } : {}, options && options.headers ? options.headers : {}) }));
+        return send.then(function (r) {
             var rem = r.headers.get('x-ratelimit-remaining');
             var lim = r.headers.get('x-ratelimit-limit');
             var rst = r.headers.get('x-ratelimit-reset');

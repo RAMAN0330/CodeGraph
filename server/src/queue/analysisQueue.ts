@@ -5,6 +5,7 @@ import { env } from '../config/env';
 import { enqueueStaleProjectAnalyses, persistAnalysis } from '../services/analysisHistory';
 import { sendWeeklyDigests } from '../services/weeklyDigest';
 import { getInstallationToken } from '../services/githubApp';
+import { encryptSecret, revealSecret } from '../services/credentialCipher';
 import { buildPrReview, publishPrReview, type PrReviewJobData } from '../services/prReview';
 
 export interface AnalysisJobData {
@@ -38,7 +39,9 @@ export async function enqueueAnalysisJob(data: AnalysisJobData): Promise<void> {
   const id = jobId(data.owner, data.repo, data.branch);
   const existing = await analysisQueue.getJob(id);
   if (existing && (await existing.isFailed())) await existing.remove();
-  await analysisQueue.add('analyze', data, {
+  // Job data sits in Redis until the job is cleaned up, so the token is
+  // stored encrypted and only decrypted inside the worker.
+  await analysisQueue.add('analyze', { ...data, token: data.token ? encryptSecret(data.token) : undefined }, {
     jobId: id,
     removeOnComplete: { age: 3600 },
     removeOnFail: { age: 86400 },
@@ -104,7 +107,7 @@ export function startAnalysisWorker(): Worker<AnalysisJobData> | null {
   if (!connection || analysisWorker) return analysisWorker;
   analysisWorker = new Worker<AnalysisJobData>('analysis', async (job: Job<AnalysisJobData>) => {
     const { owner, repo, branch, commitSha, token } = job.data;
-    const data = await runAnalysis({ owner, repo, branch, token });
+    const data = await runAnalysis({ owner, repo, branch, token: revealSecret(token ?? null) ?? undefined });
     await persistAnalysis(owner, repo, branch, commitSha, data);
   }, { connection });
   analysisWorker.on('failed', (job, error) => console.error(`Analysis job ${job?.id} failed:`, error));

@@ -136,10 +136,6 @@ export async function fetchLatestCommitSha(owner: string, repo: string, branch?:
   return commits?.[0]?.sha ?? null;
 }
 
-export function fetchUserRepositories(token: string) {
-  return githubJson('/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator', token);
-}
-
 async function fetchRawFile(owner: string, repo: string, branch: string, path: string, token?: string): Promise<string | null> {
   const segments = path.split('/').filter(segment => segment && segment !== '.' && segment !== '..').map(encodeURIComponent).join('/');
   const response = await fetch(`https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${branch.split('/').map(encodeURIComponent).join('/')}/${segments}`, {

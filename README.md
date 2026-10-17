@@ -407,6 +407,7 @@ For GitHub sign-in over the LAN, start the stack with `npm run docker:lan`. It d
 | `OPENAI_API_KEY` | — | Optional. Enables architecture explanations. |
 | `OPENAI_MODEL` | `gpt-5-mini` | Model used for enrichment |
 | `REPO_CACHE_TTL_MS` | `21600000` | Repository cache lifetime (6 hours) |
+| `SESSION_IDLE_MS` | `604800000` | Sign-in session idle timeout (7 days); each request extends it |
 | `TRUST_PROXY_HOPS` | `1` | Reverse proxies in front of the API. Set to `2` behind nginx + the Go gateway (the compose files do) so rate limits key on the real client IP. |
 
 > **Production safeguard:** the API refuses to start if `SESSION_SECRET` or `DB_CREDENTIALS_SECRET` still hold their development defaults, or if `DATABASE_URL` or `REDIS_URL` is missing.
@@ -484,7 +485,7 @@ The Go gateway reads `TRUST_PROXY_HEADER=true` (set in both compose files) to ra
 | `POST` | `/api/github/repo` | Fetch a repository tree (cached, ETag-revalidated) |
 | `POST` | `/api/github/file` | Fetch file contents |
 | `GET` | `/api/github/repos` | List repositories for the signed-in user |
-| `GET` | `/api/github/token` | Retrieve the session's GitHub token |
+| `GET` | `/api/github/proxy/<path>` | Read-only, ETag-cached GitHub API proxy using the session's token (repo paths, `user/repos`, `rate_limit`) |
 
 ### Workspaces & Projects
 
@@ -497,6 +498,19 @@ The Go gateway reads `TRUST_PROXY_HEADER=true` (set in both compose files) to ra
 | `DELETE` | `/api/projects/{id}` | Delete a project |
 | `POST` | `/api/projects/{id}/members` | Add an organization member to a project by `username` (grants edit rights) |
 | `DELETE` | `/api/projects/{id}/members/{memberId}` | Remove a member |
+
+### SQL workspace and saved state
+
+Queries run on the project's connection inside a read-only transaction with a 15 s statement timeout, one statement at a time, capped at 5,000 rows. Editing rights on the project are required.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/projects/{id}/sql/run` | Run `{ sql, limit }`, or `{ sql, explain: true }` for the plan without executing; recorded in history |
+| `GET` | `/api/projects/{id}/sql/browse` | Page through a table: `table`, `schema`, `page`, `pageSize`, `sort`, `dir`, `filterColumn`, `filter` |
+| `GET` | `/api/projects/{id}/sql/history` | Recent statements for the project (last 200 kept) |
+| `GET` / `POST` | `/api/projects/{id}/sql/saved` | List saved queries, or save `{ name, sql }` (same name updates) |
+| `DELETE` | `/api/projects/{id}/sql/saved/{queryId}` | Delete a saved query (its author or an admin) |
+| `GET` / `PATCH` | `/api/me/state` | The signed-in user's workspace settings (`cg.*` keys, newest write wins per key); no secrets |
 
 ### Databases
 

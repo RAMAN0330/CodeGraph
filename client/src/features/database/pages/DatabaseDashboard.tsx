@@ -1,4 +1,8 @@
 import { useCallback, useState } from 'react';
+import { usePersistentState, writePersisted } from '../../../shared/hooks/usePersistentState';
+import SqlWorkspacePage from '../components/sql/SqlWorkspacePage';
+import { qualifiedName } from '../services/sqlApi';
+import DataBrowserPage from '../components/sql/DataBrowserPage';
 import DbSidebar from '../components/shell/DbSidebar';
 import DbHeader from '../components/shell/DbHeader';
 import '../components/shell/DatabaseDashboard.css';
@@ -12,7 +16,7 @@ import SecurityPage from '../components/pages/SecurityPage';
 import AlertsPage from '../components/pages/AlertsPage';
 import SchemaExplorer from '../components/schema/SchemaExplorer';
 import { dbTelemetryApi, useDbTelemetry } from '../services/dbTelemetryApi';
-import { DB_NAV_LABELS, type DbNavId, type Schema, type TimeRange } from '../types';
+import { DB_NAV_IDS, DB_NAV_LABELS, type DbNavId, type Schema, type SchemaTable, type TimeRange } from '../types';
 
 interface DatabaseDashboardProps {
   projectId: number;
@@ -29,7 +33,13 @@ interface DatabaseDashboardProps {
 export default function DatabaseDashboard({
   projectId, projectName, workspaceName, schema, onOpenWorkspace, onBackToProjects, onOpenSettings, onNewConnection, onOpenMigration,
 }: DatabaseDashboardProps) {
-  const [section, setSection] = useState<DbNavId>('overview');
+  const [storedSection, setSection] = usePersistentState<DbNavId>(`cg.db.${projectId}.section`, 'overview');
+  const section: DbNavId = (DB_NAV_IDS as readonly string[]).includes(storedSection) ? storedSection : 'overview';
+  const [pendingSql, setPendingSql] = useState<string | null>(null);
+  const clearPendingSql = useCallback(() => setPendingSql(null), []);
+  const openSql = useCallback((sql: string) => { setPendingSql(sql); setSection('sql'); }, [setSection]);
+  const browseTable = useCallback((table: SchemaTable) => { writePersisted(`cg.db.${projectId}.browseTable`, qualifiedName(table)); setSection('data'); }, [projectId, setSection]);
+  const queryTable = useCallback((table: SchemaTable) => openSql(`SELECT *\nFROM ${qualifiedName(table)}\nLIMIT 100`), [openSql]);
   const [range, setRange] = useState<TimeRange>('live');
   const [paused, setPaused] = useState(false);
 
@@ -65,7 +75,9 @@ export default function DatabaseDashboard({
           {section === 'overview' && <OverviewPage projectId={projectId} paused={paused} onNavigate={setSection} />}
           {section === 'performance' && <PerformancePage projectId={projectId} paused={paused} />}
           {section === 'queries' && <QueriesPage projectId={projectId} paused={paused} />}
-          {section === 'schema' && <SchemaExplorer schema={schema} />}
+          {section === 'sql' && <SqlWorkspacePage projectId={projectId} schema={schema} pendingSql={pendingSql} onPendingSqlConsumed={clearPendingSql} />}
+          {section === 'data' && <DataBrowserPage projectId={projectId} schema={schema} onOpenSql={openSql} />}
+          {section === 'schema' && <SchemaExplorer schema={schema} onBrowse={browseTable} onQuery={queryTable} />}
           {section === 'storage' && <StoragePage projectId={projectId} paused={paused} />}
           {section === 'replication' && <ReplicationPage projectId={projectId} paused={paused} />}
           {section === 'activity' && <ActivityPage projectId={projectId} paused={paused} />}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyRound, Link2 } from 'lucide-react';
+import { KeyRound, Link2, Rows3, SquareTerminal } from 'lucide-react';
 import { GG } from '../dbConnectTheme';
 import type { SchemaTable } from '../../types';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,11 @@ type Tab = 'columns' | 'indexes' | 'relations' | 'stats';
 interface DetailDrawerProps {
   table: SchemaTable;
   allTables: SchemaTable[];
+  onBrowse?: (table: SchemaTable) => void;
+  onQuery?: (table: SchemaTable) => void;
 }
 
-export default function DetailDrawer({ table, allTables }: DetailDrawerProps) {
+export default function DetailDrawer({ table, allTables, onBrowse, onQuery }: DetailDrawerProps) {
   const [tab, setTab] = useState<Tab>('columns');
   const referencing = allTables.filter(t => t.name !== table.name && t.foreignKeys.some(fk => fk.referencedTable === table.name));
 
@@ -35,6 +37,12 @@ export default function DetailDrawer({ table, allTables }: DetailDrawerProps) {
         <span>{table.indexes?.length ?? 0} indexes</span>
         <span>{table.foreignKeys.length + referencing.length} relations</span>
       </div>
+      {(onBrowse || onQuery) && (
+        <div style={{ display: 'flex', gap: 6 }}>
+          {onBrowse && <Button size="sm" variant="outline" onClick={() => onBrowse(table)}><Rows3 size={13} /> Browse rows</Button>}
+          {onQuery && <Button size="sm" variant="outline" onClick={() => onQuery(table)}><SquareTerminal size={13} /> Query</Button>}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 3, borderBottom: `1px solid ${GG.line}`, marginTop: 4 }}>
         {(['columns', 'indexes', 'relations', 'stats'] as Tab[]).map(t => (

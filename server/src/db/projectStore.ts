@@ -199,6 +199,15 @@ export async function getDecryptedConnection(actor: Actor, projectId: number): P
   return decryptJson<DbConnectionInput>(encrypted);
 }
 
+// Running SQL and reading table rows exposes the data itself, not just
+// health metrics, so it needs project access (creator, member or admin)
+// rather than mere organization membership.
+export async function getConnectionForQuerying(actor: Actor, projectId: number): Promise<DbConnectionInput> {
+  const project = await findProject(actor, projectId, true, 'database');
+  if (!project.db_connection_encrypted) throw new Error('This project has no saved database connection.');
+  return decryptJson<DbConnectionInput>(project.db_connection_encrypted);
+}
+
 export async function updateDbConnection(actor: Actor, projectId: number, dbConnection: DbConnectionInput): Promise<DbConnectionSummary> {
   validateDbConnection(dbConnection);
   await findProject(actor, projectId, true, 'database');

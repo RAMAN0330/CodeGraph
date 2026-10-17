@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { githubFetch } from '../../repository/services/github';
 
 interface CommitItem {
   sha: string;
@@ -63,13 +64,9 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
 
     (async () => {
       try {
-        const headers = { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' };
 
         // Fetch tags
-        const tagsRes = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/tags?per_page=10`,
-          { headers }
-        );
+        const tagsRes = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/tags?per_page=10`, token);
         if (!tagsRes.ok) throw new Error(`GitHub API error fetching tags: ${tagsRes.status}`);
         const tags: TagItem[] = await tagsRes.json();
 
@@ -79,10 +76,7 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
           const base = tags[1].name;
           const head = tags[0].name;
 
-          const compareRes = await fetch(
-            `https://api.github.com/repos/${owner}/${repo}/compare/${base}...${head}`,
-            { headers }
-          );
+          const compareRes = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/compare/${base}...${head}`, token);
           if (!compareRes.ok) throw new Error(`GitHub API error comparing tags: ${compareRes.status}`);
           const compareData = await compareRes.json();
           rawCommits = compareData.commits || [];
@@ -93,10 +87,7 @@ export default function ReleaseNotesGenerator({ owner, repo, token }: ReleaseNot
           }
         } else {
           // Fewer than 2 tags — fall back to last 30 commits
-          const commitsRes = await fetch(
-            `https://api.github.com/repos/${owner}/${repo}/commits?per_page=30`,
-            { headers }
-          );
+          const commitsRes = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=30`, token);
           if (!commitsRes.ok) throw new Error(`GitHub API error fetching commits: ${commitsRes.status}`);
           rawCommits = await commitsRes.json();
 

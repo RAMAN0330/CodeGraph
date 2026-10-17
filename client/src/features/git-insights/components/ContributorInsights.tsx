@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { githubFetch } from '../../repository/services/github';
 
 const AUTHOR_COLORS = ['var(--color-success)', 'var(--teal-500)', 'var(--accent-orange)', 'var(--chart-purple)', 'var(--color-danger)', 'var(--chart-cyan)', 'var(--accent-orange)', 'var(--chart-purple)'];
 
@@ -27,10 +28,7 @@ export default function ContributorInsights({ owner, repo, token, folders }: Con
     setError(null);
     (async () => {
       try {
-        const res = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/contributors?per_page=20`,
-          { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' } }
-        );
+        const res = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/contributors?per_page=20`, token);
         if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
         const data = await res.json();
         if (!cancelled) setContributors(data);

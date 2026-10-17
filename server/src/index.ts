@@ -13,13 +13,13 @@ import bcrypt from 'bcryptjs';
 import { env, validateEnvironment } from './config/env';
 import type { SchemaColumn, SchemaForeignKey as SchemaFK, SchemaIndex, SchemaTable } from './types/schema';
 import { createJsonProxy } from './middleware/asyncProxy';
-import { GitHubApiError, fetchBlobContent, fetchFileContent, fetchLatestCommitSha, fetchRepositoryTree, fetchUserRepositories } from './services/githubService';
+import { GitHubApiError, fetchBlobContent, fetchFileContent, fetchLatestCommitSha, fetchRepositoryTree } from './services/githubService';
 import { githubAppConfigured, githubAppInstallUrl, verifyWebhookSignature } from './services/githubApp';
 import { MissingAnalysisError, buildPrReview, prReviewJobFromEvent } from './services/prReview';
 import { getCachedBlob, getCachedFile, getCachedTree, pruneStaleCacheEntries, saveBlobCache, saveFileCache, saveTreeCache, touchTreeCache } from './db/repoCache';
 import { initSchema } from './db/pool';
 import { UsernameTakenError, clearGithubConnection, createOrganizationWithAdmin, findUserById, findUserByUsername, setGithubConnection, toPublicUser, type UserRow } from './db/users';
-import { AccessError, NotFoundError, addMember, assertCanEditProject, createProject, createWorkspace, getAlertWebhook, getDecryptedConnection, listProjects, listWorkspaces, removeMember, removeProject, removeWorkspace, setAlertWebhook, updateDbConnection, type Actor } from './db/projectStore';
+import { AccessError, NotFoundError, addMember, assertCanEditProject, createProject, createWorkspace, getAlertWebhook, getConnectionForQuerying, getDecryptedConnection, listProjects, listWorkspaces, removeMember, removeProject, removeWorkspace, setAlertWebhook, updateDbConnection, type Actor } from './db/projectStore';
 import { listAlerts, listSnapshots } from './db/analysisHistory';
 import { InviteUnavailableError, createInvite, findOpenInvite, joinOrganizationWithInvite, listMembers } from './db/organization';
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation, validateNote } from './db/annotations';
@@ -34,6 +34,11 @@ import { getAnalysis, type StoredAnalysis } from './db/analysisStore';
 import { createAlertRule, deleteAlertRule, listAlertRules } from './db/metricsSnapshots';
 import { buildActivity, buildOverview, buildPerformance, buildQueries, buildReplication, buildSecurity, buildStorage } from './services/telemetry/orchestrate';
 import { enqueueAnalysisJob, enqueuePrReviewJob, getAnalysisJobState, startAnalysisWorker, stopAnalysisWorker } from './queue/analysisQueue';
+import { SqlInputError, browseTable, explainQuery, runQuery } from './services/sqlWorkspace';
+import { deleteSavedQuery, listHistory, listSavedQueries, recordHistory, saveQuery, validateSavedQuery } from './db/sqlQueries';
+import { UiStateError, getUiState, patchUiState } from './db/uiState';
+import { forgetSharedPolls, sharedPoll } from './services/telemetry/sharedPoll';
+import { isAllowedProxyPath, proxyGithubGet } from './services/githubProxy';
 import { canReadRepository, isValidRepoSegment, parseGithubCloneUrl, sanitizeToken } from './services/repoAccess';
 
 declare global {
@@ -115,11 +120,14 @@ app.use(session({
   secret: env.sessionSecret,
   resave: false,
   saveUninitialized: false,
+  // Idle timeout: each request pushes expiry out by sessionIdleMs, so an
+  // abandoned session ends instead of living a fixed 30 days.
+  rolling: true,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
     secure: env.clientOrigin.startsWith('https://'),
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge: env.sessionIdleMs,
   },
 }));
 
@@ -625,27 +633,52 @@ app.get('/auth/me', (req: any, res: any) => {
   res.json(toPublicUser(req.user));
 });
 
-function endAuthenticatedSession(req: any, res: any, redirect: boolean) {
+// Workspace UI state (sections, selections, drafts) synced across devices.
+app.get('/api/me/state', requireAuth, async (req: any, res: any) => {
+  try {
+    res.json(await getUiState(req.user.id));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/me/state', requireAuth, async (req: any, res: any) => {
+  try {
+    await patchUiState(req.user.id, req.body?.entries);
+    res.status(204).end();
+  } catch (error: any) {
+    res.status(error instanceof UiStateError ? 400 : 500).json({ error: error.message });
+  }
+});
+
+function endAuthenticatedSession(req: any, res: any) {
   req.logout((logoutError: unknown) => {
     if (logoutError) return res.status(500).json({ error: 'Unable to sign out' });
     req.session.destroy((sessionError: unknown) => {
       if (sessionError) return res.status(500).json({ error: 'Unable to clear session' });
       res.clearCookie('connect.sid', { path: '/' });
       res.clearCookie('connect.sid', { path: '/', secure: false });
-      if (redirect) return res.redirect(env.clientOrigin);
       return res.status(204).end();
     });
   });
 }
 
-app.post('/auth/logout', authRateLimit, (req: any, res: any) => endAuthenticatedSession(req, res, false));
-app.get('/auth/logout', authRateLimit, (req: any, res: any) => endAuthenticatedSession(req, res, true));
+app.post('/auth/logout', authRateLimit, (req: any, res: any) => endAuthenticatedSession(req, res));
 
 // Fetch authenticated user's repos
 app.get('/api/github/repos', requireAuth, async (req: any, res: any) => {
   if (!req.user.github_token) return res.status(409).json({ error: 'Connect a GitHub account before browsing repositories.' });
   try {
-    const repos = await fetchUserRepositories(req.user.github_token);
+    // Up to 500 repositories, each page ETag-cached by the GitHub proxy, so
+    // reopening the picker is instant and doesn't spend rate limit.
+    const repos: unknown[] = [];
+    for (let page = 1; page <= 5; page++) {
+      const result = await proxyGithubGet(`/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member&page=${page}`, req.user.github_token);
+      if (result.status !== 200) throw new GitHubApiError(result.status, 'listing repositories failed');
+      const batch = JSON.parse(result.body) as unknown[];
+      repos.push(...batch);
+      if (batch.length < 100) break;
+    }
     res.json({ repos });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -661,11 +694,27 @@ app.get('/api/github/access/:owner/:repo', requireAuth, async (req: any, res: an
   res.json({ accessible: await canReadRepository(owner, repo, sanitizeToken(req.user.github_token)) });
 });
 
-// Hand the connected GitHub token to the client so it can authenticate its own
-// direct-to-GitHub API calls (repo scans, branch/commit browsing, etc).
-app.get('/api/github/token', requireAuth, (req: any, res: any) => {
-  if (!req.user.github_token) return res.status(409).json({ error: 'Connect a GitHub account before browsing repositories.' });
-  res.json({ token: req.user.github_token });
+// Read-only GitHub API proxy for the browser's commit/branch/contributor
+// views. The connected OAuth token never leaves the server, and responses are
+// ETag-cached (see githubProxy) so repeat views are instant and rate-limit free.
+// 409 tells the client there is no connected account, so it calls GitHub itself.
+const githubProxyRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 600, standardHeaders: true, legacyHeaders: false });
+app.use('/api/github/proxy', requireAuth, githubProxyRateLimit, async (req: any, res: any) => {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Only GET is proxied.' });
+  if (!isAllowedProxyPath(req.url)) return res.status(400).json({ error: 'This GitHub path is not proxied.' });
+  const token = sanitizeToken(req.user.github_token);
+  if (!token) return res.status(409).json({ error: 'No connected GitHub account.' });
+  try {
+    const result = await proxyGithubGet(req.url, token);
+    const { remaining, limit, reset } = result.rateLimit;
+    if (remaining) res.set('X-RateLimit-Remaining', remaining);
+    if (limit) res.set('X-RateLimit-Limit', limit);
+    if (reset) res.set('X-RateLimit-Reset', reset);
+    res.set('X-Cache', result.cached ? 'HIT' : 'MISS');
+    res.status(result.status).type('application/json').send(result.body);
+  } catch (error: any) {
+    res.status(502).json({ error: error.message });
+  }
 });
 
 // --- Projects / workspaces (server-backed, replacing client localStorage) ---
@@ -735,6 +784,7 @@ app.post('/api/projects/:id/schema', requireAuth, async (req: any, res: any) => 
 app.put('/api/projects/:id/db-connection', requireAuth, async (req: any, res: any) => {
   try {
     const summary = await updateDbConnection(actorOf(req), Number(req.params.id), req.body?.dbConnection);
+    forgetSharedPolls(`${Number(req.params.id)}:`);
     res.json(summary);
   } catch (error: any) {
     res.status(errorStatus(error, 400)).json({ error: error.message });
@@ -742,80 +792,112 @@ app.put('/api/projects/:id/db-connection', requireAuth, async (req: any, res: an
 });
 
 // --- Database Dashboard telemetry (Postgres/MySQL projects only) ---
-app.get('/api/projects/:id/db/overview', requireAuth, async (req: any, res: any) => {
+// Each page's builder runs at most once per few seconds per project however
+// many people are watching (see sharedPoll). Access is still checked per request.
+const telemetryBuilders: Record<string, (projectId: number, connection: any) => Promise<unknown>> = {
+  overview: buildOverview,
+  performance: buildPerformance,
+  queries: buildQueries,
+  storage: buildStorage,
+  replication: buildReplication,
+  activity: projectId => buildActivity(projectId),
+  security: (_projectId, connection) => buildSecurity(connection),
+};
+for (const [page, build] of Object.entries(telemetryBuilders)) {
+  app.get(`/api/projects/:id/db/${page}`, requireAuth, async (req: any, res: any) => {
+    try {
+      const projectId = Number(req.params.id);
+      const connection = await getDecryptedConnection(actorOf(req), projectId);
+      const data = await sharedPoll(`${projectId}:${page}`, () => build(projectId, connection));
+      res.json({ success: true, data });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+}
+
+// --- SQL workspace (database projects) ---
+// Statements run read-only with a timeout and row cap (see sqlWorkspace).
+const sqlRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
+const viewerOf = (req: any) => ({ id: req.user.id, isAdmin: req.user.role === 'admin' });
+
+app.post('/api/projects/:id/sql/run', requireAuth, sqlRateLimit, async (req: any, res: any) => {
+  const projectId = Number(req.params.id);
+  const sql = String(req.body?.sql ?? '');
+  let connection;
   try {
-    const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildOverview(projectId, connection);
-    res.json({ success: true, data });
+    connection = await getConnectionForQuerying(actorOf(req), projectId);
   } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
+    return res.status(errorStatus(error, 400)).json({ error: error.message });
+  }
+  try {
+    const result = req.body?.explain ? await explainQuery(connection, sql) : await runQuery(connection, sql, req.body?.limit);
+    await recordHistory(projectId, req.user.id, { sql, durationMs: result.durationMs, rowCount: 'rowCount' in result ? result.rowCount : null }).catch(() => undefined);
+    res.json(result);
+  } catch (error: any) {
+    if (!(error instanceof SqlInputError)) await recordHistory(projectId, req.user.id, { sql, error: error.message }).catch(() => undefined);
+    res.status(400).json({ error: error.message });
   }
 });
 
-app.get('/api/projects/:id/db/performance', requireAuth, async (req: any, res: any) => {
+app.get('/api/projects/:id/sql/browse', requireAuth, sqlRateLimit, async (req: any, res: any) => {
   try {
-    const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildPerformance(projectId, connection);
-    res.json({ success: true, data });
+    const connection = await getConnectionForQuerying(actorOf(req), Number(req.params.id));
+    const q = req.query;
+    res.json(await browseTable(connection, {
+      schema: typeof q.schema === 'string' ? q.schema : undefined,
+      table: String(q.table ?? ''),
+      page: q.page, pageSize: q.pageSize,
+      sortColumn: typeof q.sort === 'string' ? q.sort : undefined,
+      sortDir: typeof q.dir === 'string' ? q.dir : undefined,
+      filterColumn: typeof q.filterColumn === 'string' ? q.filterColumn : undefined,
+      filterValue: typeof q.filter === 'string' ? q.filter : undefined,
+    }));
   } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
+    res.status(errorStatus(error, 400)).json({ error: error.message });
   }
 });
 
-app.get('/api/projects/:id/db/queries', requireAuth, async (req: any, res: any) => {
+app.get('/api/projects/:id/sql/history', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildQueries(projectId, connection);
-    res.json({ success: true, data });
+    await getConnectionForQuerying(actorOf(req), projectId);
+    res.json(await listHistory(projectId));
   } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
+    res.status(errorStatus(error, 400)).json({ error: error.message });
   }
 });
 
-app.get('/api/projects/:id/db/storage', requireAuth, async (req: any, res: any) => {
+app.get('/api/projects/:id/sql/saved', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildStorage(projectId, connection);
-    res.json({ success: true, data });
+    await getConnectionForQuerying(actorOf(req), projectId);
+    res.json(await listSavedQueries(projectId, viewerOf(req)));
   } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
+    res.status(errorStatus(error, 400)).json({ error: error.message });
   }
 });
 
-app.get('/api/projects/:id/db/replication', requireAuth, async (req: any, res: any) => {
+app.post('/api/projects/:id/sql/saved', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildReplication(projectId, connection);
-    res.json({ success: true, data });
+    await getConnectionForQuerying(actorOf(req), projectId);
+    const id = await saveQuery(projectId, req.user.id, validateSavedQuery(req.body ?? {}));
+    res.status(201).json({ id });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
+    res.status(errorStatus(error, 400)).json({ error: error.message });
   }
 });
 
-app.get('/api/projects/:id/db/activity', requireAuth, async (req: any, res: any) => {
+app.delete('/api/projects/:id/sql/saved/:queryId', requireAuth, async (req: any, res: any) => {
   try {
     const projectId = Number(req.params.id);
-    await getDecryptedConnection(actorOf(req), projectId); // ownership check
-    const data = await buildActivity(projectId);
-    res.json({ success: true, data });
+    await getConnectionForQuerying(actorOf(req), projectId);
+    const deleted = await deleteSavedQuery(projectId, Number(req.params.queryId), viewerOf(req));
+    if (!deleted) return res.status(404).json({ error: 'Saved query not found, or not yours to delete.' });
+    res.status(204).end();
   } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
-  }
-});
-
-app.get('/api/projects/:id/db/security', requireAuth, async (req: any, res: any) => {
-  try {
-    const projectId = Number(req.params.id);
-    const connection = await getDecryptedConnection(actorOf(req), projectId);
-    const data = await buildSecurity(connection);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(400).json({ success: false, error: error.message });
+    res.status(errorStatus(error, 400)).json({ error: error.message });
   }
 });
 

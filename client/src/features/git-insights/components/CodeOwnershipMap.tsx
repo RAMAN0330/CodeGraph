@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { githubFetch } from '../../repository/services/github';
 
 const AUTHOR_COLORS = ['var(--color-success)','var(--acc2)','var(--accent-orange)','var(--chart-purple)','var(--color-danger)','var(--teal-500)','var(--accent-orange)','var(--chart-purple)'];
 const AUTHOR_BG    = ['var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)'];
@@ -100,10 +101,7 @@ export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwne
 
           try {
             const pathQuery = folder === '(root)' ? '' : `&path=${encodeURIComponent(folder)}`;
-            const res = await fetch(
-              `https://api.github.com/repos/${owner}/${repo}/commits?per_page=1${pathQuery}`,
-              { headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' } }
-            );
+            const res = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=1${pathQuery}`, token);
             if (res.ok) {
               const data = await res.json();
               if (Array.isArray(data) && data.length > 0) {
