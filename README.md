@@ -10,7 +10,7 @@ Architecture graphs, Git intelligence, database visualization, and security anal
 [![React](https://img.shields.io/badge/React-19-149ECA.svg?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6.svg?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Go](https://img.shields.io/badge/Go-1.23+-00ADD8.svg?style=flat-square&logo=go&logoColor=white)](https://go.dev)
-[![FastAPI](https://img.shields.io/badge/FastAPI-Celery-009688.svg?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Rust](https://img.shields.io/badge/Rust-tree--sitter-B7410E.svg?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1.svg?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?style=flat-square&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
@@ -208,7 +208,7 @@ Database credentials attached to a project are encrypted at rest using `DB_CREDE
 
 ## System Architecture
 
-Structrace is a four-tier system: a React client, a Go edge gateway, a Node.js application API, and a Python analysis engine, backed by PostgreSQL and Redis.
+Structrace is a four-tier system: a React client, a Go edge gateway, a Node.js application API, and a Rust analysis engine, backed by PostgreSQL and Redis.
 
 ```mermaid
 flowchart TD
@@ -217,8 +217,7 @@ flowchart TD
     Gateway["Edge Gateway — Go<br/>CORS · rate limiting · bounded bodies<br/>timeouts · health · graceful shutdown"]
 
     NodeAPI["Application API — Node.js / Express<br/>auth · projects · GitHub proxy · DB telemetry"]
-    Engine["Analysis Engine — FastAPI<br/>job intake and status"]
-    Worker["Worker — Celery<br/>clone · parse · build graph"]
+    Engine["Analysis Engine — Rust<br/>clone · parallel tree-sitter scan · graph"]
 
     Postgres[("PostgreSQL 16<br/>users · projects · analyses · caches")]
     Redis[("Redis 7<br/>sessions · job state · queue")]
@@ -228,21 +227,18 @@ flowchart TD
     Client --> Gateway
     Gateway --> NodeAPI
     Gateway --> Engine
-    Engine --> Worker
-    Worker --> Redis
-    Engine --> Redis
     NodeAPI --> Postgres
     NodeAPI --> Redis
     NodeAPI --> GitHub
     NodeAPI --> UserDB
-    Worker --> GitHub
+    Engine --> GitHub
 ```
 
 ### Request Flow
 
 1. The client sends every request to the **Go gateway**, the single public entry point.
-2. The gateway routes `/api/analyze` and `/api/tasks/{id}` to the **FastAPI engine**, and all authentication, project, database, and GitHub routes to the **Node API**.
-3. Analysis jobs are queued to **Celery**; the worker clones the repository, builds the dependency graph, and writes progress and results to **Redis**.
+2. The gateway routes `/api/analyze` and `/api/tasks/{id}` to the **Rust engine** (through the Node API, which checks access first), and all authentication, project, database, and GitHub routes to the **Node API**.
+3. The engine shallow-clones the repository, parses every source file in parallel with tree-sitter (17 languages parsed into symbols, imports and calls; about 80 more counted in stats), and keeps job progress and the result in memory for an hour.
 4. The client polls task status until the graph is ready, then renders it in the workspace.
 5. Completed analyses and repository trees are cached in **PostgreSQL**, so repeat visits avoid both re-analysis and GitHub rate limits.
 
@@ -266,7 +262,7 @@ The GitHub proxy caches repository trees and file blobs in PostgreSQL. A fresh c
 | **Visualization** | Sigma.js + Graphology, React Flow (`@xyflow/react`), D3 (incl. `d3-sankey`), Mermaid with ELK layout |
 | **Gateway** | Go 1.23+ (standard library only) |
 | **Application API** | Node.js, Express 5, Passport (GitHub OAuth 2.0 + local), Helmet, express-rate-limit, BullMQ |
-| **Analysis Engine** | Python, FastAPI, Celery, GitPython, Graphify |
+| **Analysis Engine** | Rust, tree-sitter, rayon, axum, tokio |
 | **Parsing** | Tree-sitter (WASM), Acorn, `sqlparse` |
 | **Data** | PostgreSQL 16, Redis 7.4 |
 | **Connectors** | PostgreSQL (`pg`), MySQL (`mysql2`) |
@@ -281,7 +277,7 @@ The GitHub proxy caches repository trees and file blobs in PostgreSQL. A fresh c
 | Requirement | Version | Required for |
 |-------------|---------|--------------|
 | Node.js | 24 | Client and application API (Docker images use `node:24-alpine`) |
-| Python | 3.12 | Analysis engine and worker (Docker image uses `python:3.12-slim`) |
+| Rust | stable | Analysis engine (`engine/`, built with `cargo`) |
 | Go | 1.23+ | Edge gateway (optional in development) |
 | PostgreSQL | 16 | Persistent storage |
 | Redis | 7+ | Sessions, job state, and queue |
@@ -298,7 +294,6 @@ cd CodeGraph
 
 ```bash
 npm run install:all      # Root, server, and client Node packages
-npm run install:python   # Python dependencies for the analysis engine
 ```
 
 ### 3. Configure the environment
@@ -325,7 +320,7 @@ Copy the resulting client ID and secret into `server/.env`.
 npm run dev
 ```
 
-This runs the Node API, the Vite client, the FastAPI engine, and the Celery worker concurrently.
+This runs the Node API, the Vite client, and the Rust analysis engine concurrently. The first run compiles the engine, which takes a minute or two.
 
 To develop against the Go gateway — which is how production is served — use:
 
@@ -342,19 +337,20 @@ The gateway then occupies port `5000` and the Node API moves to `5001`.
 | Web client (Vite, listening on the local network) | `5173` | `5173` |
 | Go gateway | — | `5000` |
 | Node application API | `5000` | `5001` |
-| FastAPI analysis engine | `8000` | `8000` |
+| Rust analysis engine | `8000` | `8000` |
 
 ### Available Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Node API, client, FastAPI, and Celery worker |
+| `npm run dev` | Node API, client, and analysis engine |
 | `npm run dev:node` | Node API and client only |
 | `npm run dev:go` | Full stack behind the Go gateway |
 | `npm run build` | Production build of the client and Node API |
 | `npm run build:go` | Compile the gateway to `server-go/bin/codeflow-api` |
 | `npm run install:all` | Install all Node dependencies |
-| `npm run install:python` | Install Python dependencies |
+| `npm run engine` | Analysis engine only (release build) |
+| `npm run test:engine` | Analysis engine tests |
 
 ---
 
@@ -380,8 +376,7 @@ For GitHub sign-in over the LAN, start the stack with `npm run docker:lan`. It d
 | `client` | Nginx serving the built React application |
 | `gateway` | Go edge gateway, the public entry point |
 | `legacy-api` | Node application API |
-| `analysis` | FastAPI analysis engine |
-| `worker` | Celery worker |
+| `engine` | Rust analysis engine |
 | `postgres` | PostgreSQL 16 with a persistent volume |
 | `redis` | Redis 7.4 with AOF persistence and an LRU memory ceiling |
 
@@ -396,7 +391,7 @@ For GitHub sign-in over the LAN, start the stack with `npm run docker:lan`. It d
 | `NODE_ENV` | `development` | Runtime mode. Production enforces the checks below. |
 | `PORT` | `5000` | API listening port |
 | `CLIENT_ORIGIN` | `http://localhost:5173` | Allowed CORS origin |
-| `FASTAPI_URL` | `http://localhost:8000` | Analysis engine base URL |
+| `ANALYSIS_ENGINE_URL` | `http://localhost:8000` | Analysis engine base URL |
 | `DATABASE_URL` | — | PostgreSQL connection string. **Required in production.** |
 | `REDIS_URL` | — | Redis connection string. **Required in production.** |
 | `SESSION_SECRET` | `dev-secret-change-me` | Session signing secret. **Must be changed in production.** |
@@ -422,10 +417,23 @@ The Go gateway reads `TRUST_PROXY_HEADER=true` (set in both compose files) to ra
 |----------|---------|-------------|
 | `PORT` | `5000` | Gateway listening port |
 | `CLIENT_ORIGIN` | `http://localhost:5173` | Allowed CORS origin. A wildcard `*` is rejected. |
-| `FASTAPI_URL` | `http://localhost:8000` | Analysis engine upstream |
+| `ANALYSIS_ENGINE_URL` | `http://localhost:8000` | Analysis engine upstream |
 | `LEGACY_API_URL` | `http://localhost:5001` | Node API upstream |
 | `RATE_LIMIT_RPS` | `50` | Requests per second per client |
 | `MAX_CONCURRENT_REQUESTS` | `256` | Concurrency ceiling |
+
+### Analysis Engine — `engine/`
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `8000` | Engine listening port |
+| `ANALYSIS_CONCURRENCY` | `2` | Jobs that clone and scan at once |
+| `ANALYSIS_MAX_QUEUED` | `64` | Unfinished jobs accepted before `/api/analyze` answers `503` |
+| `CLONE_TIMEOUT_SECONDS` | `300` | Limit for the shallow clone |
+| `MAX_FILE_BYTES` | `1048576` | Larger files are counted as skipped (generated code, data) |
+| `GRAPH_MAX_NODES` / `GRAPH_MAX_LINKS` | `10000` / `30000` | Graph caps; file nodes and import edges are kept first |
+
+`codegraph-engine scan <path> --pretty` prints the same analysis for a local checkout, which is handy for checking a repository by hand.
 
 ### Client — `client/.env`
 
@@ -440,7 +448,7 @@ The Go gateway reads `TRUST_PROXY_HEADER=true` (set in both compose files) to ra
 | `POSTGRES_USER` | `codegraph` | Database user |
 | `POSTGRES_PASSWORD` | — | **Required.** No default. |
 | `POSTGRES_DB` | `codegraph` | Database name |
-| `CELERY_CONCURRENCY` | `2` | Worker process count |
+| `ANALYSIS_CONCURRENCY` | `2` (`4` in production) | Analysis jobs run at once; each uses every core |
 
 ---
 
@@ -575,7 +583,8 @@ CodeGraph/
 │       │   └── workspace/       # Workspace orchestration and workspace-only UI
 │       └── shared/              # Domain-neutral primitives and shared types
 │
-├── server/                      # Node application API + Python analysis engine
+├── engine/                      # Rust analysis engine (scanner, graph, HTTP service)
+├── server/                      # Node application API
 │   ├── src/
 │   │   ├── analysis/            # Repository parsing and tree construction
 │   │   ├── config/              # Environment loading and validation
@@ -584,7 +593,6 @@ CodeGraph/
 │   │   ├── queue/               # BullMQ analysis queue
 │   │   ├── services/            # GitHub, credential cipher, DB telemetry
 │   │   └── types/               # Shared transport types
-│   └── app/                     # FastAPI service, Celery tasks and worker
 │
 ├── server-go/                   # Go edge gateway (standard library only)
 │   ├── cmd/api/                 # Entry point
@@ -631,10 +639,10 @@ Gateway tests:
 cd server-go && go test ./...
 ```
 
-Python analysis-service tests:
+Analysis engine tests (per-language extraction, import resolution, whole-repo scans, the HTTP contract and cloning):
 
 ```bash
-cd server && .venv/bin/python -m unittest discover -s tests
+cd engine && cargo test
 ```
 
 `tests/server-security.test.mjs` covers the API's access-control fixes (authenticated outbound routes, repository access checks before serving shared caches, clone-URL validation, token encryption). `tests/ux-flows.test.mjs` covers the landing → project repository hand-off, analysis-error guidance, and the workspace's no-repository state. Audit findings, coverage status and known pre-existing test failures are tracked in [`docs/audit/`](docs/audit/).

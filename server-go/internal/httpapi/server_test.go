@@ -11,7 +11,7 @@ import (
 )
 
 func testConfig(analysisURL string) config.Config {
-	return config.Config{ClientOrigin: "http://localhost:5173", FastAPIURL: analysisURL, LegacyAPIURL: analysisURL, MaxBodyBytes: 1024,
+	return config.Config{ClientOrigin: "http://localhost:5173", EngineURL: analysisURL, LegacyAPIURL: analysisURL, MaxBodyBytes: 1024,
 		RateLimitPerSecond: 100, MaxConcurrentRequests: 100, ReadTimeout: time.Second, WriteTimeout: time.Second, IdleTimeout: time.Second}
 }
 

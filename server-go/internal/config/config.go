@@ -7,11 +7,11 @@ import (
 )
 
 type Config struct {
-	Address, ClientOrigin, FastAPIURL, LegacyAPIURL string
-	ReadTimeout, WriteTimeout, IdleTimeout          time.Duration
-	MaxBodyBytes                                    int64
-	RateLimitPerSecond                              int
-	MaxConcurrentRequests                           int
+	Address, ClientOrigin, EngineURL, LegacyAPIURL string
+	ReadTimeout, WriteTimeout, IdleTimeout         time.Duration
+	MaxBodyBytes                                   int64
+	RateLimitPerSecond                             int
+	MaxConcurrentRequests                          int
 	// TrustProxyHeader keys rate limiting on X-Real-IP (set by the nginx
 	// front end) instead of the TCP peer, which behind nginx is always nginx.
 	TrustProxyHeader bool
@@ -21,7 +21,7 @@ func Load() Config {
 	port := value("PORT", "5000")
 	return Config{
 		Address: ":" + port, ClientOrigin: value("CLIENT_ORIGIN", "http://localhost:5173"),
-		FastAPIURL: value("FASTAPI_URL", "http://localhost:8000"), MaxBodyBytes: 10 << 20,
+		EngineURL: value("ANALYSIS_ENGINE_URL", "http://localhost:8000"), MaxBodyBytes: 10 << 20,
 		LegacyAPIURL:          value("LEGACY_API_URL", "http://localhost:5001"),
 		RateLimitPerSecond:    integer("RATE_LIMIT_RPS", 50),
 		MaxConcurrentRequests: integer("MAX_CONCURRENT_REQUESTS", 256),

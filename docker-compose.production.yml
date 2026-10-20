@@ -12,14 +12,14 @@ services:
     environment:
       PORT: "5000"
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
-      FASTAPI_URL: http://analysis:8000
+      ANALYSIS_ENGINE_URL: http://engine:8000
       LEGACY_API_URL: http://legacy-api:5001
       # nginx sets X-Real-IP; without this every user shares one rate-limit bucket.
       TRUST_PROXY_HEADER: "true"
       RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-50}
       MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-256}
     depends_on:
-      analysis: { condition: service_healthy }
+      engine: { condition: service_healthy }
       legacy-api: { condition: service_healthy }
     restart: unless-stopped
     deploy: { replicas: 3 }
@@ -33,7 +33,7 @@ services:
       PORT: "5001"
       # nginx -> gateway -> legacy-api: two proxy hops before the client IP.
       TRUST_PROXY_HOPS: "2"
-      FASTAPI_URL: http://analysis:8000
+      ANALYSIS_ENGINE_URL: http://engine:8000
       NODE_ENV: production
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
       REDIS_URL: redis://redis:6379/0
@@ -52,23 +52,14 @@ services:
     restart: unless-stopped
     deploy: { replicas: 2 }
 
-  analysis:
-    build: { context: ./server, dockerfile: Dockerfile.python }
-    environment: { REDIS_URL: "redis://redis:6379/0" }
-    depends_on:
-      redis: { condition: service_healthy }
-    healthcheck: { test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"], interval: 10s, timeout: 3s, retries: 3 }
+  engine:
+    # Rust analysis engine: clones and scans repositories for /api/analyze jobs.
+    # One replica: job state lives in its memory; raise ANALYSIS_CONCURRENCY to scale.
+    build: ./engine
+    environment:
+      ANALYSIS_CONCURRENCY: ${ANALYSIS_CONCURRENCY:-4}
+    healthcheck: { test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/health/live"], interval: 10s, timeout: 3s, retries: 3 }
     restart: unless-stopped
-    deploy: { replicas: 2 }
-
-  worker:
-    build: { context: ./server, dockerfile: Dockerfile.python }
-    command: ["celery", "-A", "app.worker", "worker", "--loglevel=warning", "--concurrency=${CELERY_CONCURRENCY:-4}", "--max-tasks-per-child=25"]
-    environment: { REDIS_URL: "redis://redis:6379/0" }
-    depends_on:
-      redis: { condition: service_healthy }
-    restart: unless-stopped
-    deploy: { replicas: 4 }
 
   postgres:
     image: postgres:16-alpine

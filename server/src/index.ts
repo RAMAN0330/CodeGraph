@@ -1289,10 +1289,10 @@ app.get('/api/pr-review/:owner/:repo/:number', requireAuth, outboundRateLimit, a
   }
 });
 
-// Proxy → FastAPI on port 8000. The analysis service clones whatever URL it
+// Proxy → the Rust analysis engine on port 8000. It clones whatever URL it
 // is handed, so only authenticated users may start a job, and only for a
 // github.com repository they can actually read.
-const proxyToFastAPI = createJsonProxy(env.fastApiUrl);
+const proxyToEngine = createJsonProxy(env.engineUrl);
 app.post('/api/analyze', requireAuth, outboundRateLimit, async (req: any, res: any) => {
   const target = parseGithubCloneUrl(req.body?.url);
   if (!target) return res.status(400).json({ error: 'Only https://github.com/<owner>/<repo> URLs can be analyzed.' });
@@ -1302,11 +1302,11 @@ app.post('/api/analyze', requireAuth, outboundRateLimit, async (req: any, res: a
   }
   const branch = typeof req.body?.branch === 'string' && /^[A-Za-z0-9_./-]{1,200}$/.test(req.body.branch) && !req.body.branch.startsWith('-') ? req.body.branch : undefined;
   req.body = { url: target.url, token, branch };
-  return proxyToFastAPI(req, res);
+  return proxyToEngine(req, res);
 });
 app.get('/api/tasks/:taskId', requireAuth, (req: any, res: any) => {
   if (!/^[0-9a-f-]{36}$/i.test(req.params.taskId)) return res.status(400).json({ error: 'Invalid task id.' });
-  return proxyToFastAPI(req, res);
+  return proxyToEngine(req, res);
 });
 
 async function start(): Promise<void> {
