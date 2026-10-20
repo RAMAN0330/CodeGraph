@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MotionConfig, motion } from 'framer-motion';
-import { ArrowRight, BarChart3, Database, Eye, GitBranch, KeyRound, MessageSquareText, Network, PencilLine, Share2, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BarChart3, Database, Eye, GitBranch, KeyRound, LayoutDashboard, MessageSquareText, Moon, Network, PencilLine, Server, Share2, ShieldCheck, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { parseRepositoryInput, savePendingRepository } from '../../organization/services/pendingRepository';
 import { ArchitectureDiagram, CodeGraphDiagram, DatabaseDiagram, InsightsDiagram, NetworkDiagram, SecurityDiagram, TeamDiagram } from '../components/ModuleDiagrams';
@@ -69,7 +69,7 @@ function ContactSheet() {
   return (
     <>
       <section className="sheet" id="product" aria-label="What Structrace shows for a repository">
-        <figure className={`sheet-stage tone-${current.tone}`} role="tabpanel" id="sheet-panel" aria-labelledby={`sheet-tab-${active}`}>
+        <figure className={`sheet-stage glass-card tone-${current.tone}`} role="tabpanel" id="sheet-panel" aria-labelledby={`sheet-tab-${active}`}>
           <div className="sheet-topbar">
             <span className={`sheet-dot${current.id === 'security' ? ' is-example' : ''}`} aria-hidden="true" />
             <span className="sheet-path">{current.path}</span>
@@ -98,7 +98,7 @@ function ContactSheet() {
                 key={m.id}
                 ref={element => { tabs.current[index] = element; }}
                 variant="ghost"
-                className={`sheet-tab tone-${m.tone}${isActive ? ' is-active' : ''}`}
+                className={`sheet-tab glass-card tone-${m.tone}${isActive ? ' is-active' : ''}`}
                 role="tab"
                 id={`sheet-tab-${m.id}`}
                 aria-selected={isActive}
@@ -156,7 +156,7 @@ function Teams() {
             ))}
           </ul>
         </div>
-        <figure className="selfhost-frame">
+        <figure className="selfhost-frame glass-card">
           <div className="sheet-topbar">
             <span className="sheet-dot is-example" aria-hidden="true" />
             <span className="sheet-path">example · organization</span>
@@ -175,12 +175,12 @@ function SelfHost() {
         <div className="selfhost-copy">
           <h2 id="selfhost-title">Runs inside your network.</h2>
           <p>Structrace ships as a Docker Compose stack. Repositories are analyzed and cached on your servers, in your own Postgres, with GitHub tokens and database credentials encrypted at rest.</p>
-          <figure className="selfhost-terminal">
+          <figure className="selfhost-terminal glass-card">
             <figcaption>Deploy</figcaption>
             <pre><code>{'cp server/.env.example server/.env\n# set POSTGRES_PASSWORD, SESSION_SECRET,\n# DB_CREDENTIALS_SECRET\nnpm run docker:up'}</code></pre>
           </figure>
         </div>
-        <figure className="selfhost-frame">
+        <figure className="selfhost-frame glass-card">
           <div className="sheet-topbar">
             <span className="sheet-dot" aria-hidden="true" />
             <span className="sheet-path">docker-compose.production.yml · network boundary</span>
@@ -209,6 +209,7 @@ function SelfHost() {
 function StartForm({ onSubmit }: { onSubmit: (repository: string) => void }) {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
+  const id = useId();
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!value.trim()) { onSubmit(''); return; }
@@ -226,19 +227,43 @@ function StartForm({ onSubmit }: { onSubmit: (repository: string) => void }) {
           onChange={event => { setValue(event.target.value); setError(''); }}
           placeholder="owner/repository"
           autoComplete="off" spellCheck={false} inputMode="url"
-          aria-invalid={!!error} aria-describedby={error ? 'start-error' : 'start-hint'}
+          aria-invalid={!!error} aria-describedby={`${id}-${error ? 'error' : 'hint'}`}
         />
       </label>
       <Button type="submit" className="landing-primary start-submit">Analyze <ArrowRight size={17} aria-hidden="true" /></Button>
       {error
-        ? <p id="start-error" className="start-error" role="alert">{error}</p>
-        : <p id="start-hint" className="start-hint">Public or private. You sign in first, then it opens in your first project.</p>}
+        ? <p id={`${id}-error`} className="start-error" role="alert">{error}</p>
+        : <p id={`${id}-hint`} className="start-hint">Public or private. You sign in first, then it opens in your first project.</p>}
     </form>
   );
 }
 
+// What happens between pasting a repository and reading it; matches the
+// login → pending repository → first project flow in features/organization.
+const STEPS = [
+  { icon: GitBranch, title: 'Connect a repository', body: 'Sign in, paste owner/repository or a github.com link. Public or private.' },
+  { icon: Server, title: 'Analyzed on your servers', body: 'Structrace clones and analyzes it inside your deployment and caches the result in your Postgres.' },
+  { icon: LayoutDashboard, title: 'Open the workspace', body: 'Graph, architecture, history, database and security findings, side by side in one project.' },
+];
+
+type Theme = 'light' | 'dark';
+const THEME_KEY = 'landing-theme';
+function initialTheme(): Theme {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch { /* storage blocked: fall back to the system setting */ }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    try { localStorage.setItem(THEME_KEY, next); } catch { /* not persisted */ }
+  };
   const start = () => navigate('/login');
   const startWithRepository = (repository: string) => {
     if (repository) savePendingRepository(repository);
@@ -248,62 +273,77 @@ export default function LandingPage() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <main className="landing-page" id="top">
-        <div className="landing-band">
-          <nav className="landing-nav" aria-label="Main navigation">
-            <a className="landing-brand" href="#top"><span className="landing-brand-mark"><StructraceMark /></span><span>Structrace</span></a>
-            <div className="landing-nav-links"><a href="#product">Product</a><a href="#questions">Why</a><a href="#teams">Teams</a><a href="#self-host">Self-host</a><a href="#start">Start</a></div>
-            <Button variant="ghost" className="landing-sign-in" onClick={start}>Sign in</Button>
-          </nav>
+      <main className="landing-page" id="top" data-theme={theme}>
+        <nav className="landing-nav glass" aria-label="Main navigation">
+          <a className="landing-brand" href="#top"><span className="landing-brand-mark"><StructraceMark /></span><span>Structrace</span></a>
+          <div className="landing-nav-links"><a href="#product">Product</a><a href="#questions">Why</a><a href="#how">How it works</a><a href="#teams">Teams</a><a href="#self-host">Self-host</a></div>
+          <Button
+            variant="ghost" className="landing-theme-toggle" onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+          </Button>
+          <Button variant="ghost" className="landing-sign-in" onClick={start}>Sign in</Button>
+        </nav>
 
-          <header className="landing-hero">
-            <h1>Read a repository as one graph.</h1>
-            <div className="landing-hero-side">
-              <p>Structrace analyzes a GitHub repository and opens it as a workspace: the code graph, architecture, Git history, database and security findings, side by side.</p>
-              <div className="landing-actions">
-                <Button className="landing-primary landing-primary-inverse" onClick={start}>Get started <ArrowRight size={17} aria-hidden="true" /></Button>
-                <a className="landing-secondary" href="#start">Paste a repository</a>
-              </div>
-            </div>
-          </header>
+        <header className="landing-hero">
+          <p className="landing-eyebrow"><span className="landing-eyebrow-dot" aria-hidden="true" />Self-hosted code intelligence for GitHub</p>
+          <h1>Read a repository as <span className="text-gradient">one graph.</span></h1>
+          <p className="landing-lede">Structrace analyzes a GitHub repository and opens it as a workspace: the code graph, architecture, Git history, database and security findings, side by side.</p>
+          <div className="landing-hero-form glass-card">
+            <StartForm onSubmit={startWithRepository} />
+          </div>
+          <p className="start-works"><GitBranch size={15} aria-hidden="true" /> GitHub repositories <span aria-hidden="true">·</span> <Database size={15} aria-hidden="true" /> PostgreSQL and MySQL <span aria-hidden="true">·</span> <Server size={15} aria-hidden="true" /> Docker Compose</p>
+        </header>
 
-          <ContactSheet />
-        </div>
+        <ContactSheet />
 
         <section className="questions" id="questions" aria-labelledby="questions-title">
+          <p className="section-kicker">Why Structrace</p>
           <h2 id="questions-title">The questions you open five tools for.</h2>
-          <div className="questions-list" role="table" aria-label="Usual tools compared with Structrace">
-            <div className="questions-row questions-head" role="row">
-              <span role="columnheader">Question</span><span role="columnheader">Usually</span><span role="columnheader">In Structrace</span>
-            </div>
+          <ul className="questions-grid">
             {QUESTIONS.map(row => {
               const m = moduleFor(row.module);
               return (
-                <div className={`questions-row tone-${m.tone}`} role="row" key={row.ask}>
-                  <span className="questions-ask" role="cell"><span className="sheet-icon" aria-hidden="true"><m.icon size={15} strokeWidth={2} /></span>{row.ask}</span>
-                  <span className="questions-before" role="cell">{row.before}</span>
-                  <span className="questions-after" role="cell">{row.after}</span>
-                </div>
+                <li className={`question-card glass-card tone-${m.tone}`} key={row.ask}>
+                  <span className="sheet-icon" aria-hidden="true"><m.icon size={16} strokeWidth={2} /></span>
+                  <h3>{row.ask}</h3>
+                  <p className="questions-before"><span>Usually</span>{row.before}</p>
+                  <p className="questions-after"><span>In Structrace</span>{row.after}</p>
+                </li>
               );
             })}
-          </div>
+          </ul>
+        </section>
+
+        <section className="how" id="how" aria-labelledby="how-title">
+          <p className="section-kicker">How it works</p>
+          <h2 id="how-title">From a link to a workspace in three steps.</h2>
+          <ol className="how-steps">
+            {STEPS.map((step, index) => (
+              <li className="how-step glass-card" key={step.title}>
+                <span className="how-index" aria-hidden="true">{index + 1}</span>
+                <span className="sheet-icon tone-indigo" aria-hidden="true"><step.icon size={16} strokeWidth={2} /></span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </li>
+            ))}
+          </ol>
         </section>
 
         <Teams />
 
         <SelfHost />
 
-        <section className="start" id="start" aria-labelledby="start-title">
-          <div className="start-copy">
-            <h2 id="start-title">Start with one repository.</h2>
-            <p className="start-works"><GitBranch size={15} aria-hidden="true" /> GitHub repositories <span aria-hidden="true">·</span> <Database size={15} aria-hidden="true" /> PostgreSQL and MySQL</p>
-          </div>
-          <StartForm onSubmit={startWithRepository} />
+        <section className="start glass-card" id="start" aria-labelledby="start-title">
+          <h2 id="start-title">Start with <span className="text-gradient">one repository.</span></h2>
+          <p>Sign in, paste a repository, and it opens in your first project.</p>
+          <Button className="landing-primary" onClick={start}>Get started <ArrowRight size={17} aria-hidden="true" /></Button>
         </section>
 
         <footer className="landing-footer">
           <a className="landing-brand" href="#top"><span className="landing-brand-mark"><StructraceMark /></span><span>Structrace</span></a>
-          <div className="landing-footer-links"><a href="#product">Product</a><a href="#start">Start</a><Button variant="link" onClick={start}>Sign in</Button></div>
+          <div className="landing-footer-links"><a href="#product">Product</a><a href="#how">How it works</a><Button variant="link" onClick={start}>Sign in</Button></div>
         </footer>
       </main>
     </MotionConfig>
