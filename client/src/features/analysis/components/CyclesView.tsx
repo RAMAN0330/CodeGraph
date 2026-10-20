@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Check, RefreshCcw, Scissors } from 'lucide-react';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
 import { findTangles } from '../services/cycles';
 
 // Dependency cycles of any length and a plan to break each one
@@ -26,6 +27,13 @@ export default function CyclesView({ data, onOpenFile }: Props) {
             : 'No dependency cycles: every file can be understood without the files that depend on it.'}</p>
         </div>
       </header>
+
+      <SummaryStrip items={[
+        { label: 'Tangles', value: tangles.length, tone: tangles.length ? 'bad' : 'good', sub: tangles.length ? 'Groups of circular files' : 'No cycles' },
+        { label: 'Files tangled', value: tangled, tone: tangled ? 'warn' : 'good', sub: `of ${(data?.files ?? []).length} analyzed` },
+        { label: 'Cuts to untangle', value: tangles.reduce((n, t) => n + t.plan.length, 0), sub: 'Dependencies to remove' },
+        { label: 'Largest tangle', value: tangles.reduce((m, t) => Math.max(m, t.files.length), 0), sub: 'Files' },
+      ]} />
 
       {tangles.map((t, i) => (
         <section key={t.files.join('|')} className="guide-card cycle-card">

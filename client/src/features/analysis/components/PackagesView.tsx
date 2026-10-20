@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { AlertTriangle, Boxes, Check, ChevronDown, ChevronRight, Copy } from 'lucide-react';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
 import { packageGraph, type PackageEdge } from '../services/packages';
 
 // Packages of a (mono)repository and the dependencies between them
@@ -39,6 +40,14 @@ export default function PackagesView({ data, onOpenFile }: Props) {
             : graph.nodes.length === 1 ? 'This repository is a single package, so there are no package boundaries to map.' : 'No package manifests (package.json, go.mod, pyproject.toml, Cargo.toml, pom.xml, build.gradle, composer.json) were found.'}</p>
         </div>
       </header>
+
+      {graph.nodes.length > 1 && (
+        <SummaryStrip items={[
+          { label: 'Packages', value: graph.nodes.length, sub: [...new Set(graph.nodes.map(n => n.ecosystem))].join(', ') },
+          { label: 'Dependencies', value: graph.edges.length, sub: 'Between packages' },
+          { label: 'Undeclared', value: undeclared.length, tone: undeclared.length ? 'warn' : 'good', sub: undeclared.length ? 'Reach past a manifest' : 'All declared' },
+        ]} />
+      )}
 
       {graph.nodes.length > 1 && (
         <div className="guide-grid">
