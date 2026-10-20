@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
-import { AlertTriangle, ArrowRight, FolderKanban, Sparkles, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, FolderKanban, Trash2 } from 'lucide-react';
 import AnalysisLoader, { type AnalysisStage } from '../../../shared/components/AnalysisLoader';
 import { DashboardGrid, EmptyNote, Meter, Metric, Panel } from '../../../shared/components/Dashboard';
 import { toneText, type Tone } from '../../../shared/components/dashboardTones';
+import AttentionFeed from '../../../shared/components/AttentionFeed';
+import { codeAttention } from '../../../shared/services/attention';
+import { findTangles } from '../../analysis/services/cycles';
 import OwnershipRiskPanel from './OwnershipRiskPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -119,7 +122,6 @@ export default function WorkspaceOverview(props: Props) {
 
 
 const REGRESSION_LABELS: Record<string, string> = { health: 'Health', circular: 'Cycles', security: 'Security', violations: 'Architecture', rules: 'Rules' };
-const PRIORITY_TONE: Record<string, Tone> = { critical: 'bad', high: 'warn' };
 const SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1 };
 const SEVERITY_TONE: Record<string, Tone> = { critical: 'bad', high: 'warn', medium: 'neutral', low: 'good' };
 
@@ -192,6 +194,11 @@ function OverviewContent({
   const hotspotRows = realHotspots.length
     ? realHotspots.map(h => ({ path: h.path, value: h.score, display: h.score }))
     : complexityHotspots.map((f: any) => ({ path: f.path, value: (f.complexity.score / maxComplexity) * 100, display: f.complexity.score }));
+
+  const attention = useMemo(() => {
+    const tangles = findTangles(data.connections ?? []);
+    return codeAttention({ data, vulns, regressions: regressionAlerts, cycleCount: tangles.length, cycleFiles: tangles.reduce((n, t) => n + t.files.length, 0), suggestions });
+  }, [data, vulns, regressionAlerts, suggestions]);
 
   const metric = (label: string, value: number, previous?: number) => ({
     label, value: value.toLocaleString(),
@@ -294,20 +301,8 @@ function OverviewContent({
         ) : <EmptyNote>No high-complexity files detected.</EmptyNote>}
       </Panel>
 
-      <Panel title="Next steps" meta="Suggested from this analysis" className="lg:col-span-4">
-        {suggestions.length ? (
-          <ol className="flex min-h-0 flex-col divide-y">
-            {suggestions.slice(0, 4).map(item => (
-              <li key={item.title} className="flex items-start gap-2 py-2 first:pt-0">
-                <Badge variant="outline" className={cn('mt-0.5 capitalize', toneText[PRIORITY_TONE[item.priority] ?? 'neutral'])}>{item.priority}</Badge>
-                <span className="min-w-0">
-                  <b className="block truncate text-xs font-semibold">{item.title}</b>
-                  <span className="line-clamp-1 text-xs text-muted-foreground">{item.desc}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-        ) : <EmptyNote><Sparkles className="mx-auto mb-1 size-4" />Nothing urgent. Keep an eye on hotspots as the code changes.</EmptyNote>}
+      <Panel title="Needs attention" meta="Ranked by severity and reach" className="lg:col-span-4">
+        <AttentionFeed items={attention} storageKey={`cg.attention.${repoInfo ? `${repoInfo.owner}/${repoInfo.repo}` : 'repo'}`} onOpen={target => (target === 'unused' ? onOpenUnused() : onOpen(target))} />
         <div className="mt-auto flex flex-wrap gap-2 pt-2">
           {deadCount > 0 && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onOpenUnused}><Trash2 className="size-3.5" /> Unused code · {deadCount.toLocaleString()}</Button>}
           {dbSchemaDetected && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpen('database')}>Database schema detected <ArrowRight className="size-3.5" /></Button>}

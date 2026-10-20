@@ -2,6 +2,8 @@ import { useCallback, useMemo } from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { GGErrorBanner } from '../dbConnectTheme';
 import ConnectionFlow from '../ui/ConnectionFlow';
+import AttentionFeed from '../../../../shared/components/AttentionFeed';
+import { databaseAttention } from '../../../../shared/services/attention';
 import MiniLineChart from '../ui/MiniLineChart';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import { useRollingSeries } from '../../services/useRollingSeries';
@@ -22,11 +24,6 @@ function formatBytes(bytes: number | null | undefined): string {
 
 const STATUS_TONE: Record<HealthStatus, Tone> = { healthy: 'good', warning: 'warn', critical: 'bad', unknown: 'neutral' };
 const STATUS_LABEL: Record<HealthStatus, string> = { healthy: 'Healthy', warning: 'Warning', critical: 'Critical', unknown: 'Unknown' };
-
-const CATEGORY_LABEL: Record<string, string> = {
-  connections: 'Connections', latency: 'Latency', queries: 'Queries', locks: 'Locks',
-  replication: 'Replication', storage: 'Storage', cache: 'Cache', errors: 'Errors',
-};
 
 interface OverviewPageProps {
   projectId: number;
@@ -56,6 +53,8 @@ export default function OverviewPage({ projectId, schema, paused, onNavigate }: 
       maxSize: Math.max(1, ...largest.map(t => t.sizeBytes ?? t.rowEstimate ?? 0)),
     };
   }, [schema]);
+
+  const attention = useMemo(() => (data ? databaseAttention({ overview: data, tables: schema.tables }) : []), [data, schema]);
 
   if (loading && !data) {
     return (
@@ -103,17 +102,8 @@ export default function OverviewPage({ projectId, schema, paused, onNavigate }: 
         <ConnectionFlow active={connections.active} idle={connections.idle} waiting={connections.waiting} max={connections.max} />
       </Panel>
 
-      <Panel title="Health checks" meta={`${data.healthMatrix.filter(row => row.status === 'healthy').length} of ${data.healthMatrix.length} healthy`} className="lg:col-span-3">
-        <ul className="flex min-h-0 flex-col text-xs">
-          {data.healthMatrix.map(row => (
-            <li key={row.category} className="flex items-center justify-between gap-2 border-b py-1.5" title={row.detail ?? undefined}>
-              <span className="truncate">{CATEGORY_LABEL[row.category]}</span>
-              <span className={cn('flex shrink-0 items-center gap-1.5 font-semibold', toneText[STATUS_TONE[row.status]])}>
-                <i className="size-1.5 rounded-full bg-current" />{STATUS_LABEL[row.status]}
-              </span>
-            </li>
-          ))}
-        </ul>
+      <Panel title="Needs attention" meta={`${data.healthMatrix.filter(row => row.status === 'healthy').length} of ${data.healthMatrix.length} checks healthy`} className="lg:col-span-3">
+        <AttentionFeed items={attention} storageKey={`cg.attention.db.${projectId}`} onOpen={target => onNavigate(target as DbNavId)} limit={4} />
       </Panel>
 
       <Panel title="Slowest queries" meta="By total time" action="Queries" onAction={() => onNavigate('queries')} className="lg:col-span-6">
