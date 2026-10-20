@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { GGErrorBanner } from '../dbConnectTheme';
+import ConnectionFlow from '../ui/ConnectionFlow';
 import MiniLineChart from '../ui/MiniLineChart';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import { useRollingSeries } from '../../services/useRollingSeries';
@@ -72,8 +73,6 @@ export default function OverviewPage({ projectId, schema, paused, onNavigate }: 
     ? `up ${Math.floor(data.identity.uptimeSeconds / 86400)}d ${Math.floor((data.identity.uptimeSeconds % 86400) / 3600)}h`
     : null;
   const { connections } = data;
-  const connectionRows: [string, number][] = [['Active', connections.active], ['Idle', connections.idle], ['Waiting', connections.waiting]];
-  const connectionScale = Math.max(1, connections.max ?? connections.total);
 
   return (
     <DashboardGrid className={cn('lg:grid-cols-12', data.activeAlerts.length ? 'lg:grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]')}>
@@ -101,11 +100,7 @@ export default function OverviewPage({ projectId, schema, paused, onNavigate }: 
       </Panel>
 
       <Panel title="Connections" meta={connections.max ? `${connections.total} of ${connections.max} allowed` : `${connections.total} open`} className="lg:col-span-3">
-        <div className="my-auto flex flex-col">
-          {connectionRows.map(([label, value]) => (
-            <Meter key={label} label={label} value={(value / connectionScale) * 100} display={value} tone={label === 'Waiting' && value > 0 ? 'warn' : 'neutral'} />
-          ))}
-        </div>
+        <ConnectionFlow active={connections.active} idle={connections.idle} waiting={connections.waiting} max={connections.max} />
       </Panel>
 
       <Panel title="Health checks" meta={`${data.healthMatrix.filter(row => row.status === 'healthy').length} of ${data.healthMatrix.length} healthy`} className="lg:col-span-3">
