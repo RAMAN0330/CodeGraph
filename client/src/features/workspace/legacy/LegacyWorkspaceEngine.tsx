@@ -470,8 +470,9 @@ export default function LegacyWorkspaceEngine(){
 
         function applyReadyData(dataObj: any, commitSha?: string){
             if(analyzeGenerationRef.current!==pollGeneration)return;// superseded by a newer analyze() call
-            var detectedBranch=requestedBranch||currentBranch||'main';
-            if(detectedBranch&&!currentBranch)setCurrentBranch(detectedBranch);
+            // No branch asked for: show the repository's real default (often master), not a guessed 'main'.
+            if(requestedBranch){if(!currentBranch)setCurrentBranch(requestedBranch);}
+            else if(!currentBranch){GitHub.getDefaultBranch(p.owner,p.repo).then(function(b: string){if(analyzeGenerationRef.current===pollGeneration)setCurrentBranch(b);});}
             setData(dataObj);
             setLoading(false);
             setProgress('');

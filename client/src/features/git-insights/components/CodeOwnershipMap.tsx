@@ -1,43 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { githubFetch } from '../../repository/services/github';
-
-const AUTHOR_COLORS = ['var(--color-success)','var(--acc2)','var(--accent-orange)','var(--chart-purple)','var(--color-danger)','var(--teal-500)','var(--accent-orange)','var(--chart-purple)'];
-const AUTHOR_BG    = ['var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)','var(--bg3)'];
-
-function hashToColorIndex(login: string): number {
-  return login.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AUTHOR_COLORS.length;
-}
-
-const OWNERSHIP_STYLE = `
-@keyframes shimmer {
-  0% { background-position: -600px 0; }
-  100% { background-position: 600px 0; }
-}
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.co-card:hover {
-  border-color: var(--teal-500) !important;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--teal-500) 13%, transparent), 0 6px 20px rgba(0,0,0,.27) !important;
-  transform: translateY(-2px) scale(1.01) !important;
-}
-`;
-
-let omStyleInjected = false;
-function ensureOMStyle() {
-  if (omStyleInjected) return;
-  omStyleInjected = true;
-  const el = document.createElement('style');
-  el.textContent = OWNERSHIP_STYLE;
-  document.head.appendChild(el);
-}
-
-interface FolderOwnership {
-  folder: string;
-  fileCount: number;
-  owner: string;
-}
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Download, Folder, FolderTree, UserRound } from 'lucide-react';
+import { Page, PageHeader, Section, Segmented, Toolbar } from '../../../shared/components/Page';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
+import { StateCard } from '../../../shared/components/StateCard';
+import { downloadCsv } from '../../../shared/services/exportCsv';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+import { computeOwnershipRisk, type OwnershipRiskSummary, type FolderOwnership } from '../services/ownershipRisk';
+import { labelClass } from './InsightsBits';
 
 interface CodeOwnershipMapProps {
   owner: string;
@@ -46,281 +17,181 @@ interface CodeOwnershipMapProps {
   files: any[];
 }
 
-function ShimmerBlock({ style }: { style?: React.CSSProperties }) {
+// Data palette in order; authors beyond the top four fold into "Other".
+const VIZ = ['var(--viz-1)', 'var(--viz-2)', 'var(--viz-3)', 'var(--viz-4)'];
+const OTHER = 'var(--text-muted)';
+type View = 'all' | 'single' | 'shared';
+
+const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0);
+
+export default function CodeOwnershipMap({ owner, repo, files }: CodeOwnershipMapProps) {
+  // undefined while loading, null when there is nothing to sample.
+  const [summary, setSummary] = useState<OwnershipRiskSummary | null | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const [view, setView] = useState<View>('all');
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSummary(undefined);
+    setError(null);
+    // Same sampling the Overview uses: the 8 biggest top-level folders, 30 recent commits each.
+    computeOwnershipRisk(owner, repo, files)
+      .then(s => { if (!cancelled) setSummary(s); })
+      .catch(e => { if (!cancelled) setError(e?.message || 'Failed to compute ownership'); });
+    return () => { cancelled = true; };
+  }, [owner, repo, files, reload]);
+
+  const topLevelFolders = useMemo(() => new Set(files.map(f => { const p = (f.path || f.name || '').split('/'); return p.length > 1 ? p[0] : '(root)'; })).size, [files]);
+
+  // One colour per author for the whole page, ranked by commits across the sampled folders.
+  const authorColor = useMemo(() => {
+    const totals = new Map<string, number>();
+    summary?.folders.forEach(f => f.authors.forEach(a => totals.set(a.name, (totals.get(a.name) ?? 0) + a.commits)));
+    const ranked = [...totals].sort((a, b) => b[1] - a[1]);
+    return { ranked, color: (name: string) => { const i = ranked.findIndex(([n]) => n === name); return i >= 0 && i < VIZ.length ? VIZ[i] : OTHER; } };
+  }, [summary]);
+
+  const header = (
+    <PageHeader
+      icon={FolderTree}
+      tone="insights"
+      title="Ownership"
+      description="Who works on each of the largest folders, from their 30 most recent commits. Folders with a single author are a knowledge risk; pair or rotate reviews there."
+      actions={
+        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={!summary?.folders.length} onClick={() => downloadCsv('ownership.csv', ['Folder', 'Files', 'Main owner', 'Owner share %', 'Authors', 'Sampled commits'], (summary?.folders ?? []).map(f => [f.folder, f.fileCount, f.authors[0]?.name, pct(f.authors[0]?.commits ?? 0, f.sampledCommits), f.authors.length, f.sampledCommits]))}>
+          <Download className="size-3.5" /> Export CSV
+        </Button>
+      }
+    />
+  );
+
+  if (summary === undefined || error || !summary || !summary.folders.length) return (
+    <Page>
+      {header}
+      <Section className="flex-1">
+        {error ? (
+          <StateCard icon={AlertTriangle} title="Couldn't build the ownership map" action={<Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setReload(n => n + 1)}>Try again</Button>}>{error}</StateCard>
+        ) : summary === undefined ? (
+          <div className="flex flex-col gap-3" aria-busy="true">
+            <p className="text-xs text-muted-foreground">Reading recent commits for the largest folders…</p>
+            {[0, 1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        ) : (
+          <StateCard icon={FolderTree} title={files.length ? 'No commit history found' : 'No files analyzed yet'}>
+            {files.length ? 'GitHub returned no commits for the largest folders. Check that your GitHub connection can read this repository, then reopen this page.' : 'Analyze the repository first; ownership is computed per folder from its files.'}
+          </StateCard>
+        )}
+      </Section>
+    </Page>
+  );
+
+  const folders = summary.folders.filter(f => view === 'all' || (view === 'single') === (f.authors.length === 1));
+  const selected = folders.find(f => f.folder === selectedFolder) ?? folders[0] ?? null;
+  const filesCovered = summary.folders.reduce((n, f) => n + f.fileCount, 0);
+  const { ranked } = authorColor;
+  const legend = [...ranked.slice(0, 4).map(([name]) => ({ name, color: authorColor.color(name) })), ...(ranked.length > 4 ? [{ name: `Other (${ranked.length - 4})`, color: OTHER }] : [])];
+
   return (
-    <div style={{
-      background: 'linear-gradient(90deg, var(--surface-card) 25%, var(--bg3) 50%, var(--surface-card) 75%)',
-      backgroundSize: '600px 100%',
-      animation: 'shimmer 1.4s infinite linear',
-      borderRadius: 8,
-      ...style,
-    }} />
+    <Page>
+      {header}
+      <SummaryStrip items={[
+        { label: 'Folders sampled', value: summary.sampledFolders, sub: `Largest of ${topLevelFolders} top-level` },
+        { label: 'Files covered', value: filesCovered.toLocaleString(), sub: `${pct(filesCovered, files.length)}% of analyzed files` },
+        { label: 'Single owner', value: summary.singleOwnerFolders, tone: summary.singleOwnerFolders ? 'warn' : 'good', sub: view === 'single' ? 'Click to clear' : 'Folders with one author', onClick: () => setView(view === 'single' ? 'all' : 'single') },
+        { label: 'Bus factor', value: summary.busFactor ?? '—', tone: summary.busFactor === null ? 'neutral' : summary.busFactor <= 1 ? 'bad' : summary.busFactor === 2 ? 'warn' : 'good', sub: 'People behind half the commits' },
+      ]} />
+
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(340px,1fr)]">
+        <Section className="min-h-[300px]" bodyClassName="p-0 flex flex-col">
+          <div className="flex flex-col gap-2 border-b px-4 py-3">
+            <Toolbar count={`${folders.length} folder${folders.length === 1 ? '' : 's'}`}>
+              <Segmented label="Filter folders" value={view} onChange={setView} options={[
+                { value: 'all', label: 'All', count: summary.folders.length },
+                { value: 'single', label: 'Single owner', count: summary.singleOwnerFolders },
+                { value: 'shared', label: 'Shared', count: summary.folders.length - summary.singleOwnerFolders },
+              ]} />
+            </Toolbar>
+            <ul className="flex flex-wrap gap-x-4 gap-y-1" aria-label="Author colours">
+              {legend.map(l => <li key={l.name} className="flex items-center gap-1.5 text-xs text-muted-foreground"><i className="size-2 rounded-full" style={{ background: l.color }} aria-hidden="true" />{l.name}</li>)}
+            </ul>
+          </div>
+          {folders.length === 0 ? (
+            <StateCard icon={Folder} title="No folders in this view" action={<Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setView('all')}>Show all folders</Button>}>
+              {view === 'single' ? 'Every sampled folder has more than one author.' : 'Every sampled folder has a single author.'}
+            </StateCard>
+          ) : (
+            <ul className="min-h-0 flex-1 divide-y overflow-y-auto">
+              {folders.map(f => {
+                const lead = f.authors[0];
+                const active = selected?.folder === f.folder;
+                return (
+                  <li key={f.folder}>
+                    <button type="button" onClick={() => setSelectedFolder(f.folder)} aria-current={active} className={cn('flex w-full items-center gap-3 border-0 bg-transparent px-4 py-2.5 text-left text-inherit hover:bg-[var(--surface-hover)]', active && 'bg-[var(--surface-hover)]')}>
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg border bg-card text-muted-foreground"><Folder className="size-4" strokeWidth={1.8} /></span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="flex items-baseline gap-2">
+                          <code className="truncate font-mono text-[13px] font-semibold">{f.folder === '(root)' ? '(root)' : `${f.folder}/`}</code>
+                          <span className="shrink-0 text-xs text-muted-foreground">{f.fileCount} files</span>
+                        </span>
+                        <AuthorBar folder={f} color={authorColor.color} />
+                      </span>
+                      <span className="w-28 shrink-0 text-right">
+                        <b className="block truncate text-xs font-semibold">{lead.name}</b>
+                        <span className={cn('text-[11px]', f.authors.length === 1 ? 'text-[var(--color-warning)]' : 'text-muted-foreground')}>{f.authors.length === 1 ? 'Only author' : `${pct(lead.commits, f.sampledCommits)}% · ${f.authors.length} authors`}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {summary.unownedFolders > 0 && <p className="border-t px-4 py-2 text-xs text-muted-foreground">{summary.unownedFolders} of the largest folders returned no commit history and are left out.</p>}
+        </Section>
+
+        {selected ? (
+          <Section className="min-h-[300px]" bodyClassName="flex flex-col gap-4 p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl border bg-card text-muted-foreground"><Folder className="size-5" strokeWidth={1.7} /></span>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate font-mono text-base font-semibold">{selected.folder === '(root)' ? '(root)' : `${selected.folder}/`}</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">{selected.fileCount} files · {pct(selected.fileCount, files.length)}% of the codebase · last {selected.sampledCommits} commits sampled</p>
+              </div>
+            </div>
+            <p className={cn('rounded-lg border bg-card p-3 text-[13px] leading-relaxed', selected.authors.length === 1 && 'text-[var(--color-warning)]')}>
+              {selected.authors.length === 1
+                ? `${selected.authors[0].name} made every recent change here. Ask someone else to review the next few changes so the knowledge is shared.`
+                : `${selected.authors[0].name} leads with ${pct(selected.authors[0].commits, selected.sampledCommits)}% of recent commits, shared with ${selected.authors.length - 1} other ${selected.authors.length === 2 ? 'person' : 'people'}.`}
+            </p>
+            <div className="flex flex-col gap-2">
+              <h3 className={labelClass}>Recent authors</h3>
+              <ul className="flex flex-col gap-1">
+                {selected.authors.map(a => (
+                  <li key={a.name} className="grid grid-cols-[minmax(0,1fr)_minmax(80px,40%)_4.5rem] items-center gap-3 py-1">
+                    <span className="flex min-w-0 items-center gap-2 text-xs"><UserRound className="size-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{a.name}</span></span>
+                    <span className="h-1.5 overflow-hidden rounded-full bg-muted"><i className="block h-full rounded-full" style={{ width: `${Math.max(2, pct(a.commits, selected.sampledCommits))}%`, background: authorColor.color(a.name) }} /></span>
+                    <b className="text-right font-mono text-xs font-semibold">{a.commits} · {pct(a.commits, selected.sampledCommits)}%</b>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Section>
+        ) : (
+          <Section className="min-h-[300px]"><StateCard icon={Folder} title="No folder selected">Pick a folder to see who works on it.</StateCard></Section>
+        )}
+      </div>
+    </Page>
   );
 }
 
-export default function CodeOwnershipMap({ owner, repo, token, files }: CodeOwnershipMapProps) {
-  const [ownership, setOwnership] = useState<FolderOwnership[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  ensureOMStyle();
-
-  useEffect(() => {
-    if (!files.length) {
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Extract unique top-level folders
-        const folderCount: Record<string, number> = {};
-        for (const file of files) {
-          const filePath = file.path || file.name || '';
-          const parts = filePath.split('/');
-          const topFolder = parts.length > 1 ? parts[0] : '(root)';
-          folderCount[topFolder] = (folderCount[topFolder] || 0) + 1;
-        }
-
-        // Sort by file count descending, take top 8
-        const topFolders = Object.entries(folderCount)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 8)
-          .map(([folder, count]) => ({ folder, count }));
-
-        // For each folder, fetch 1 commit to determine owner
-        const results: FolderOwnership[] = [];
-        for (const { folder, count } of topFolders) {
-          if (cancelled) break;
-          let ownerLogin = 'unknown';
-
-          try {
-            const pathQuery = folder === '(root)' ? '' : `&path=${encodeURIComponent(folder)}`;
-            const res = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=1${pathQuery}`, token);
-            if (res.ok) {
-              const data = await res.json();
-              if (Array.isArray(data) && data.length > 0) {
-                ownerLogin = data[0].author?.login || data[0].commit?.author?.name || 'unknown';
-              }
-            }
-          } catch {
-            // skip, keep 'unknown'
-          }
-
-          results.push({ folder, fileCount: count, owner: ownerLogin });
-        }
-
-        if (!cancelled) setOwnership(results);
-      } catch (e: any) {
-        if (!cancelled) setError(e.message || 'Failed to compute ownership map');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [owner, repo, token, files]);
-
-  // ── Loading ──────────────────────────────────────────────────────────────────
-  if (loading) return (
-    <div className="gi-page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <ShimmerBlock style={{ width: 200, height: 28 }} />
-        <ShimmerBlock style={{ width: 70, height: 22, borderRadius: 20 }} />
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
-        {[0,1,2,3,4,5].map(i => (
-          <ShimmerBlock key={i} style={{ height: 120, borderRadius: 10 }} />
-        ))}
-      </div>
-    </div>
-  );
-
-  // ── Error ────────────────────────────────────────────────────────────────────
-  if (error) return (
-    <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-      <div style={{ fontSize: 36 }}>⚠️</div>
-      <div style={{ fontSize: 15, color: 'var(--color-danger)', fontWeight: 600 }}>Failed to build ownership map</div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 360, textAlign: 'center' }}>{error}</div>
-    </div>
-  );
-
-  // ── Empty ────────────────────────────────────────────────────────────────────
-  if (!ownership.length) return (
-    <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-      <div style={{ fontSize: 36 }}>📂</div>
-      <div style={{ fontSize: 15, color: 'var(--text-muted)' }}>No folder ownership data available.</div>
-    </div>
-  );
-
-  // ── Computed ─────────────────────────────────────────────────────────────────
-  const maxFiles = Math.max(...ownership.map(o => o.fileCount));
-  const totalFiles = ownership.reduce((s, o) => s + o.fileCount, 0);
-
-  // Author legend aggregates
-  const authorTotals: Record<string, number> = {};
-  for (const { owner: ownerLogin, fileCount } of ownership) {
-    authorTotals[ownerLogin] = (authorTotals[ownerLogin] || 0) + fileCount;
-  }
-  const legendAuthors = Object.entries(authorTotals).sort((a, b) => b[1] - a[1]);
-
-  // ── Render ───────────────────────────────────────────────────────────────────
+/** A folder's recent commits split by author, in the page's author colours; hover names each slice. */
+function AuthorBar({ folder, color }: { folder: FolderOwnership; color: (name: string) => string }) {
   return (
-    <div className="gi-page">
-
-      {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--t0)', letterSpacing: '-0.3px' }}>
-          Code Ownership
-        </h2>
-        <span style={{
-          fontSize: 12, fontWeight: 600,
-          background: 'var(--bg3)', color: 'var(--text-muted)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 20, padding: '3px 10px',
-        }}>
-          {files.length} files
-        </span>
-      </div>
-      <p style={{ margin: '0 0 24px', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        Top author per folder based on most recent commit. Card width scales with file count.
-      </p>
-
-      {/* Treemap-style ownership grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 14,
-        marginBottom: 28,
-      }}>
-        {ownership.map(({ folder, fileCount, owner: ownerLogin }, idx) => {
-          const colorIdx = ownerLogin !== 'unknown' ? hashToColorIndex(ownerLogin) : 4;
-          const color = AUTHOR_COLORS[colorIdx];
-          const bg = AUTHOR_BG[colorIdx];
-          const pct = Math.round((fileCount / totalFiles) * 100);
-          const span = Math.max(1, Math.round((fileCount / maxFiles) * 4));
-          const initials = ownerLogin.slice(0, 2).toUpperCase();
-
-          return (
-            <div
-              key={folder}
-              className="co-card"
-              style={{
-                gridColumn: `span ${span}`,
-                background: bg,
-                border: `1px solid color-mix(in srgb, ${color} 27%, transparent)`,
-                borderRadius: 10,
-                padding: '16px 18px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-                transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease',
-                animation: `fadeInUp 0.3s ease both`,
-                animationDelay: `${Math.min(idx * 40, 320)}ms`,
-                minWidth: 0,
-              }}
-            >
-              {/* Folder name */}
-              <div style={{
-                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                fontSize: 13,
-                fontWeight: 600,
-                color: 'var(--teal-500)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {folder}/
-              </div>
-
-              {/* Owner row */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: color,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 10, fontWeight: 700, color: 'var(--t0)', flexShrink: 0,
-                  boxShadow: `0 0 6px ${color}66`,
-                }}>
-                  {initials}
-                </div>
-                <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {ownerLogin}
-                </span>
-                <span style={{
-                  marginLeft: 'auto', flexShrink: 0,
-                  fontSize: 11, fontWeight: 600,
-                  background: `${color}22`, color: color,
-                  border: `1px solid color-mix(in srgb, ${color} 27%, transparent)`,
-                  borderRadius: 12, padding: '1px 8px',
-                }}>
-                  {fileCount}
-                </span>
-              </div>
-
-              {/* Ownership % bar */}
-              <div>
-                <div style={{
-                  height: 4, borderRadius: 4,
-                  background: 'var(--bg3)',
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${pct}%`,
-                    background: `linear-gradient(90deg, ${color}cc, ${color})`,
-                    borderRadius: 4,
-                    transition: 'width 0.6s ease',
-                  }} />
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                  {pct}% of tracked files
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Author legend */}
-      <div style={{
-        borderTop: '1px solid var(--bg3)',
-        paddingTop: 18,
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 8,
-        alignItems: 'center',
-      }}>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.7px', marginRight: 4 }}>
-          Authors
-        </span>
-        {legendAuthors.map(([login, count]) => {
-          const colorIdx = login !== 'unknown' ? hashToColorIndex(login) : 4;
-          const color = AUTHOR_COLORS[colorIdx];
-          return (
-            <div key={login} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'var(--surface-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 20,
-              padding: '4px 10px 4px 6px',
-            }}>
-              <div style={{
-                width: 10, height: 10, borderRadius: '50%',
-                background: color, flexShrink: 0,
-                boxShadow: `0 0 5px ${color}88`,
-              }} />
-              <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>{login}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{count} files</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <span className="flex h-1.5 gap-px overflow-hidden rounded-full bg-muted" role="img" aria-label={folder.authors.map(a => `${a.name} ${pct(a.commits, folder.sampledCommits)}%`).join(', ')}>
+      {folder.authors.map(a => (
+        <i key={a.name} title={`${a.name}: ${a.commits} of ${folder.sampledCommits} commits`} className="block h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${(a.commits / folder.sampledCommits) * 100}%`, background: color(a.name) }} />
+      ))}
+    </span>
   );
 }

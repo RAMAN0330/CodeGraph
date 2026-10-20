@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
-import { GGErrorBanner } from '../dbConnectTheme';
+import { StateCard } from '../../../../shared/components/StateCard';
 import ConnectionFlow from '../ui/ConnectionFlow';
 import AttentionFeed from '../../../../shared/components/AttentionFeed';
 import { databaseAttention } from '../../../../shared/services/attention';
@@ -58,14 +58,14 @@ export default function OverviewPage({ projectId, schema, paused, onNavigate }: 
 
   if (loading && !data) {
     return (
-      <DashboardGrid className="lg:grid-cols-6 lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]">
+      <DashboardGrid framed className="lg:grid-cols-6 lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]">
         {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
         <Skeleton className="h-full min-h-40 rounded-xl lg:col-span-6" />
         <Skeleton className="h-full min-h-40 rounded-xl lg:col-span-6" />
       </DashboardGrid>
     );
   }
-  if (error && !data) return <div className="p-4"><GGErrorBanner msg={error} /></div>;
+  if (error && !data) return <DashboardGrid framed><StateCard icon={AlertTriangle} title="Could not load the overview">{error}</StateCard></DashboardGrid>;
   if (!data) return null;
 
   const uptime = data.identity.uptimeSeconds !== null
@@ -74,7 +74,7 @@ export default function OverviewPage({ projectId, schema, paused, onNavigate }: 
   const { connections } = data;
 
   return (
-    <DashboardGrid className={cn('lg:grid-cols-12', data.activeAlerts.length ? 'lg:grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]')}>
+    <DashboardGrid framed className={cn('lg:grid-cols-12', data.activeAlerts.length ? 'lg:grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]')}>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:col-span-12 lg:grid-cols-6" aria-label="Database health">
         <Metric label="Health" value={data.healthScore} tone={STATUS_TONE[data.healthStatus]} sub={[STATUS_LABEL[data.healthStatus], uptime].filter(Boolean).join(' · ')} />
         <Metric label="Latency" value={data.latencyMs === null ? '—' : `${data.latencyMs.toFixed(0)} ms`} sub={data.latencyMs === null ? 'Not available' : 'Round trip'} />
@@ -93,8 +93,14 @@ export default function OverviewPage({ projectId, schema, paused, onNavigate }: 
       )}
 
       <Panel title="Throughput and latency" meta="Live, since this page opened" action="Performance" onAction={() => onNavigate('performance')} className="lg:col-span-6">
-        <div className="min-h-32 flex-1">
-          <MiniLineChart fill series={[{ label: 'Operations / s', color: 'var(--teal-500)', points: opsHistory }, { label: 'Latency (ms)', color: 'var(--chart-purple)', points: latencyHistory }]} />
+        {/* Two units, so two small charts on their own scales rather than one chart with two axes. */}
+        <div className="grid min-h-32 flex-1 grid-rows-2 gap-3">
+          {([['Operations per second', opsHistory, (v: number) => `${Math.round(v)}/s`], ['Latency', latencyHistory, (v: number) => `${Math.round(v)} ms`]] as const).map(([label, points, format]) => (
+            <div key={label} className="flex min-h-0 flex-col gap-1">
+              <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</span>
+              <div className="min-h-0 flex-1"><MiniLineChart fill series={[{ label, color: 'var(--viz-1)', points: [...points] }]} format={format} /></div>
+            </div>
+          ))}
         </div>
       </Panel>
 

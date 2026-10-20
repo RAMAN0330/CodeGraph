@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { GitHub } from '../../repository/services/github';
 import ArchitectureImpact from './ArchitectureImpact';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { AlertTriangle, ArrowLeftRight, Check, ChevronDown, ChevronRight, Copy, GitBranch, GitCompareArrows, GitMerge, Layers, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Page, PageHeader, Section } from '../../../shared/components/Page';
+import { StateCard } from '../../../shared/components/StateCard';
 import hljs from 'highlight.js/lib/core';
 import typescript from 'highlight.js/lib/languages/typescript';
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -82,7 +86,16 @@ interface ConflictFile {
   headPatch?: string;
 }
 
-export default function BranchDiff({ owner, repo, branches, currentBranch }: Props) {
+export default function BranchDiff({ owner, repo, branches: branchesProp, currentBranch }: Props) {
+  // The workspace passes one guessed branch ('main') when its own branch list didn't load; fetch the real list then.
+  const [fetchedBranches, setFetchedBranches] = useState<{ name: string }[] | null>(null);
+  useEffect(() => {
+    if (branchesProp.length > 1) return;
+    let cancelled = false;
+    GitHub.getBranches(owner, repo).then((list: any) => { if (!cancelled && Array.isArray(list) && list.length) setFetchedBranches(list); });
+    return () => { cancelled = true; };
+  }, [owner, repo, branchesProp.length]);
+  const branches = fetchedBranches ?? branchesProp;
   const [base, setBase] = useState(currentBranch || branches[0]?.name || 'main');
   const [head, setHead] = useState(branches.find(b => b.name !== base)?.name || branches[1]?.name || '');
   const [diff, setDiff] = useState<DiffFile[] | null>(null);
@@ -119,7 +132,7 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
     const validNames = new Set(branches.map(b => b.name));
     setBase(prev => (prev && validNames.has(prev)) ? prev
       : (currentBranch && validNames.has(currentBranch)) ? currentBranch
-      : branches[0].name);
+      : ['main', 'master', 'develop'].find(n => validNames.has(n)) || branches[0].name);
   }, [branches, currentBranch]);
 
   useEffect(() => {
@@ -129,8 +142,11 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
       : branches.find(b => b.name !== base)?.name || '');
   }, [branches, base]);
 
+  // Branch choices settle in a few renders; only the latest comparison may set the result.
+  const runRef = useRef(0);
   const loadDiff = useCallback(async () => {
     if (!base || !head || base === head) return;
+    const run = ++runRef.current;
     setLoading(true);
     setError(null);
     setDiff(null);
@@ -142,6 +158,7 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
         GitHub.getCompare(owner, repo, base, head),
         GitHub.getCompare(owner, repo, head, base).catch(() => ({ files: [] })),
       ]);
+      if (run !== runRef.current) return;
       const reverseFiles = new Map<string, DiffFile>();
       (reverseResult.files || []).forEach((f: DiffFile) => {
         if (f.status !== 'removed') reverseFiles.set(f.filename, f);
@@ -155,9 +172,9 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
       setConflictCandidates(candidates);
       setDiff(forwardFiles);
     } catch (e: any) {
-      setError(e.message || 'Failed to compare branches');
+      if (run === runRef.current) setError(e.message || 'Failed to compare branches');
     } finally {
-      setLoading(false);
+      if (run === runRef.current) setLoading(false);
     }
   }, [owner, repo, base, head]);
 
@@ -228,290 +245,232 @@ export default function BranchDiff({ owner, repo, branches, currentBranch }: Pro
     setPatchMode('preview');
   }
 
-  const statusColor = (s: string) => s === 'added' ? 'var(--color-success)' : s === 'removed' ? 'var(--color-danger)' : s === 'renamed' ? 'var(--chart-purple)' : 'var(--teal-500)';
+  const statusTone = (s: string) => s === 'added' ? 'text-[var(--color-success)]' : s === 'removed' ? 'text-[var(--color-danger)]' : 'text-muted-foreground';
   const statusLabel = (s: string) => ({ added: 'A', removed: 'D', modified: 'M', renamed: 'R', copied: 'C' } as any)[s] || '?';
   const mainConflict = diff?.find(f => conflictCandidates.has(f.filename)) || null;
-
-  const colStyle: React.CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid var(--border-subtle)', borderRadius: 10, background: 'var(--surface-card)' };
-  const colHeader: React.CSSProperties = { padding: '8px 12px', fontSize: 10, fontWeight: 700, color: 'var(--t2)', borderBottom: '1px solid var(--border-subtle)', letterSpacing: '0.06em', textTransform: 'uppercase', background: 'var(--bg-canvas)' };
-  const selectStyle: React.CSSProperties = { background: 'var(--bg0)', border: '1px solid var(--border-subtle)', color: 'var(--t0)', borderRadius: 6, padding: '5px 8px', fontSize: 12, fontFamily: 'inherit', minWidth: 96 };
   const sameBranch = !!base && !!head && base === head;
   const patchLines = patchDraft.split('\n');
+  const additions = diff?.reduce((n, f) => n + f.additions, 0) ?? 0;
+  const deletions = diff?.reduce((n, f) => n + f.deletions, 0) ?? 0;
+  const mono = 'font-mono text-[11px]';
+  const overlay = 'fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm';
+  const gitCommands = [
+    { label: 'Fetch', cmd: `git fetch origin` },
+    { label: 'Pull', cmd: `git pull origin ${base}` },
+    { label: 'Checkout head', cmd: `git checkout ${head}` },
+    { label: 'Merge base into head', cmd: `git merge ${base}` },
+    { label: 'Commit', cmd: `git commit -m "${mergeMsg || 'Merge ' + base + ' into ' + head}"` },
+    { label: 'Push', cmd: `git push origin ${head}` },
+  ];
 
   return (
-    <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--t0)', letterSpacing: '-0.3px' }}>Code Diff</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+    <Page>
+      <PageHeader
+        icon={GitCompareArrows}
+        tone="insights"
+        title="Code diff"
+        description="Compare two branches: see what the compare branch changes, drag files to stage a merge preview, and check how the change shifts the architecture."
+        actions={<>
           <Select value={base || undefined} onValueChange={setBase}>
-            <SelectTrigger style={selectStyle}><SelectValue placeholder="Base branch" /></SelectTrigger>
+            <SelectTrigger size="sm" aria-label="Base branch" className="h-8 w-52 bg-card text-xs *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate"><GitBranch className="size-3.5" /><SelectValue placeholder="Base branch" /></SelectTrigger>
             <SelectContent>
               {branches.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <span style={{ color: 'var(--t2)', fontSize: 12 }}>←→</span>
+          <ArrowLeftRight className="size-4 text-muted-foreground" aria-hidden="true" />
           <Select value={head || undefined} onValueChange={setHead}>
-            <SelectTrigger style={selectStyle}><SelectValue placeholder="Compare branch" /></SelectTrigger>
+            <SelectTrigger size="sm" aria-label="Compare branch" className="h-8 w-52 bg-card text-xs *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate"><GitBranch className="size-3.5" /><SelectValue placeholder="Compare branch" /></SelectTrigger>
             <SelectContent>
-              {branches.length > 1 ? branches.filter(b => b.name !== base).map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>) : branches.map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
+              {(branches.length > 1 ? branches.filter(b => b.name !== base) : branches).map(b => <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="ghost" onClick={loadDiff} disabled={!base || !head || sameBranch || loading} title={sameBranch ? 'Pick two different branches to compare' : undefined} style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: '1px solid color-mix(in srgb, var(--teal-500) 40%, transparent)', background: 'var(--accbg)', color: 'var(--teal-500)', cursor: 'pointer', opacity: (!base || !head || sameBranch || loading) ? 0.5 : 1 }}>Compare</Button>
-          {sameBranch && <span style={{ fontSize: 10, color: 'var(--color-warning)' }}>Pick two different branches</span>}
-        </div>
-        {status && <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: status === 'diverged' ? 'color-mix(in srgb, var(--color-danger) 12%, transparent)' : 'var(--accbg)', color: status === 'diverged' ? 'var(--color-danger)' : 'var(--teal-500)', border: `1px solid ${status === 'diverged' ? 'color-mix(in srgb, var(--color-danger) 30%, transparent)' : 'color-mix(in srgb, var(--teal-500) 25%, transparent)'}` }}>{status}</span>}
-        {conflictCandidates.size > 0 && <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'color-mix(in srgb, var(--color-danger) 12%, transparent)', color: 'var(--color-danger)', border: '1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)' }}>{conflictCandidates.size} file conflict{conflictCandidates.size !== 1 ? 's' : ''}</span>}
-      </div>
+          <Button size="sm" className="h-8 text-xs" onClick={loadDiff} disabled={!base || !head || sameBranch || loading} title={sameBranch ? 'Pick two different branches to compare' : undefined}>{loading ? 'Comparing…' : 'Compare'}</Button>
+        </>}
+      >
+        {(status || diff || sameBranch || conflictCandidates.size > 0) && (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="status">
+            {sameBranch && <span className="text-[var(--color-warning)]">Pick two different branches to compare.</span>}
+            {status && <span className={cn('rounded-full border bg-card px-2.5 py-0.5 font-semibold', status === 'diverged' ? 'text-[var(--color-warning)]' : 'text-foreground')}>{status}</span>}
+            {diff && <span><strong className="font-semibold text-foreground">{diff.length}</strong> files changed · <span className="font-mono text-[var(--color-success)]">+{additions}</span> <span className="font-mono text-[var(--color-danger)]">−{deletions}</span></span>}
+            {conflictCandidates.size > 0 && <span className="font-semibold text-[var(--color-danger)]">{conflictCandidates.size} possible conflict{conflictCandidates.size !== 1 ? 's' : ''}</span>}
+          </div>
+        )}
+      </PageHeader>
 
       <ArchitectureImpact owner={owner} repo={repo} base={base} head={head} />
 
-      {/* Body */}
-      <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0 }}>
-          {/* Left: changed files on head */}
-          <div style={colStyle}>
-            <div style={colHeader}>{head || '—'} changes ({diff?.length ?? 0} files) — drag to stage →</div>
-            {mainConflict && (
-              <div style={{ margin: 8, padding: '9px 10px', borderRadius: 8, border: '1px solid color-mix(in srgb, var(--color-danger) 28%, transparent)', background: 'color-mix(in srgb, var(--color-danger) 8%, transparent)' }}>
-                <div style={{ color: 'var(--color-danger)', fontSize: 11, fontWeight: 800, marginBottom: 4 }}>Main conflict</div>
-                <div style={{ color: 'var(--t0)', fontSize: 11, fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={mainConflict.filename}>{mainConflict.filename}</div>
-                <Button variant="ghost" onClick={() => openConflictEditor(mainConflict)} style={{ marginTop: 8, width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid color-mix(in srgb, var(--color-danger) 32%, transparent)', background: 'color-mix(in srgb, var(--color-danger) 12%, transparent)', color: 'var(--color-danger)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Open conflict editor</Button>
-              </div>
-            )}
-            <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
-              {loading && <div style={{ color: 'var(--t2)', fontSize: 12, padding: 12, textAlign: 'center' }}>Loading diff…</div>}
-              {error && <div style={{ color: 'var(--color-danger)', fontSize: 12, padding: 12 }}>{error}</div>}
-              {diff?.map(f => (
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_240px_minmax(0,1fr)]">
+        {/* Left: changed files on head */}
+        <Section title={`Changes on ${head || '—'}`} meta={diff ? `${diff.length} files · drag to stage` : undefined} className="min-h-[260px]" bodyClassName="p-0 flex flex-col">
+          {mainConflict && (
+            <div className="m-3 mb-0 flex items-center gap-3 rounded-lg border border-[color-mix(in_srgb,var(--color-danger)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_7%,transparent)] px-3 py-2">
+              <AlertTriangle className="size-4 shrink-0 text-[var(--color-danger)]" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-[var(--color-danger)]">Changed on both branches</span>
+                <code className={cn(mono, 'block truncate')} title={mainConflict.filename}>{mainConflict.filename}</code>
+              </span>
+              <Button variant="outline" size="sm" className="h-7 shrink-0 text-xs" onClick={() => openConflictEditor(mainConflict)}>Resolve</Button>
+            </div>
+          )}
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            {loading && <p className="p-4 text-center text-xs text-muted-foreground">Loading diff…</p>}
+            {error && <StateCard icon={AlertTriangle} title="Couldn't compare these branches" action={<Button variant="outline" size="sm" className="h-8 text-xs" onClick={loadDiff}>Try again</Button>}>{error}</StateCard>}
+            {!loading && !error && !diff && <StateCard icon={GitCompareArrows} title="Pick two branches">{branches.length < 2 ? 'This repository has a single branch, so there is nothing to compare yet.' : 'Choose a base and a compare branch above; the diff loads automatically.'}</StateCard>}
+            {diff && diff.length === 0 && <StateCard icon={Check} title="No differences">{status === 'behind' ? `${head} is behind ${base}: it has nothing ${base} doesn't already have. Pick another compare branch.` : `${head} has no changes compared with ${base}.`}</StateCard>}
+            {diff?.map(f => {
+              const active = selectedFile?.filename === f.filename;
+              return (
                 <div
                   key={f.filename}
                   draggable
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={active}
                   onDragStart={() => onDragStart(f)}
-                  onClick={() => setSelectedFile(selectedFile?.filename === f.filename ? null : f)}
-                  style={{ padding: '6px 10px', borderRadius: 6, marginBottom: 4, cursor: 'grab', background: selectedFile?.filename === f.filename ? 'var(--accbg)' : 'var(--bg-canvas)', border: `1px solid ${selectedFile?.filename === f.filename ? 'color-mix(in srgb, var(--teal-500) 30%, transparent)' : 'var(--border-subtle)'}`, display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }}
+                  onClick={() => setSelectedFile(active ? null : f)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedFile(active ? null : f); } }}
+                  className={cn('flex cursor-grab items-center gap-2 rounded-md px-2.5 py-1.5 select-none hover:bg-[var(--surface-hover)]', active && 'bg-[var(--surface-hover)]')}
                 >
-                  <span style={{ width: 16, textAlign: 'center', fontWeight: 700, color: statusColor(f.status), fontSize: 10 }}>{statusLabel(f.status)}</span>
-                  <span style={{ flex: 1, fontSize: 11, color: 'var(--t0)', fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.filename}</span>
-                  {conflictCandidates.has(f.filename) && <Button variant="ghost" onClick={(e) => { e.stopPropagation(); openConflictEditor(f); }} style={{ fontSize: 10, color: 'var(--color-danger)', background: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-danger) 25%, transparent)', borderRadius: 4, padding: '2px 5px', cursor: 'pointer' }}>conflict</Button>}
-                  <span style={{ fontSize: 10, color: 'var(--color-success)' }}>+{f.additions}</span>
-                  <span style={{ fontSize: 10, color: 'var(--color-danger)' }}>-{f.deletions}</span>
+                  <span className={cn('w-4 text-center text-[11px] font-bold', statusTone(f.status))}>{statusLabel(f.status)}</span>
+                  <code className={cn(mono, 'min-w-0 flex-1 truncate')} title={f.filename}>{f.filename}</code>
+                  {conflictCandidates.has(f.filename) && <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[11px] text-[var(--color-danger)]" onClick={e => { e.stopPropagation(); openConflictEditor(f); }}>conflict</Button>}
+                  <span className={cn(mono, 'text-[var(--color-success)]')}>+{f.additions}</span>
+                  <span className={cn(mono, 'text-[var(--color-danger)]')}>−{f.deletions}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+
+        {/* Center: staged drop zone */}
+        <div className="flex min-h-[260px] min-w-0 flex-col gap-2">
+          <section
+            onDragOver={e => e.preventDefault()}
+            onDrop={onDropToStage}
+            aria-label="Staged files"
+            className={cn('flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border-2 border-dashed bg-[var(--surface-subtle)]', draggingFile && 'border-primary')}
+          >
+            <header className="flex min-h-11 items-center gap-2 border-b px-3"><Layers className="size-4 text-muted-foreground" /><h2 className="text-sm font-semibold">Staged</h2><span className="text-xs text-muted-foreground">{stagedFiles.length}</span></header>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2" onDragOver={e => e.preventDefault()} onDrop={onDropToUnstage}>
+              {stagedFiles.length === 0 && <p className="mt-4 px-2 text-center text-xs leading-relaxed text-muted-foreground">Drag changed files here to stage them for a merge preview. Drag them back out to unstage.</p>}
+              {stagedFiles.map(f => (
+                <div key={f.filename} draggable onDragStart={() => onDragStart(f)} title={f.filename} className="mb-1 flex cursor-grab items-center gap-1.5 rounded-md border bg-card px-2 py-1">
+                  <Check className="size-3 shrink-0 text-[var(--color-success)]" />
+                  <span className={cn(mono, 'truncate')}>{f.filename.split('/').pop()}</span>
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Center: staged drop zone */}
-          <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div
-              onDragOver={e => e.preventDefault()}
-              onDrop={onDropToStage}
-              style={{ flex: 1, border: '2px dashed color-mix(in srgb, var(--teal-500) 35%, transparent)', borderRadius: 10, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--accbg)' }}
-            >
-              <div style={{ ...colHeader, background: 'transparent', borderBottom: '1px solid color-mix(in srgb, var(--teal-500) 18%, transparent)', color: 'var(--teal-500)' }}>Staged ({stagedFiles.length})</div>
-              <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}
-                onDragOver={e => e.preventDefault()}
-                onDrop={onDropToUnstage}
-              >
-                {stagedFiles.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 11, textAlign: 'center', marginTop: 20 }}>Drop files here to stage for merge</div>}
-                {stagedFiles.map(f => (
-                  <div key={f.filename} draggable onDragStart={() => onDragStart(f)}
-                    style={{ padding: '5px 8px', borderRadius: 5, marginBottom: 3, background: 'var(--accbg2)', border: '1px solid color-mix(in srgb, var(--teal-500) 25%, transparent)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--teal-500)', cursor: 'grab', display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <span>✓</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.filename.split('/').pop()}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <Input value={mergeMsg} onChange={e => setMergeMsg(e.target.value)} placeholder="Merge commit message…" style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-subtle)', background: 'var(--bg0)', color: 'var(--t0)', fontSize: 11, fontFamily: 'inherit' }} />
-              <Button
-                disabled={stagedFiles.length === 0}
-                onClick={() => alert('Merge is a read-only preview — push via your git client with the staged changes listed above.')}
-                style={{ padding: '9px', borderRadius: 7, border: 'none', background: stagedFiles.length > 0 ? 'var(--teal-500)' : 'var(--bg-canvas)', color: stagedFiles.length > 0 ? 'var(--bg0)' : 'var(--text-muted)', cursor: stagedFiles.length > 0 ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 700 }}>
-                ⎇ Preview Merge ({stagedFiles.length})
-              </Button>
-            </div>
-            {/* Git Commands panel */}
-            <div style={{ marginTop: 12, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
-              <Button
-                variant="ghost"
-                onClick={() => setShowGitCmds(g => !g)}
-                style={{ background: 'none', border: '1px solid var(--border-subtle)', color: 'var(--t2)', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer', width: '100%' }}
-              >
-                {showGitCmds ? '▾' : '▸'} Git Commands
-              </Button>
-              {showGitCmds && (
-                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {[
-                    { label: 'Fetch', cmd: `git fetch origin` },
-                    { label: 'Pull', cmd: `git pull origin ${base}` },
-                    { label: 'Checkout head', cmd: `git checkout ${head}` },
-                    { label: 'Merge base into head', cmd: `git merge ${base}` },
-                    { label: 'Commit', cmd: `git commit -m "${mergeMsg || 'Merge ' + base + ' into ' + head}"` },
-                    { label: 'Push', cmd: `git push origin ${head}` },
-                  ].map(({ label, cmd }) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: 'var(--text-muted)', fontSize: 10, width: 90, flexShrink: 0 }}>{label}</span>
-                      <code style={{ flex: 1, background: 'var(--bg0)', border: '1px solid var(--border-subtle)', borderRadius: 4, padding: '3px 7px', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--teal-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {cmd}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          navigator.clipboard.writeText(cmd).catch(() => {});
-                          setRunFeedback(label);
-                          setTimeout(() => setRunFeedback(null), 2000);
-                        }}
-                        style={{
-                          background: runFeedback === label ? 'color-mix(in srgb, var(--color-success) 15%, transparent)' : 'var(--bg-canvas)',
-                          border: '1px solid ' + (runFeedback === label ? 'color-mix(in srgb, var(--color-success) 40%, transparent)' : 'var(--border-subtle)'),
-                          borderRadius: 4,
-                          color: runFeedback === label ? 'var(--color-success)' : 'var(--text-muted)',
-                          cursor: 'pointer',
-                          fontSize: 10,
-                          padding: '2px 8px',
-                          flexShrink: 0,
-                          transition: 'all 0.2s',
-                        }}
-                        title="Copy to clipboard"
-                      >
-                        {runFeedback === label ? '✓ Copied' : 'Run'}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right: base branch */}
-          <div style={colStyle}>
-            <div style={colHeader}>{base} (base)</div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 8, color: 'var(--text-primary)', fontSize: 11 }}>
-              {diff?.map(f => (
-                <div key={f.filename} style={{ padding: '6px 10px', borderRadius: 6, marginBottom: 4, background: 'var(--bg-canvas)', border: '1px solid var(--border-subtle)', display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{f.filename}</span>
-                  {f.status === 'added' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>not on base</span>}
-                  {f.status === 'removed' && <span style={{ fontSize: 10, color: 'var(--color-danger)' }}>will be deleted</span>}
-                </div>
+          </section>
+          <Input value={mergeMsg} onChange={e => setMergeMsg(e.target.value)} placeholder="Merge commit message" aria-label="Merge commit message" className="h-8 bg-card text-xs" />
+          <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={stagedFiles.length === 0} onClick={() => alert('Merge is a read-only preview — push via your git client with the staged changes listed above.')}>
+            <GitMerge className="size-3.5" /> Preview merge ({stagedFiles.length})
+          </Button>
+          <Button variant="ghost" size="sm" className="h-8 justify-start gap-1 text-xs" aria-expanded={showGitCmds} onClick={() => setShowGitCmds(g => !g)}>
+            {showGitCmds ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />} Git commands
+          </Button>
+          {showGitCmds && (
+            <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+              {gitCommands.map(({ label, cmd }) => (
+                <li key={label} className="flex items-center gap-1.5">
+                  <code className={cn(mono, 'min-w-0 flex-1 truncate rounded border bg-card px-1.5 py-0.5')} title={`${label}: ${cmd}`}>{cmd}</code>
+                  <Button variant="ghost" size="icon-sm" aria-label={`Copy ${label} command`} onClick={() => { navigator.clipboard.writeText(cmd).catch(() => {}); setRunFeedback(label); setTimeout(() => setRunFeedback(null), 2000); }}>
+                    {runFeedback === label ? <Check className="size-3.5 text-[var(--color-success)]" /> : <Copy className="size-3.5" />}
+                  </Button>
+                </li>
               ))}
-              {!loading && !diff && <div style={{ textAlign: 'center', marginTop: 20, color: 'var(--text-muted)' }}>Select branches and click Compare</div>}
-            </div>
-          </div>
+            </ul>
+          )}
         </div>
+
+        {/* Right: base branch */}
+        <Section title={`${base || '—'} (base)`} meta={diff ? 'What merging does here' : undefined} className="min-h-[260px]" bodyClassName="p-2">
+          {!diff && <p className="p-4 text-center text-xs text-muted-foreground">The files the merge would touch on the base branch appear here.</p>}
+          {diff?.map(f => (
+            <div key={f.filename} className="flex items-center gap-2 rounded-md px-2.5 py-1.5">
+              <code className={cn(mono, 'min-w-0 flex-1 truncate')} title={f.filename}>{f.filename}</code>
+              {f.status === 'added' && <span className="shrink-0 text-[11px] text-muted-foreground">new on base</span>}
+              {f.status === 'removed' && <span className="shrink-0 text-[11px] text-[var(--color-danger)]">will be deleted</span>}
+              {f.status !== 'added' && f.status !== 'removed' && <span className="shrink-0 text-[11px] text-muted-foreground">{f.status}</span>}
+            </div>
+          ))}
+        </Section>
+      </div>
 
       {/* File diff popup */}
       {selectedFile?.patch && (
-          <div
-            onClick={() => setSelectedFile(null)}
-            style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'rgba(3,7,18,0.72)', backdropFilter: 'blur(6px)' }}
-          >
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{ width: 'min(980px, 92%)', height: 'min(680px, 82%)', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 14, border: '1px solid var(--border-subtle)', background: 'var(--surface-card)', boxShadow: 'var(--shadow-lg)' }}
-            >
-              <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border-subtle)', background: 'linear-gradient(180deg, var(--bg-canvas) 0%, var(--surface-card) 100%)' }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accbg)', border: '1px solid color-mix(in srgb, var(--teal-500) 25%, transparent)', color: 'var(--teal-500)', fontWeight: 800, fontSize: 12 }}>
-                  {statusLabel(selectedFile.status)}
-                </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ color: 'var(--t0)', fontSize: 13, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={selectedFile.filename}>
-                    {selectedFile.filename}
-                  </div>
-                  <div style={{ color: 'var(--text-primary)', fontSize: 11, marginTop: 3 }}>
-                    {base} {'->'} {head}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>
-                  <span style={{ color: 'var(--color-success)', padding: '3px 8px', borderRadius: 999, background: 'color-mix(in srgb, var(--color-success) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-success) 20%, transparent)' }}>+{selectedFile.additions}</span>
-                  <span style={{ color: 'var(--color-danger)', padding: '3px 8px', borderRadius: 999, background: 'color-mix(in srgb, var(--color-danger) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)' }}>-{selectedFile.deletions}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <Button variant="ghost" onClick={() => setPatchMode('edit')} style={{ padding: '6px 10px', borderRadius: 7, border: patchMode === 'edit' ? '1px solid color-mix(in srgb, var(--teal-500) 40%, transparent)' : '1px solid var(--border-subtle)', background: patchMode === 'edit' ? 'var(--accbg)' : 'var(--bg-canvas)', color: patchMode === 'edit' ? 'var(--teal-500)' : 'var(--text-primary)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Edit</Button>
-                  <Button variant="ghost" onClick={savePatchDraft} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid color-mix(in srgb, var(--teal-500) 35%, transparent)', background: 'var(--accbg)', color: 'var(--teal-500)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Save</Button>
-                  <Button variant="ghost" onClick={() => setPatchMode('preview')} style={{ padding: '6px 10px', borderRadius: 7, border: patchMode === 'preview' ? '1px solid color-mix(in srgb, var(--teal-500) 40%, transparent)' : '1px solid var(--border-subtle)', background: patchMode === 'preview' ? 'var(--accbg)' : 'var(--bg-canvas)', color: patchMode === 'preview' ? 'var(--teal-500)' : 'var(--text-primary)', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Preview</Button>
-                </div>
-                <Button variant="ghost" onClick={() => setSelectedFile(null)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'var(--bg-canvas)', color: 'var(--text-primary)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</Button>
+        <div className={overlay} onClick={() => setSelectedFile(null)}>
+          <div role="dialog" aria-label={`Diff of ${selectedFile.filename}`} onClick={e => e.stopPropagation()} className="flex h-[min(680px,82%)] w-[min(980px,92%)] flex-col overflow-hidden rounded-2xl border bg-card shadow-xl">
+            <div className="flex items-center gap-3 border-b px-4 py-3">
+              <span className={cn('grid size-8 place-items-center rounded-lg border bg-[var(--surface-subtle)] text-xs font-bold', statusTone(selectedFile.status))}>{statusLabel(selectedFile.status)}</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-mono text-[13px] font-semibold" title={selectedFile.filename}>{selectedFile.filename}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{base} → {head} · <span className="text-[var(--color-success)]">+{selectedFile.additions}</span> <span className="text-[var(--color-danger)]">−{selectedFile.deletions}</span></div>
               </div>
-              <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '12px 0', background: 'var(--bg0)' }}>
-                {patchMode === 'edit' ? (
-                  <Textarea
-                    value={patchDraft}
-                    onChange={e => setPatchDraft(e.target.value)}
-                    spellCheck={false}
-                    style={{ width: '100%', height: '100%', minHeight: 0, boxSizing: 'border-box', resize: 'none', border: 'none', outline: 'none', background: 'transparent', color: 'var(--color-success)', padding: '4px 16px 16px', fontFamily: 'JetBrains Mono, Consolas, monospace', fontSize: 11, lineHeight: 1.55, whiteSpace: 'pre', overflowWrap: 'normal', tabSize: 2 }}
-                  />
-                ) : (
-                <div style={{ minWidth: 720, fontFamily: 'JetBrains Mono, Consolas, monospace', fontSize: 11, lineHeight: 1.55 }}>
+              <Button variant={patchMode === 'edit' ? 'secondary' : 'ghost'} size="sm" className="h-7 text-xs" aria-pressed={patchMode === 'edit'} onClick={() => setPatchMode('edit')}>Edit</Button>
+              <Button variant={patchMode === 'preview' ? 'secondary' : 'ghost'} size="sm" className="h-7 text-xs" aria-pressed={patchMode === 'preview'} onClick={() => setPatchMode('preview')}>Preview</Button>
+              <Button size="sm" className="h-7 text-xs" onClick={savePatchDraft}>Save</Button>
+              <Button variant="ghost" size="icon-sm" aria-label="Close diff" onClick={() => setSelectedFile(null)}><X className="size-4" /></Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto bg-[var(--surface-subtle)] py-3">
+              {patchMode === 'edit' ? (
+                <Textarea value={patchDraft} onChange={e => setPatchDraft(e.target.value)} spellCheck={false} aria-label="Patch" className="h-full min-h-0 w-full resize-none rounded-none border-0 bg-transparent px-4 font-mono text-[11px] leading-relaxed whitespace-pre shadow-none focus-visible:ring-0" />
+              ) : (
+                <div className="min-w-[720px] font-mono text-[11px] leading-relaxed">
                   {(() => { const diffLang = detectLang(patchDraft); return patchLines.map((line, i) => {
                     const isAdd = line.startsWith('+') && !line.startsWith('+++');
                     const isDel = line.startsWith('-') && !line.startsWith('---');
                     const isMeta = line.startsWith('@') || line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++');
                     return (
-                      <div
-                        key={i}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '58px 1fr',
-                          color: isAdd ? 'var(--color-success)' : isDel ? 'var(--color-danger)' : isMeta ? 'var(--chart-purple)' : 'var(--text-primary)',
-                          background: isAdd ? 'rgba(5,150,105,0.08)' : isDel ? 'rgba(220,38,38,0.075)' : isMeta ? 'rgba(124,63,168,0.08)' : 'transparent',
-                          borderLeft: isAdd ? '2px solid rgba(5,150,105,0.55)' : isDel ? '2px solid rgba(220,38,38,0.5)' : isMeta ? '2px solid rgba(124,63,168,0.45)' : '2px solid transparent',
-                        }}
-                      >
-                        <span style={{ color: 'rgba(148,163,184,0.45)', textAlign: 'right', padding: '0 10px', userSelect: 'none' }}>{i + 1}</span>
-                        <span
-                          style={{ whiteSpace: 'pre', paddingRight: 16 }}
-                          dangerouslySetInnerHTML={{
-                            __html: highlightLine(
-                              line.replace(/^[+\- ]/, ''),
-                              isMeta ? '' : diffLang
-                            ) || ' '
-                          }}
-                        />
+                      <div key={i} className={cn('grid grid-cols-[58px_1fr] border-l-2 border-transparent',
+                        isAdd && 'border-[var(--color-success)] bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)]',
+                        isDel && 'border-[var(--color-danger)] bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)]',
+                        isMeta && 'bg-[var(--surface-hover)] text-muted-foreground')}>
+                        <span className="px-2.5 text-right text-muted-foreground/60 select-none">{i + 1}</span>
+                        <span className="pr-4 whitespace-pre" dangerouslySetInnerHTML={{ __html: highlightLine(line.replace(/^[+\- ]/, ''), isMeta ? '' : diffLang) || ' ' }} />
                       </div>
                     );
                   }); })()}
                 </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Conflict resolution modal */}
-        {conflict && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <div style={{ width: '88vw', height: '80vh', background: 'var(--bg0)', border: '2px solid rgba(220,38,38,0.5)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 100px rgba(0,0,0,0.7)' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(220,38,38,0.2)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ color: 'var(--color-danger)', fontWeight: 700 }}>⚠ Conflict editor: {conflict.filename}</span>
-                <Button variant="ghost" onClick={() => setConflict(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18 }}>×</Button>
-              </div>
-              {(conflict.basePatch || conflict.headPatch) && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid rgba(255,255,255,0.07)', maxHeight: 150, overflow: 'hidden' }}>
-                  <pre style={{ margin: 0, padding: 10, overflow: 'auto', color: 'var(--color-danger)', background: 'rgba(220,38,38,0.06)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'pre-wrap' }}>{conflict.basePatch || 'No base-side patch available'}</pre>
-                  <pre style={{ margin: 0, padding: 10, overflow: 'auto', color: 'var(--chart-purple)', background: 'rgba(124,63,168,0.06)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'pre-wrap' }}>{conflict.headPatch || 'No head-side patch available'}</pre>
-                </div>
               )}
-              <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--text-muted)', background: 'rgba(220,38,38,0.05)' }}>BASE ({base})</div>
-                  <Textarea readOnly value={conflict.baseContent} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, padding: 10, resize: 'none', outline: 'none' }} />
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--chart-purple)', background: 'rgba(124,63,168,0.05)' }}>HEAD ({head})</div>
-                  <Textarea readOnly value={conflict.headContent} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--chart-purple)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, padding: 10, resize: 'none', outline: 'none' }} />
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ padding: '6px 12px', fontSize: 10, color: 'var(--color-success)', background: 'rgba(5,150,105,0.05)' }}>RESOLVED (edit below)</div>
-                  <Textarea value={conflict.resolved} onChange={e => setConflict(c => c ? { ...c, resolved: e.target.value } : c)} style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--color-success)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, padding: 10, resize: 'none', outline: 'none' }} />
-                </div>
-              </div>
-              <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <Button variant="ghost" onClick={() => setConflict(null)} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}>Cancel</Button>
-                <Button onClick={resolveConflict} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: 'var(--color-success)', color: 'var(--bg0)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✓ Accept Resolution</Button>
-              </div>
             </div>
           </div>
-        )}
-    </div>
+        </div>
+      )}
+
+      {/* Conflict resolution modal */}
+      {conflict && (
+        <div className={overlay}>
+          <div role="dialog" aria-label={`Resolve conflict in ${conflict.filename}`} className="flex h-[80vh] w-[88vw] flex-col overflow-hidden rounded-2xl border bg-card shadow-xl">
+            <div className="flex items-center gap-2 border-b px-4 py-3">
+              <AlertTriangle className="size-4 text-[var(--color-danger)]" />
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">Resolve conflict: <code className="font-mono">{conflict.filename}</code></span>
+              <Button variant="ghost" size="icon-sm" aria-label="Close conflict editor" onClick={() => setConflict(null)}><X className="size-4" /></Button>
+            </div>
+            {(conflict.basePatch || conflict.headPatch) && (
+              <div className="grid max-h-[150px] grid-cols-2 divide-x border-b">
+                <pre className={cn(mono, 'm-0 overflow-auto p-2.5 whitespace-pre-wrap text-muted-foreground')}>{conflict.basePatch || 'No base-side patch available'}</pre>
+                <pre className={cn(mono, 'm-0 overflow-auto p-2.5 whitespace-pre-wrap text-muted-foreground')}>{conflict.headPatch || 'No head-side patch available'}</pre>
+              </div>
+            )}
+            <div className="grid min-h-0 flex-1 grid-cols-3 divide-x">
+              {([
+                ['Base', base, conflict.baseContent, true],
+                ['Head', head, conflict.headContent, true],
+                ['Resolved', 'edit below', conflict.resolved, false],
+              ] as const).map(([label, sub, value, readOnly]) => (
+                <div key={label} className="flex min-h-0 flex-col">
+                  <div className="border-b bg-[var(--surface-subtle)] px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{label} <span className="font-normal normal-case">({sub})</span></div>
+                  <Textarea readOnly={readOnly} value={value} aria-label={`${label} content`} onChange={readOnly ? undefined : e => setConflict(c => c ? { ...c, resolved: e.target.value } : c)} className={cn(mono, 'min-h-0 flex-1 resize-none rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0', readOnly && 'text-muted-foreground')} />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 border-t px-4 py-2.5">
+              <Button variant="outline" size="sm" onClick={() => setConflict(null)}>Cancel</Button>
+              <Button size="sm" className="gap-1.5" onClick={resolveConflict}><Check className="size-3.5" /> Accept resolution</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Page>
   );
 }

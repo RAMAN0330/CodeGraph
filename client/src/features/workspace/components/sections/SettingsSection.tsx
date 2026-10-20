@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Ban, Download, FolderGit2, GitBranch, LogOut, RefreshCw, Settings as SettingsIcon,
-  ShieldCheck, UserRound,
+  ShieldCheck, SlidersHorizontal, UserRound,
 } from 'lucide-react';
 import { appConfig } from '../../../../app/config';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { Page, PageHeader, Section } from '../../../../shared/components/Page';
+import { SummaryStrip } from '../../../../shared/components/SummaryStrip';
+import { StateCard } from '../../../../shared/components/StateCard';
 
 interface RepoInfo {
   owner: string;
@@ -25,6 +29,19 @@ interface Props {
   hasData: boolean;
 }
 
+/** One setting: what it is and why it matters on the left, its control on the right. */
+function Row({ title, description, children }: { title: ReactNode; description: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <strong className="truncate text-[13px] font-semibold">{title}</strong>
+        <span className="text-xs leading-snug text-muted-foreground">{description}</span>
+      </div>
+      {children && <div className="flex shrink-0 items-center gap-2">{children}</div>}
+    </div>
+  );
+}
+
 export default function SettingsSection({
   login, avatarUrl, repoInfo, currentBranch, isLocalFolder, excludeCount,
   onManageExcludes, onReanalyze, onExportReport, reanalyzing, hasData,
@@ -40,99 +57,77 @@ export default function SettingsSection({
       window.location.replace('/');
     }
   }
+
+  const btn = 'h-8 gap-1.5 text-xs';
+
   return (
-    <div className="set-page">
-      <header className="set-header">
-        <span className="set-header-icon"><SettingsIcon size={22} strokeWidth={1.7} /></span>
-        <div>
-          <h1>Settings</h1>
-          <p>Your account and this workspace's analysis preferences.</p>
-        </div>
-      </header>
+    <Page>
+      <PageHeader icon={SettingsIcon} tone="settings" title="Settings" description="Your account and this workspace's analysis preferences." />
 
-      <section className="set-card">
-        <header className="set-card-head">
-          <h2><UserRound size={14} strokeWidth={2} /> Account</h2>
-        </header>
-        <div className="set-account">
-          <span className="set-account-avatar">
-            {avatarUrl ? <img src={avatarUrl} alt="" /> : <UserRound size={22} strokeWidth={1.6} />}
-          </span>
-          <div className="set-account-copy">
-            <strong>{login || 'Account'}</strong>
-            <span>Connected via GitHub</span>
-          </div>
-          <Button variant="ghost" className="set-btn danger" onClick={handleSignOut} disabled={signingOut}>
-            <LogOut size={14} strokeWidth={1.9} /> {signingOut ? 'Signing out…' : 'Sign out'}
-          </Button>
-        </div>
-      </section>
+      <SummaryStrip items={[
+        { label: 'Signed in as', value: login || '—', sub: 'GitHub account' },
+        { label: 'Source', value: repoInfo ? (isLocalFolder ? 'Local' : 'GitHub') : '—', sub: repoInfo ? `${repoInfo.owner}/${repoInfo.repo}` : 'No repository connected' },
+        { label: 'Analysis', value: reanalyzing ? 'Running' : hasData ? 'Ready' : 'None', tone: reanalyzing ? 'warn' : hasData ? 'good' : 'neutral', sub: currentBranch ? `Branch ${currentBranch}` : undefined },
+        { label: 'Exclude patterns', value: excludeCount, sub: 'Manage', onClick: onManageExcludes },
+      ]} />
 
-      <section className="set-card">
-        <header className="set-card-head">
-          <h2><FolderGit2 size={14} strokeWidth={2} /> Repository</h2>
-        </header>
-        {repoInfo ? (
-          <div className="set-rows">
-            <div className="set-row">
-              <div className="set-row-copy">
-                <strong>{repoInfo.owner}/{repoInfo.repo}</strong>
-                <span>{isLocalFolder ? 'Local folder' : 'GitHub repository'}</span>
-              </div>
+      <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto lg:grid-cols-2 lg:grid-rows-2">
+        <Section title="Account" icon={UserRound} bodyClassName="py-1">
+          <div className="flex items-center gap-3 py-3">
+            <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border bg-card text-muted-foreground">
+              {avatarUrl ? <img src={avatarUrl} alt="" className="size-full object-cover" /> : <UserRound className="size-5" strokeWidth={1.6} />}
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <strong className="truncate text-[13px] font-semibold">{login || 'Account'}</strong>
+              <span className="text-xs text-muted-foreground">Connected via GitHub</span>
             </div>
-            {currentBranch && (
-              <div className="set-row">
-                <div className="set-row-copy">
-                  <strong><GitBranch size={13} strokeWidth={2} style={{ verticalAlign: '-2px', marginRight: 5 }} />{currentBranch}</strong>
-                  <span>Current branch</span>
-                </div>
-              </div>
-            )}
-            <div className="set-row">
-              <div className="set-row-copy">
-                <strong>Re-run analysis</strong>
-                <span>Re-scan the repository with the current exclude patterns</span>
-              </div>
-              <Button variant="ghost" className="set-btn" onClick={onReanalyze} disabled={reanalyzing}>
-                <RefreshCw size={14} strokeWidth={1.9} className={reanalyzing ? 'set-spin' : ''} /> {reanalyzing ? 'Analyzing…' : 'Re-analyze'}
+          </div>
+          <div className="border-t">
+            <Row title="Sign out" description="End this session on this device. Your analyses and notes stay saved.">
+              <Button variant="outline" size="sm" className={cn(btn, 'text-[var(--color-danger)]')} onClick={handleSignOut} disabled={signingOut}>
+                <LogOut className="size-3.5" /> {signingOut ? 'Signing out…' : 'Sign out'}
               </Button>
+            </Row>
+          </div>
+        </Section>
+
+        <Section title="Repository" icon={FolderGit2} bodyClassName="py-1">
+          {repoInfo ? (
+            <div className="divide-y">
+              <Row title={`${repoInfo.owner}/${repoInfo.repo}`} description={isLocalFolder ? 'Local folder, read in this browser' : 'GitHub repository'} />
+              {currentBranch && (
+                <Row title={<span className="inline-flex items-center gap-1.5"><GitBranch className="size-3.5 text-muted-foreground" />{currentBranch}</span>} description="Current branch. Switch it from the branch menu in the top bar." />
+              )}
             </div>
-            <div className="set-row">
-              <div className="set-row-copy">
-                <strong>Export report</strong>
-                <span>Download this analysis as a shareable report</span>
-              </div>
-              <Button variant="ghost" className="set-btn" onClick={onExportReport} disabled={!hasData}>
-                <Download size={14} strokeWidth={1.9} /> Export
+          ) : (
+            <StateCard icon={FolderGit2} title="No repository connected">Connect a repository to manage its analysis settings.</StateCard>
+          )}
+        </Section>
+
+        <Section title="Analysis" icon={SlidersHorizontal} bodyClassName="py-1">
+          <div className="divide-y">
+            <Row title={<span className="inline-flex items-center gap-1.5"><Ban className="size-3.5 text-muted-foreground" />{excludeCount} custom exclude pattern{excludeCount === 1 ? '' : 's'}</span>} description="Folders and files skipped during analysis, on top of the built-in defaults.">
+              <Button variant="outline" size="sm" className={btn} onClick={onManageExcludes}>Manage</Button>
+            </Row>
+            <Row title="Re-run analysis" description={repoInfo ? 'Re-scan the repository with the current exclude patterns.' : 'Connect a repository first.'}>
+              <Button variant="outline" size="sm" className={btn} onClick={onReanalyze} disabled={reanalyzing || !repoInfo}>
+                <RefreshCw className={cn('size-3.5', reanalyzing && 'animate-spin')} /> {reanalyzing ? 'Analyzing…' : 'Re-analyze'}
               </Button>
-            </div>
+            </Row>
           </div>
-        ) : (
-          <p className="set-empty-note">Connect a repository to manage its analysis settings.</p>
-        )}
-      </section>
+        </Section>
 
-      <section className="set-card">
-        <header className="set-card-head">
-          <h2><Ban size={14} strokeWidth={2} /> Exclude Patterns</h2>
-        </header>
-        <div className="set-row">
-          <div className="set-row-copy">
-            <strong>{excludeCount} custom pattern{excludeCount === 1 ? '' : 's'}</strong>
-            <span>Folders and files skipped during analysis, on top of the built-in defaults</span>
+        <Section title="Data and privacy" icon={ShieldCheck} bodyClassName="py-1">
+          <div className="divide-y">
+            <Row title="Export report" description={hasData ? 'Download this analysis as a shareable report.' : 'Available once an analysis has finished.'}>
+              <Button variant="outline" size="sm" className={btn} onClick={onExportReport} disabled={!hasData || !repoInfo}>
+                <Download className="size-3.5" /> Export
+              </Button>
+            </Row>
+            <Row title="Where analysis runs" description="Repository analysis (code graph, patterns, security scan) runs directly in your browser. No third-party AI service is involved." />
           </div>
-          <Button variant="ghost" className="set-btn" onClick={onManageExcludes}>Manage</Button>
-        </div>
-      </section>
-
-      <section className="set-card set-about">
-        <header className="set-card-head">
-          <h2><ShieldCheck size={14} strokeWidth={2} /> About</h2>
-        </header>
-        <p className="set-empty-note">
-          Repository analysis (code graph, patterns, security scan) runs directly in your browser — no third-party AI service is involved.
-        </p>
-      </section>
-    </div>
+        </Section>
+      </div>
+    </Page>
   );
 }
