@@ -22,7 +22,7 @@ import { auditCsv, listAudit, parseAuditFilter, recordAudit } from './db/audit';
 import { UsernameTakenError, clearGithubConnection, createOrganizationWithAdmin, findUserById, findUserByUsername, setGithubConnection, toPublicUser, type UserRow } from './db/users';
 import { AccessError, NotFoundError, addMember, assertCanEditProject, createProject, createWorkspace, getAlertWebhook, getConnectionForQuerying, getDecryptedConnection, listProjects, listWorkspaces, removeMember, removeProject, removeWorkspace, setAlertWebhook, updateDbConnection, type Actor } from './db/projectStore';
 import { listAlerts, listSnapshots } from './db/analysisHistory';
-import { InviteUnavailableError, createInvite, findOpenInvite, joinOrganizationWithInvite, listMembers } from './db/organization';
+import { InviteUnavailableError, createInvite, findOpenInvite, joinOrganizationWithInvite, listMembers, ROLES, setMemberRole, type Role } from './db/organization';
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation, validateNote } from './db/annotations';
 import { deleteCoverage, getCoverage, saveCoverage, validateCoverage } from './db/coverage';
 import { createView, deleteView, listViews, validateView } from './db/savedViews';
@@ -134,6 +134,13 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Viewers read; everything that changes data is refused. Session routes and their own UI state stay open.
+app.use((req: any, res, next) => {
+  if (req.user?.role !== 'viewer' || ['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  if (req.path.startsWith('/auth/') || req.path.startsWith('/api/me/')) return next();
+  res.status(403).json({ error: 'Your role is view-only. Ask an organization admin for edit access.' });
+});
 
 const githubAuthEnabled = Boolean(env.githubClientId && env.githubClientSecret);
 
@@ -600,6 +607,20 @@ app.get('/api/organization/audit', requireAuth, async (req: any, res: any) => {
 app.get('/api/organization/members', requireAuth, async (req: any, res: any) => {
   try {
     res.json({ members: await listMembers(req.user.organization_id), canInvite: req.user.role === 'admin' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/organization/members/:id', requireAuth, async (req: any, res: any) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only organization admins can change roles.' });
+  const role = req.body?.role as Role;
+  const userId = Number(req.params.id);
+  if (!ROLES.includes(role) || !Number.isInteger(userId)) return res.status(400).json({ error: 'Choose admin, member or viewer.' });
+  try {
+    if (!(await setMemberRole(req.user.organization_id, userId, role))) return res.status(409).json({ error: 'That person is not in your organization, or is the last admin.' });
+    await audit(req, 'organization.member.role', { type: 'user', id: userId }, { role });
+    res.json({ members: await listMembers(req.user.organization_id) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
