@@ -23,14 +23,21 @@ the user navigates to them. Environment access is centralized in `app/config.ts`
 ## Server
 
 The Node server is the browser-facing gateway. It owns authentication, database
-introspection, GitHub proxying, and forwarding analysis jobs to FastAPI. Runtime
-configuration lives in `src/config/`, and shared transport types live in
-`src/types/`. The Python service owns asynchronous analysis jobs.
+introspection, GitHub proxying, and forwarding analysis jobs to the engine.
+Runtime configuration lives in `src/config/`, and shared transport types live in
+`src/types/`.
+
+`engine/` is the Rust analysis engine and the backend's target language: the
+Node API and the Go gateway move into it route by route. Today it owns analysis
+jobs: shallow clone, a parallel tree-sitter scan (`lang.rs` grammars and
+queries, `parse.rs` symbols/calls/imports, `resolve.rs` import resolution,
+`django.rs` model introspection, `graph.rs` the Graphify-shaped payload) and
+the `/api/analyze` + `/api/tasks/{id}` HTTP contract (`server.rs`).
 
 `server-go/` is the production gateway migration target. It uses only the Go
 standard library and provides bounded request bodies, upstream timeouts,
 structured logging, panic recovery, explicit CORS, health checks, graceful
-shutdown, GitHub tree proxying, and FastAPI job forwarding. The Node gateway
+shutdown, GitHub tree proxying, and analysis job forwarding. The Node gateway
 remains the compatibility implementation until OAuth and database routes have
 been migrated and parity-tested.
 

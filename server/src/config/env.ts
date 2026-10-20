@@ -11,7 +11,7 @@ export const env = Object.freeze({
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: integer(process.env.PORT, 5000),
   clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
-  fastApiUrl: process.env.FASTAPI_URL ?? 'http://localhost:8000',
+  engineUrl: process.env.ANALYSIS_ENGINE_URL ?? 'http://localhost:8000',
   sessionSecret: process.env.SESSION_SECRET ?? 'dev-secret-change-me',
   dbCredentialsSecret: process.env.DB_CREDENTIALS_SECRET ?? 'dev-secret-change-me',
   databaseUrl: process.env.DATABASE_URL ?? '',

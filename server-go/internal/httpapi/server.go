@@ -21,7 +21,7 @@ type API struct {
 }
 
 func New(cfg config.Config) http.Handler {
-	target, _ := url.Parse(cfg.FastAPIURL)
+	target, _ := url.Parse(cfg.EngineURL)
 	legacyTarget, _ := url.Parse(cfg.LegacyAPIURL)
 	api := &API{cfg: cfg, client: &http.Client{Timeout: 20 * time.Second}, analysis: newReverseProxy(target), legacy: newReverseProxy(legacyTarget)}
 	mux := http.NewServeMux()
@@ -106,7 +106,7 @@ func (a *API) live(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "ok"})
 }
 func (a *API) ready(w http.ResponseWriter, r *http.Request) {
-	dependencies := map[string]string{"analysis": a.cfg.FastAPIURL + "/", "legacy_api": a.cfg.LegacyAPIURL + "/auth/me"}
+	dependencies := map[string]string{"analysis": a.cfg.EngineURL + "/", "legacy_api": a.cfg.LegacyAPIURL + "/auth/me"}
 	for name, endpoint := range dependencies {
 		req, _ := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
 		response, err := a.client.Do(req)
