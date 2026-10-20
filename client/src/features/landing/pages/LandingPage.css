@@ -8,11 +8,11 @@
   --brand-2:#7c3aed;--brand-3:#e08a4f;--gradient-end:#b4530a;--accent:#ede9fe;--muted:#f3f1fb;--muted-foreground:#5e5a7a;--border:#e4e1f2;--ring:var(--brand-2);
   --canvas-blob-1:rgba(124,58,237,.16);--canvas-blob-2:rgba(224,138,79,.18);--canvas-grid:rgba(49,46,158,.055);
   --glass-edge:rgba(255,255,255,.8);--glass-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 18px 44px -14px rgba(49,46,158,.24);
-  --glass-card-bg:color-mix(in srgb,var(--card) 72%,transparent);--glass-bg:color-mix(in srgb,var(--card) 90%,transparent);--glass-blur:blur(16px) saturate(160%);
+  --nav-shadow:rgba(49,46,158,.28);--glass-card-bg:color-mix(in srgb,var(--card) 72%,transparent);--glass-bg:color-mix(in srgb,var(--card) 90%,transparent);--glass-blur:blur(16px) saturate(160%);
   /* house tokens the page and the diagrams read */
   --text-primary:var(--foreground);--text-secondary:var(--muted-foreground);--surface-card:var(--card);--surface-subtle:var(--muted);--surface-hover:var(--accent);--border-subtle:var(--border);--border-medium:#d4d0ea;
   --ink:var(--foreground);--muted-text:var(--muted-foreground);--line:var(--border);--gutter:clamp(16px,4.4vw,72px);--tone:var(--teal-500);
-  position:relative;min-height:100dvh;overflow-x:clip;color:var(--ink);padding:0 var(--gutter);
+  position:relative;min-height:100dvh;overflow-x:clip;color:var(--ink);padding:16px var(--gutter) 0;
   background:
     radial-gradient(60vw 50vw at 0 0,var(--canvas-blob-1),transparent 70%),
     radial-gradient(50vw 40vw at 100% 0,var(--canvas-blob-2),transparent 70%),
@@ -25,6 +25,7 @@
    an off-white primary, and colour only in the one gradient phrase and the data.
    LandingPage sets data-theme from the toggle, else from prefers-color-scheme. */
 .landing-page[data-theme="dark"]{
+  --nav-shadow:rgba(0,0,0,.7);
     color-scheme:dark;
     --background:#141416;--foreground:#ededef;--card:#1e1e21;--primary:#f4f4f5;--primary-hover:#ffffff;--primary-foreground:#18181b;
     --brand-2:#a5b4fc;--brand-3:#f5b583;--gradient-end:#f5b583;--accent:#2a2a2e;--muted:#1a1a1d;--muted-foreground:#a1a1aa;--border:#2c2c31;--border-medium:#3a3a40;
@@ -49,7 +50,7 @@
 .text-gradient{background:linear-gradient(100deg,var(--brand-2),var(--gradient-end));-webkit-background-clip:text;background-clip:text;color:transparent}
 
 /* ---- Nav: a floating glass top bar ---- */
-.landing-nav{position:sticky;top:12px;z-index:30;display:flex;align-items:center;gap:20px;height:64px;margin-top:12px;padding:0 10px 0 16px;border-radius:1rem}
+.landing-nav{position:sticky;top:16px;z-index:30;display:flex;align-items:center;gap:20px;width:min(1180px,100%);height:64px;margin:0 auto;padding:0 10px 0 16px;border-radius:1rem;box-shadow:var(--glass-shadow),0 8px 28px -10px var(--nav-shadow)}
 .landing-brand{display:inline-flex;align-items:center;min-height:44px;gap:10px;color:var(--ink);font-size:1rem;font-weight:750;text-decoration:none}
 .landing-brand-mark{display:grid;place-items:center;width:31px;height:31px;color:var(--primary-foreground);border-radius:8px;background:var(--primary)}
 .landing-nav-links{display:flex;gap:28px;margin-left:40px}
@@ -208,6 +209,8 @@
   .sheet-tab{flex:none;width:auto;padding:4px 14px 4px 6px;box-shadow:none}
 }
 @media(max-width:720px){
+  .start-works{gap:6px 14px}
+  .start-works>span[aria-hidden]{display:none}
   .landing-nav-links{display:none}
   .landing-hero{padding-top:44px}
   .how-steps,.questions-grid{grid-template-columns:1fr}
