@@ -594,7 +594,10 @@ CodeGraph/
 │
 ├── tests/                       # Node test-runner suites and fixtures
 ├── docs/ARCHITECTURE.md         # Architectural rules and boundaries
+├── docs/PRODUCT_BLUEPRINT.md    # Implementation assessment and release roadmap
+├── docs/PRODUCT_ENHANCEMENT_PLAN.md # Proposed enhancements and clean-slate design
 ├── PRODUCT.md                   # Product definition and principles
+├── PRODUCT_GUIDE.md             # Product and workflow guide
 └── docker-compose*.yml          # Development and production stacks
 ```
 
