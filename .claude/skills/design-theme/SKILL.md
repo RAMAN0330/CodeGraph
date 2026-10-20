@@ -13,7 +13,7 @@ Pairs with `.claude/skills/ui-style-selection` (clean base + glass).
 database and settings screens follow `client/DESIGN.md` and the house theme in `ui-style-selection`.
 
 All tokens are scoped to `.landing-page` in `client/src/features/landing/pages/LandingPage.css`
-(light by default, dark under `prefers-color-scheme: dark`). They reuse the shadcn names, so shadcn
+(light by default, dark under `prefers-color-scheme: dark`). Dark is a soft dusk, not near-black: keep the canvas a muted indigo, cards a step lighter, accents pastel. They reuse the shadcn names, so shadcn
 `Button`s inside the page pick them up. They also remap the house tokens the diagrams read
 (`--text-primary`, `--surface-card`, `--teal-500` …). Never hard-code hex in components or new rules.
 
@@ -21,17 +21,17 @@ All tokens are scoped to `.landing-page` in `client/src/features/landing/pages/L
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--background` | `#f7f6fc` lavender | `#0e0c1f` night indigo | page canvas (under the grid) |
-| `--foreground` | `#16142e` ink | `#ebe9f8` | body text |
-| `--card` | `#ffffff` | `#1a1733` | glass base, solid tiles |
-| `--primary` | `#312e9e` deep indigo | `#8f8aff` | primary buttons, brand mark |
-| `--brand-2` | `#7c3aed` violet | `#a78bfa` | accents, focus ring, links, gradient start |
-| `--brand-3` | `#e08a4f` orange | `#f2a46e` | canvas bloom only |
-| `--gradient-end` | `#b4530a` | `#f2a46e` | gradient text end (orange darkened so large text keeps 3:1 in light) |
-| `--accent` | `#ede9fe` | `#2b2652` | hover/selected fills |
-| `--muted-foreground` | `#5e5a7a` | `#a6a1c4` | secondary text |
-| `--border` | `#e4e1f2` | `#2d2a4b` | hairlines |
-| `--color-success` / `--color-warning` / `--color-danger` | house values | `#34d399` / `#fbbf24` / `#f2555a` | **state only**, never decoration |
+| `--background` | `#f7f6fc` lavender | `#2b2847` soft dusk indigo | page canvas (under the grid) |
+| `--foreground` | `#16142e` ink | `#f1effa` | body text |
+| `--card` | `#ffffff` | `#36325a` | glass base, solid tiles |
+| `--primary` | `#312e9e` deep indigo | `#aaa6ff` | primary buttons, brand mark |
+| `--brand-2` | `#7c3aed` violet | `#bba6fb` | accents, focus ring, links, gradient start |
+| `--brand-3` | `#e08a4f` orange | `#f5b583` | canvas bloom only |
+| `--gradient-end` | `#b4530a` | `#f5b583` | gradient text end (orange darkened so large text keeps 3:1 in light) |
+| `--accent` | `#ede9fe` | `#433e6e` | hover/selected fills |
+| `--muted-foreground` | `#5e5a7a` | `#c9c5e2` | secondary text |
+| `--border` | `#e4e1f2` | `#47426e` | hairlines |
+| `--color-success` / `--color-warning` / `--color-danger` | house values | `#4ade9a` / `#fcd34d` / `#ff7a7e` | **state only**, never decoration |
 
 Module tones on the page (`tone-indigo/cyan/purple/amber/red`) keep their data meaning from DESIGN.md
 and get lighter values in dark mode. They never colour a call to action.
