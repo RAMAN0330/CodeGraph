@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Copy, UserCheck } from 'lucide-react';
+import { AlertTriangle, Check, Copy, Download, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
 import { GitHub } from '../../repository/services/github';
 import {
   LOCATIONS, auditCodeowners, parseCodeowners, renderCodeowners, suggestAreas, suggestOwners,
@@ -77,6 +78,12 @@ export default function CodeOwnersView({ owner, repo, branch, data }: Props) {
     navigator.clipboard.writeText(generated).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
   };
 
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([generated], { type: 'text/plain' }));
+    Object.assign(document.createElement('a'), { href: url, download: 'CODEOWNERS' }).click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="gi-page guide-page">
       <header className="guide-header">
@@ -84,8 +91,20 @@ export default function CodeOwnersView({ owner, repo, branch, data }: Props) {
           <h1>Code owners</h1>
           <p>Who actually maintains each area, from the last {MONTHS} months of commits — as a CODEOWNERS file you can review and commit, and an audit of the one you have.</p>
         </div>
-        <Button className="guide-copy" onClick={copy} disabled={!suggestions.length}>{copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy CODEOWNERS</>}</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={download} disabled={!suggestions.length}><Download size={14} /> Download</Button>
+          <Button className="guide-copy" onClick={copy} disabled={!suggestions.length}>{copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy CODEOWNERS</>}</Button>
+        </div>
       </header>
+
+      {activity !== null && (
+        <SummaryStrip items={[
+          { label: 'Areas', value: areas.length, sub: 'Top-level folders' },
+          { label: 'Owners suggested', value: suggestions.length, tone: suggestions.length ? 'good' : 'neutral' },
+          { label: 'Quiet areas', value: quiet.length, tone: quiet.length ? 'warn' : 'good', sub: `No commits in ${MONTHS} months` },
+          { label: 'Audit findings', value: existing ? findings.length : '—', tone: findings.length ? 'warn' : existing ? 'good' : 'neutral', sub: existing ? existing.path : 'No CODEOWNERS file' },
+        ]} />
+      )}
 
       {activity === null ? <div className="guide-card"><p className="guide-empty">Reading commit history for {areas.length} areas…</p></div> : (
         <div className="guide-grid">

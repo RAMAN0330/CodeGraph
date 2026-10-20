@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { organizationStore, type DbConnectionInput, type OrganizationState, type Project, type ProjectType, type OrganizationPerson } from '../services/organizationStore';
+import { organizationStore, projectPath, type DbConnectionInput, type OrganizationState, type Project, type ProjectType, type OrganizationPerson } from '../services/organizationStore';
 import { TopbarSearch } from '../components/TopbarSearch';
 import { TopbarAccount } from '../components/TopbarAccount';
+import { ThemeToggle } from '../../../shared/components/ThemeToggle';
 import { AlertWebhookSection } from '../components/AlertWebhookSection';
 import { relativeTime } from '../services/relativeTime';
 import { clearPendingRepository, peekPendingRepository } from '../services/pendingRepository';
@@ -143,7 +144,7 @@ export default function ProjectsPage() {
       .then(project => { refresh(); setSelectedProjectId(project.id); dialog.current?.close(); setName(''); setInstructions(''); setRepositoryFullName(''); if (pendingRepository) { clearPendingRepository(); setPendingRepository(null); } })
       .catch(cause => setMessage(cause instanceof Error ? cause.message : 'Could not create project.'));
   };
-  const openProject = (project: Project) => project.projectType === 'database' ? navigate(`/db?projectId=${project.id}`) : navigate(`/workspace?repo=${encodeURIComponent(project.repositoryFullName ?? '')}&run=1`);
+  const openProject = (project: Project) => navigate(projectPath(project));
   const deleteProject = (project: Project) => {
     setPendingDelete(project); setDeleteConfirmText(''); setDeleteError('');
     deleteDialog.current?.showModal();
@@ -170,7 +171,7 @@ export default function ProjectsPage() {
   const removeMember = (memberId: number) => { if (!selected) return; organizationStore.removeMember(selected.id, memberId).then(refresh); };
   if (!workspace) return null;
   return <main className="organization-page project-picker-page">
-    <header className="organization-topbar"><div className="organization-brand"><span className="organization-brand-mark"><GitBranch size={20} /></span><Button className="picker-back" onClick={() => navigate('/workspaces')}>Workspaces</Button><span className="organization-brand-divider">/</span><strong className="picker-workspace-name" title={workspace.name}>{workspace.name}</strong></div><div className="topbar-actions"><TopbarSearch value={query} onChange={setQuery} placeholder="Search projects" className="topbar-search-slot" /><TopbarAccount /></div></header>
+    <header className="organization-topbar"><div className="organization-brand"><span className="organization-brand-mark"><GitBranch size={20} /></span><Button className="picker-back" onClick={() => navigate('/workspaces')}>Workspaces</Button><span className="organization-brand-divider">/</span><strong className="picker-workspace-name" title={workspace.name}>{workspace.name}</strong></div><div className="topbar-actions"><TopbarSearch value={query} onChange={setQuery} placeholder="Search projects" className="topbar-search-slot" /><ThemeToggle /><TopbarAccount /></div></header>
     {pendingRepository && <p className="pending-repository-banner" role="status"><GitBranch size={15} aria-hidden="true" /><span>Ready to add <strong>{pendingRepository}</strong> to {workspace.name}.</span><Button className="project-row-open-button" onClick={() => void openDialog(pendingRepository)}>Add as project <ArrowRight size={14} /></Button><Button className="project-delete-button" aria-label="Dismiss" onClick={() => { clearPendingRepository(); setPendingRepository(null); }}><X size={14} /></Button></p>}
     {!projects.length ? <section className="workspace-empty-page"><div className="empty-state-card"><span><FolderKanban size={34} /></span><h1>Start your first project</h1><p>Attach a verified GitHub repository to begin organizing work inside {workspace.name}.</p><Button className="projects-primary-action" onClick={() => void openDialog(pendingRepository ?? undefined)}><Plus size={16} /> {pendingRepository ? `Add ${pendingRepository}` : 'Create project'}</Button><ul className="empty-state-points"><li><CheckCircle2 size={15} /> Attach a GitHub repository or a database connection</li><li><CheckCircle2 size={15} /> See dependencies, ownership, and schema together</li><li><CheckCircle2 size={15} /> Pick up right where analysis left off</li></ul></div></section> : <section className="project-workspace-layout">
       <aside className="project-list-panel">

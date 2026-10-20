@@ -59,10 +59,11 @@ test('primary routes use workspaces and projects, not global repository selectio
   const app = await readFile(resolve('client/src/App.tsx'), 'utf8');
   assert.match(app, /path="\/workspaces"/);
   assert.match(app, /path="\/workspaces\/:workspaceId\/projects"/);
+  assert.match(app, /path="\/workspaces\/:workspaceId\/projects\/:projectId"/);
   const projects = await readFile(resolve('client/src/features/organization/pages/ProjectsPage.tsx'), 'utf8');
   assert.match(projects, /\/api\/github\/repos/);
   assert.match(projects, /Verify repository/);
-  assert.match(projects, /\/workspace\?repo=/);
+  assert.match(projects, /navigate\(projectPath\(project\)\)/);
 });
 
 test('github auth redirects to workspaces', async () => {

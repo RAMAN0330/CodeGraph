@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Download } from 'lucide-react';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
+import { downloadCsv } from '../../../shared/services/exportCsv';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { githubFetch } from '../../repository/services/github';
 
 const AUTHOR_COLORS = ['var(--color-success)', 'var(--teal-500)', 'var(--accent-orange)', 'var(--chart-purple)', 'var(--color-danger)', 'var(--chart-cyan)', 'var(--accent-orange)', 'var(--chart-purple)'];
@@ -14,13 +18,14 @@ interface ContributorInsightsProps {
   owner: string;
   repo: string;
   token: string;
-  folders: string[];
+  folders?: string[];
 }
 
-export default function ContributorInsights({ owner, repo, token, folders }: ContributorInsightsProps) {
+export default function ContributorInsights({ owner, repo, token }: ContributorInsightsProps) {
   const [contributors, setContributors] = useState<Contributor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -53,79 +58,52 @@ export default function ContributorInsights({ owner, repo, token, folders }: Con
     <div className="gi-page"><p className="gi-note">No contributors found.</p></div>
   );
 
+  const total = contributors.reduce((n, c) => n + c.contributions, 0) || 1;
   const maxContributions = contributors[0]?.contributions || 1;
+  // Fewest people whose commits add up to half of all commits: a low number means knowledge is concentrated.
+  let running = 0, busFactor = 0;
+  for (const c of contributors) { busFactor += 1; running += c.contributions; if (running >= total / 2) break; }
+  const topShare = Math.round((contributors[0].contributions / total) * 100);
+  const shown = contributors.filter(c => c.login.toLowerCase().includes(query.trim().toLowerCase()));
 
   return (
-    <div className="gi-page">
-      <h1>Contributor Insights</h1>
-
-      <div style={{ marginBottom: 32 }}>
-        {contributors.map((c, i) => {
+    <div className="gi-page flex h-full min-h-0 flex-col gap-3">
+      <SummaryStrip items={[
+        { label: 'Contributors', value: contributors.length, sub: 'Top 20 by commits' },
+        { label: 'Commits', value: total.toLocaleString(), sub: 'By these contributors' },
+        { label: 'Top contributor', value: `${topShare}%`, tone: topShare > 70 ? 'warn' : 'neutral', sub: contributors[0].login },
+        { label: 'Bus factor', value: busFactor, tone: busFactor <= 1 ? 'bad' : busFactor === 2 ? 'warn' : 'good', sub: 'People behind half the commits' },
+      ]} />
+      <div className="flex shrink-0 items-center gap-2">
+        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a contributor" aria-label="Find a contributor" className="h-8 max-w-60 text-xs" />
+        <Button variant="outline" size="sm" className="ml-auto h-8 gap-1.5 text-xs" onClick={() => downloadCsv('contributors.csv', ['Login', 'Commits', 'Share %'], contributors.map(c => [c.login, c.contributions, Math.round((c.contributions / total) * 1000) / 10]))}>
+          <Download className="size-3.5" /> Export CSV
+        </Button>
+      </div>
+      <ul className="min-h-0 flex-1 divide-y overflow-auto rounded-xl border bg-card">
+        {shown.length === 0 && <li className="p-6 text-center text-xs text-muted-foreground">No contributor matches.</li>}
+        {shown.map(c => {
+          const i = contributors.indexOf(c);
           const color = AUTHOR_COLORS[i % AUTHOR_COLORS.length];
-          const barWidth = Math.round((c.contributions / maxContributions) * 100);
           return (
-            <div key={c.login} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%', background: color,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 700, fontSize: 14, color: 'var(--bg0)', flexShrink: 0,
-              }}>
-                {c.login[0].toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--t0)' }}>{c.login}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.contributions} commits</span>
+            <li key={c.login} className="flex items-center gap-3 px-4 py-2.5">
+              <span className="w-5 text-right font-mono text-xs text-muted-foreground">{i + 1}</span>
+              {c.avatar_url
+                ? <img src={c.avatar_url} alt="" className="size-8 shrink-0 rounded-full" loading="lazy" />
+                : <span className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold" style={{ background: color, color: 'var(--bg0)' }}>{c.login[0].toUpperCase()}</span>}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2 text-xs">
+                  <a className="truncate font-semibold hover:underline" href={`https://github.com/${c.login}`} target="_blank" rel="noreferrer">{c.login}</a>
+                  <span className="shrink-0 font-mono text-muted-foreground">{c.contributions.toLocaleString()} commits · {Math.round((c.contributions / total) * 100)}%</span>
                 </div>
-                <div style={{ background: 'var(--bg3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                  <div style={{ width: `${barWidth}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.3s ease' }} />
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full" style={{ width: `${Math.round((c.contributions / maxContributions) * 100)}%`, background: color }} />
                 </div>
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
-
-      {folders.length > 0 && (
-        <div>
-          <h3 style={{ margin: '0 0 12px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Folder Ownership (estimated)
-          </h3>
-          <Table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-            <TableHeader>
-              <TableRow style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <TableHead style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>Folder</TableHead>
-                <TableHead style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 600 }}>Top Author</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {folders.slice(0, 12).map((folder, idx) => {
-                const contributor = contributors[idx % contributors.length];
-                const color = AUTHOR_COLORS[idx % AUTHOR_COLORS.length];
-                return (
-                  <TableRow key={folder} style={{ borderBottom: '1px solid var(--border2)' }}>
-                    <TableCell style={{ padding: '8px', color: 'var(--text-primary)', fontFamily: "'JetBrains Mono',monospace" }}>
-                      {folder}
-                    </TableCell>
-                    <TableCell style={{ padding: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{
-                          width: 20, height: 20, borderRadius: '50%', background: color,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 10, fontWeight: 700, color: 'var(--bg0)', flexShrink: 0,
-                        }}>
-                          {contributor.login[0].toUpperCase()}
-                        </div>
-                        <span style={{ color: 'var(--t2)' }}>{contributor.login}</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      </ul>
     </div>
   );
 }

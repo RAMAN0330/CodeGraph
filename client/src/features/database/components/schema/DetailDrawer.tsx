@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { KeyRound, Link2, Rows3, SquareTerminal } from 'lucide-react';
 import { GG } from '../dbConnectTheme';
+import TableCodeImpact from './TableCodeImpact';
 import type { SchemaTable } from '../../types';
 import { Button } from '@/components/ui/button';
 
@@ -12,16 +13,17 @@ function formatBytes(bytes: number | null | undefined): string {
   return `${value.toFixed(value >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-type Tab = 'columns' | 'indexes' | 'relations' | 'stats';
+type Tab = 'columns' | 'indexes' | 'relations' | 'code' | 'stats';
 
 interface DetailDrawerProps {
+  projectId?: number;
   table: SchemaTable;
   allTables: SchemaTable[];
   onBrowse?: (table: SchemaTable) => void;
   onQuery?: (table: SchemaTable) => void;
 }
 
-export default function DetailDrawer({ table, allTables, onBrowse, onQuery }: DetailDrawerProps) {
+export default function DetailDrawer({ projectId, table, allTables, onBrowse, onQuery }: DetailDrawerProps) {
   const [tab, setTab] = useState<Tab>('columns');
   const referencing = allTables.filter(t => t.name !== table.name && t.foreignKeys.some(fk => fk.referencedTable === table.name));
 
@@ -45,9 +47,9 @@ export default function DetailDrawer({ table, allTables, onBrowse, onQuery }: De
       )}
 
       <div style={{ display: 'flex', gap: 3, borderBottom: `1px solid ${GG.line}`, marginTop: 4 }}>
-        {(['columns', 'indexes', 'relations', 'stats'] as Tab[]).map(t => (
+        {((projectId ? ['columns', 'indexes', 'relations', 'code', 'stats'] : ['columns', 'indexes', 'relations', 'stats']) as Tab[]).map(t => (
           <Button key={t} variant="ghost" onClick={() => setTab(t)} style={{
-            padding: '6px 10px', border: 0, borderBottom: tab === t ? `2px solid ${GG.accent}` : '2px solid transparent',
+            padding: '6px 7px', border: 0, borderBottom: tab === t ? `2px solid ${GG.accent}` : '2px solid transparent',
             background: 'none', color: tab === t ? GG.accent : GG.fg3, fontFamily: GG.mono, fontSize: 11, fontWeight: 700, textTransform: 'capitalize', cursor: 'pointer',
           }}>{t}</Button>
         ))}
@@ -91,6 +93,8 @@ export default function DetailDrawer({ table, allTables, onBrowse, onQuery }: De
           {table.foreignKeys.length === 0 && referencing.length === 0 && <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5 }}>No relationships found.</p>}
         </div>
       )}
+
+      {tab === 'code' && projectId && <TableCodeImpact projectId={projectId} table={table} />}
 
       {tab === 'stats' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: GG.mono, fontSize: 11.5 }}>

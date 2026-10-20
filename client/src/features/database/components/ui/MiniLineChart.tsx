@@ -6,14 +6,16 @@ interface MiniLineChartProps {
   series: Series[];
   height?: number;
   emptyLabel?: string;
+  /** Stretch to the parent's height instead of a fixed one. */
+  fill?: boolean;
 }
 
 /** A small, dependency-free SVG line chart. Renders "not enough data yet" honestly instead of a fake flat line when there's under 2 points. */
-export default function MiniLineChart({ series, height = 160, emptyLabel = 'Collecting data…' }: MiniLineChartProps) {
+export default function MiniLineChart({ series, height = 160, emptyLabel = 'Collecting data…', fill = false }: MiniLineChartProps) {
   const maxLen = Math.max(0, ...series.map(s => s.points.length));
   if (maxLen < 2) {
     return (
-      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: GG.fg4, fontFamily: GG.mono, fontSize: 11 }}>
+      <div style={{ height: fill ? '100%' : height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: GG.fg4, fontFamily: GG.mono, fontSize: 11 }}>
         {emptyLabel}
       </div>
     );
@@ -33,8 +35,8 @@ export default function MiniLineChart({ series, height = 160, emptyLabel = 'Coll
   }
 
   return (
-    <div>
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ width: '100%', height, display: 'block' }}>
+    <div style={fill ? { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 } : undefined}>
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ width: '100%', height: fill ? undefined : height, flex: fill ? 1 : undefined, minHeight: 0, display: 'block' }}>
         <line x1="0" y1={height - 4} x2={width} y2={height - 4} stroke={GG.line} strokeWidth="0.5" />
         {series.map(s => (
           <path key={s.label} d={toPath(s.points)} fill="none" stroke={s.color} strokeWidth="1.4" vectorEffect="non-scaling-stroke" />

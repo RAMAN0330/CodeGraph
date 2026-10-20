@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
+import { StateCard } from '../../../../shared/components/StateCard';
+import { DatabaseZap } from 'lucide-react';
 import { GG, GGErrorBanner, ggInput } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import type { TopQueryRow } from '../../types';
@@ -16,9 +18,9 @@ function impactColor(impact: TopQueryRow['impact']): string {
   return GG.fg4;
 }
 
-interface QueriesPageProps { projectId: number; paused: boolean; }
+interface QueriesPageProps { projectId: number; paused: boolean; onOpenSql: (sql: string) => void; }
 
-export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
+export default function QueriesPage({ projectId, paused, onOpenSql }: QueriesPageProps) {
   const fetcher = useCallback(() => dbTelemetryApi.queries(projectId), [projectId]);
   const { data, loading, error } = useDbTelemetry(fetcher, [projectId], { pollMs: 15000, paused });
   const [search, setSearch] = useState('');
@@ -47,10 +49,7 @@ export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
 
   if (!data.available) {
     return (
-      <div style={{ padding: 24, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, maxWidth: 700 }}>
-        <h2 style={{ margin: '0 0 6px', fontFamily: GG.mono, fontSize: 15, color: GG.fg }}>Query statistics are not available</h2>
-        <p style={{ margin: 0, color: GG.fg3, fontSize: 13, lineHeight: 1.6 }}>{data.reason}</p>
-      </div>
+      <StateCard icon={DatabaseZap} title="Query statistics are not available">{data.reason}</StateCard>
     );
   }
 
@@ -102,6 +101,7 @@ export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
         <div style={{ width: '100%', background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, padding: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
             <div style={{ fontFamily: GG.mono, fontSize: 13, fontWeight: 700, color: GG.fg }}>Query Details</div>
+            <Button size="sm" variant="outline" className="ml-auto mr-2" onClick={() => onOpenSql(selected.query)}>Open in SQL editor</Button>
             <Button variant="ghost" onClick={() => setSelected(null)} style={{ background: 'none', border: 0, color: GG.fg3, cursor: 'pointer' }}><X size={16} /></Button>
           </div>
 

@@ -1,4 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { Download } from 'lucide-react';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
+import { downloadCsv } from '../../../shared/services/exportCsv';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { githubFetch } from '../../repository/services/github';
 
@@ -36,6 +41,8 @@ export default function StaleCodeRadar({ owner, repo, token, files, connections 
   const [rows, setRows] = useState<StaleFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [staleOnly, setStaleOnly] = useState(false);
 
   useEffect(() => {
     if (!files.length) {
@@ -116,85 +123,62 @@ export default function StaleCodeRadar({ owner, repo, token, files, connections 
     return () => { cancelled = true; };
   }, [owner, repo, token, files, connections]);
 
-  if (loading) return (
-    <div className="gi-page">
-      <p style={{ color: 'var(--text-muted)' }}>Analyzing stale code... (fetching commit dates)</p>
-    </div>
-  );
+  const shown = useMemo(() => rows.filter(r => (!staleOnly || r.daysSince >= 90) && r.path.toLowerCase().includes(query.trim().toLowerCase())), [rows, query, staleOnly]);
 
-  if (error) return (
-    <div className="gi-page">
-      <p style={{ color: 'var(--color-danger)' }}>Error: {error}</p>
-    </div>
-  );
+  if (loading) return <div className="gi-page"><p className="text-sm text-muted-foreground">Analyzing stale code… fetching commit dates</p></div>;
+  if (error) return <div className="gi-page"><p className="text-sm text-destructive">Error: {error}</p></div>;
+  if (!rows.length) return <div className="gi-page"><p className="text-sm text-muted-foreground">No file data available for stale analysis.</p></div>;
 
-  if (!rows.length) return (
-    <div className="gi-page">
-      <p style={{ color: 'var(--text-muted)' }}>No file data available for stale analysis.</p>
-    </div>
-  );
-
-  const maxRisk = rows[0]?.riskScore || 1;
+  const maxRisk = rows.reduce((m, r) => Math.max(m, r.riskScore), 1);
+  const stale = rows.filter(r => r.daysSince >= 90);
+  const oldest = rows.reduce((a, b) => (b.daysSince > a.daysSince ? b : a));
+  const avg = Math.round(rows.reduce((n, r) => n + r.daysSince, 0) / rows.length);
 
   return (
-    <div className="gi-page">
-      <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 600, color: 'var(--t0)' }}>
-        Stale Code Radar
-      </h2>
-      <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-muted)' }}>
-        Risk = Days Stale × log(1 + Dependents). Higher = more critical to update.
-      </p>
-
-      <div style={{ overflowX: 'auto' }}>
-        <Table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <TableHeader>
-            <TableRow style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <TableHead style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500 }}>File</TableHead>
-              <TableHead style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500 }}>Deps (in)</TableHead>
-              <TableHead style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500 }}>Last Modified</TableHead>
-              <TableHead style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500 }}>Days Stale</TableHead>
-              <TableHead style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-muted)', fontWeight: 500, minWidth: 160 }}>Risk Score</TableHead>
+    <div className="gi-page flex h-full min-h-0 flex-col gap-3">
+      <SummaryStrip items={[
+        { label: 'Files checked', value: rows.length, sub: 'Most depended-on' },
+        { label: 'Stale (90d+)', value: stale.length, tone: stale.length ? 'warn' : 'good', sub: stale.length ? 'Not touched in 3 months' : 'All recently touched', onClick: () => setStaleOnly(v => !v) },
+        { label: 'Oldest', value: `${Math.round(oldest.daysSince)}d`, sub: oldest.basename },
+        { label: 'Average age', value: `${avg}d`, sub: 'Since last commit' },
+      ]} />
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Filter files" aria-label="Filter files" className="h-8 max-w-60 text-xs" />
+        <Button variant={staleOnly ? 'secondary' : 'outline'} size="sm" className="h-8 text-xs" onClick={() => setStaleOnly(v => !v)} aria-pressed={staleOnly}>Stale only</Button>
+        <p className="hidden text-xs text-muted-foreground md:block">Risk = days stale × log(1 + dependents). Higher means more critical to update.</p>
+        <Button variant="outline" size="sm" className="ml-auto h-8 gap-1.5 text-xs" onClick={() => downloadCsv('stale-code.csv', ['File', 'Dependents', 'Last modified', 'Days stale', 'Risk'], shown.map(r => [r.path, r.inDegree, r.lastModified, Math.round(r.daysSince), r.riskScore]))}>
+          <Download className="size-3.5" /> Export CSV
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-card">
+        <Table className="text-xs">
+          <TableHeader className="sticky top-0 bg-card">
+            <TableRow>
+              <TableHead>File</TableHead>
+              <TableHead className="text-right">Dependents</TableHead>
+              <TableHead>Last modified</TableHead>
+              <TableHead className="text-right">Days stale</TableHead>
+              <TableHead className="min-w-40">Risk</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => {
-              const barPct = maxRisk > 0 ? Math.round((row.riskScore / maxRisk) * 100) : 0;
-              const color = riskColor(row.daysSince);
-              const dayRounded = Math.round(row.daysSince);
-              return (
-                <TableRow key={row.path} style={{ borderBottom: '1px solid var(--bg3)' }}>
-                  <TableCell style={{ padding: '10px 10px', fontFamily: 'monospace', color: 'var(--teal-500)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    title={row.path}>
-                    {row.basename}
-                  </TableCell>
-                  <TableCell style={{ padding: '10px 10px', textAlign: 'right', color: row.inDegree > 5 ? 'var(--color-danger)' : 'var(--t0)' }}>
-                    {row.inDegree}
-                  </TableCell>
-                  <TableCell style={{ padding: '10px 10px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                    {row.lastModified === 'unknown' ? '—' : timeAgoFromDays(row.daysSince)}
-                  </TableCell>
-                  <TableCell style={{ padding: '10px 10px', textAlign: 'right', color: color }}>
-                    {dayRounded}
-                  </TableCell>
-                  <TableCell style={{ padding: '10px 10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ flex: 1, background: 'var(--bg3)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-                        <div style={{
-                          width: `${barPct}%`,
-                          height: '100%',
-                          background: color,
-                          borderRadius: 4,
-                          transition: 'width 0.3s ease',
-                        }} />
-                      </div>
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 32, textAlign: 'right' }}>
-                        {row.riskScore.toFixed(1)}
-                      </span>
+            {shown.length === 0 && <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No files match.</TableCell></TableRow>}
+            {shown.map(row => (
+              <TableRow key={row.path}>
+                <TableCell className="max-w-64 truncate font-mono" title={row.path}>{row.basename}</TableCell>
+                <TableCell className={`text-right ${row.inDegree > 5 ? 'font-semibold text-destructive' : ''}`}>{row.inDegree}</TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">{row.lastModified === 'unknown' ? '—' : timeAgoFromDays(row.daysSince)}</TableCell>
+                <TableCell className="text-right" style={{ color: riskColor(row.daysSince) }}>{Math.round(row.daysSince)}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full" style={{ width: `${Math.round((row.riskScore / maxRisk) * 100)}%`, background: riskColor(row.daysSince) }} />
                     </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+                    <span className="min-w-8 text-right text-muted-foreground">{row.riskScore.toFixed(1)}</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>

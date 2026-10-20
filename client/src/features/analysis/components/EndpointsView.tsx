@@ -1,5 +1,8 @@
 import { Fragment, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Route } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Route } from 'lucide-react';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
+import { downloadCsv } from '../../../shared/services/exportCsv';
+import { Button } from '@/components/ui/button';
 import type { EndpointWithReach } from '../services/endpoints';
 
 // HTTP endpoints found by the analysis (client/src/features/analysis/services/endpoints.ts),
@@ -11,17 +14,20 @@ export default function EndpointsView({ data, onOpenFile, onOpenTable }: Props) 
   const endpoints: EndpointWithReach[] | undefined = data?.endpoints;
   const [filter, setFilter] = useState('');
   const [open, setOpen] = useState<string | null>(null);
+  const [method, setMethod] = useState('');
+  const [dbOnly, setDbOnly] = useState(false);
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!endpoints || !q) return endpoints ?? [];
-    return endpoints.filter(e => `${e.method} ${e.path} ${e.file} ${e.handler ?? ''} ${e.tables.join(' ')}`.toLowerCase().includes(q));
-  }, [endpoints, filter]);
+    return (endpoints ?? []).filter(e => (!method || e.method === method) && (!dbOnly || e.tables.length > 0)
+      && (!q || `${e.method} ${e.path} ${e.file} ${e.handler ?? ''} ${e.tables.join(' ')}`.toLowerCase().includes(q)));
+  }, [endpoints, filter, method, dbOnly]);
 
   if (!endpoints) {
     return <div className="gi-page guide-page"><h1>API endpoints</h1><div className="guide-card"><p className="guide-empty">This analysis predates endpoint detection. Rescan the repository to map its endpoints.</p></div></div>;
   }
 
   const frameworks = [...new Set(endpoints.map(e => e.framework))];
+  const methods = Object.entries(endpoints.reduce<Record<string, number>>((acc, e) => ({ ...acc, [e.method]: (acc[e.method] ?? 0) + 1 }), {})).sort((a, b) => b[1] - a[1]);
   const key = (e: EndpointWithReach) => `${e.method} ${e.path} ${e.file}:${e.line}`;
 
   return (
@@ -34,10 +40,16 @@ export default function EndpointsView({ data, onOpenFile, onOpenTable }: Props) 
       </header>
       {endpoints.length > 0 && (
         <>
+          <SummaryStrip items={[
+            { label: 'Endpoints', value: endpoints.length, sub: frameworks.join(', ') },
+            ...methods.slice(0, 3).map(([m, n]) => ({ label: m, value: n, sub: method === m ? 'Click to clear' : 'Click to filter', onClick: () => setMethod(method === m ? '' : m) })),
+            { label: 'Touch the database', value: endpoints.filter(e => e.tables.length).length, tone: 'neutral' as const, sub: dbOnly ? 'Click to clear' : 'Click to filter', onClick: () => setDbOnly(v => !v) },
+          ]} />
           <div className="ask-form endpoints-filter">
             <Route size={16} aria-hidden="true" />
             <label htmlFor="endpoint-filter" className="sr-only">Filter endpoints</label>
             <input id="endpoint-filter" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter by path, method, file or table" autoComplete="off" />
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => downloadCsv('endpoints.csv', ['Method', 'Path', 'File', 'Line', 'Handler', 'Tables', 'Reach'], shown.map(e => [e.method, e.path, e.file, e.line, e.handler, e.tables.join(' '), e.reachCount]))}><Download className="size-3.5" /> CSV</Button>
           </div>
           <section className="guide-card">
             <table className="hotspots-table endpoints-table">

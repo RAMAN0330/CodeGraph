@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import * as d3 from 'd3';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
 import { githubFetch } from '../../repository/services/github';
 
 interface DataPoint {
@@ -195,13 +196,11 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
   if (!points.length) return <div className="gi-page"><p className="gi-note">No data available.</p></div>;
 
   const stats = currentData?.stats || {};
-  const summaryRows = [
-    { label: 'Dead Functions',  value: stats.dead       ?? 0, color: 'var(--color-danger)' },
-    { label: 'Issues',          value: (currentData?.issues?.length) ?? 0, color: 'var(--accent-orange)' },
-    { label: 'Duplicates',      value: stats.duplicates ?? 0, color: 'var(--accent-orange)' },
-    { label: 'Security (High)', value: stats.security   ?? 0, color: 'var(--color-danger)' },
-  ];
-
+  const first = points[0], last = points[points.length - 1];
+  const delta = (key: 'totalFiles' | 'testFiles' | 'debtFiles') => {
+    const d = last[key] - first[key];
+    return `${d > 0 ? '+' : ''}${d} over ${points.length} commits`;
+  };
   return (
     <div className="gi-page">
       <h1>Tech Debt Timeline</h1>
@@ -228,26 +227,14 @@ export default function TechDebtTimeline({ owner, repo, token, currentData }: Te
         <svg ref={svgRef} style={{ display: 'block' }} />
       </div>
 
-      {/* Current snapshot summary table */}
-      <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Current Snapshot
-      </h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-        {summaryRows.map(({ label, value, color }) => (
-          <div key={label} style={{
-            padding: '12px 16px',
-            background: 'var(--bg3)',
-            border: `1px solid color-mix(in srgb, ${color} 27%, transparent)`,
-            borderRadius: 6,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{label}</span>
-            <span style={{ fontSize: 20, fontWeight: 700, color }}>{value}</span>
-          </div>
-        ))}
-      </div>
+      <SummaryStrip items={[
+        { label: 'Files', value: last.totalFiles, sub: delta('totalFiles') },
+        { label: 'Test files', value: last.testFiles, tone: 'good', sub: delta('testFiles') },
+        { label: 'Debt-named files', value: last.debtFiles, tone: last.debtFiles ? 'warn' : 'good', sub: delta('debtFiles') },
+        { label: 'Dead functions', value: stats.dead ?? 0, tone: stats.dead ? 'bad' : 'good' },
+        { label: 'Issues', value: currentData?.issues?.length ?? 0, tone: currentData?.issues?.length ? 'warn' : 'good' },
+        { label: 'Duplicates', value: stats.duplicates ?? 0, tone: stats.duplicates ? 'warn' : 'good' },
+      ]} />
     </div>
   );
 }

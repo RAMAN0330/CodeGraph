@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Eraser, FileX, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
 import { buildCleanupPlan, planToMarkdown } from '../services/cleanupPlan';
 
 // Unused functions as a removal plan (services/cleanupPlan.ts). Ticks are a
@@ -19,6 +20,7 @@ export default function CleanupPlanView({ owner, repo, data, onOpenFile }: Props
   const key = storageKey(owner, repo);
   const [done, setDone] = useState<Set<string>>(() => loadTicks(key));
   const [copied, setCopied] = useState(false);
+  const [hideDone, setHideDone] = useState(false);
   useEffect(() => { setDone(loadTicks(key)); }, [key]);
 
   const toggle = (id: string) => {
@@ -36,6 +38,7 @@ export default function CleanupPlanView({ owner, repo, data, onOpenFile }: Props
   if (!plan.totals.functions) {
     return <div className="gi-page guide-page"><h1>Cleanup plan</h1><div className="guide-card"><p className="guide-empty">No unused functions were found.</p></div></div>;
   }
+  const doneCount = plan.files.reduce((n, f) => n + f.items.filter(i => done.has(`${f.path}#${i.name}`)).length, 0);
   const hasMentions = (data?.deadFunctions ?? []).some((f: any) => Array.isArray(f.mentions));
 
   return (
@@ -48,6 +51,13 @@ export default function CleanupPlanView({ owner, repo, data, onOpenFile }: Props
         <Button className="guide-copy" onClick={copy}>{copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy as checklist</>}</Button>
       </header>
 
+      <SummaryStrip items={[
+        { label: 'Unused functions', value: plan.totals.functions, sub: `${plan.totals.lines} lines` },
+        { label: 'Whole files', value: plan.totals.wholeFiles, tone: plan.totals.wholeFiles ? 'warn' : 'good', sub: 'Can be deleted' },
+        { label: 'Check first', value: plan.totals.check, tone: plan.totals.check ? 'warn' : 'good', sub: 'Named elsewhere' },
+        { label: 'Removed', value: `${doneCount}/${plan.totals.functions}`, tone: doneCount ? 'good' : 'neutral', sub: hideDone ? 'Click to show ticked' : 'Click to hide ticked', onClick: () => setHideDone(v => !v) },
+      ]} />
+
       {plan.files.map(file => (
         <section key={file.path} className={`guide-card cleanup-file${file.wholeFile ? ' whole' : ''}`}>
           <header>
@@ -56,7 +66,7 @@ export default function CleanupPlanView({ owner, repo, data, onOpenFile }: Props
             <small>{file.wholeFile ? 'delete the whole file · ' : ''}{file.items.length} function{file.items.length === 1 ? '' : 's'} · {file.lines} lines</small>
           </header>
           <ul>
-            {file.items.map(item => {
+            {file.items.filter(item => !hideDone || !done.has(`${file.path}#${item.name}`)).map(item => {
               const id = `${file.path}#${item.name}`;
               return (
                 <li key={id} className={done.has(id) ? 'done' : ''}>

@@ -4,6 +4,9 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
+/* dark: follows the theme toggle (data-theme on <html>), not only the OS. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -34,7 +37,7 @@
   --input: var(--surface-subtle);
   --ring: var(--border-focus);
   --primary: var(--teal-500);
-  --primary-foreground: #ffffff;
+  --primary-foreground: var(--on-primary);
   --muted-foreground: var(--text-secondary);
   --destructive: var(--color-danger);
   --card: var(--surface-card);
@@ -47,7 +50,8 @@
    border/background wherever a page class doesn't restyle them. */
 @layer base {
   button, input, select, textarea { font-family: inherit; }
-  [data-slot="button"] { border: 0 solid var(--border); background-color: transparent; color: inherit; }
+  /* Radix triggers (asChild) rename data-slot, so match the variant too. */
+  [data-slot="button"], button[data-variant] { border: 0 solid var(--border); background-color: transparent; color: inherit; }
   /* Tailwind's preflight would give utility borders this colour; any page CSS
      that sets its own border colour is unlayered and still wins. */
   *, ::before, ::after { border-color: var(--border); }

@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react';
 import {
-  Box, ChevronRight, Copy, Eye, FlaskConical, GitFork, Layers, Link2,
-  ListChecks, RefreshCw, ShieldAlert, Sparkles, Tag, Trash2,
+  Box, Check, ChevronRight, Copy, Download, Eye, FlaskConical, GitFork, Layers, Link2,
+  ListChecks, RefreshCw, Search, ShieldAlert, Sparkles, Tag, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePersistentState } from '../../../../shared/hooks/usePersistentState';
+import { SummaryStrip } from '../../../../shared/components/SummaryStrip';
+import { downloadCsv } from '../../../../shared/services/exportCsv';
 
 type Priority = 'critical' | 'high' | 'medium';
 
@@ -49,6 +53,7 @@ interface ActionItem {
   duplicate?: Duplicate;
 }
 
+const NO_ACTIONS_DONE: string[] = [];
 const PRIORITY_ORDER: Record<Priority, number> = { critical: 0, high: 1, medium: 2 };
 const PRIORITY_LABEL: Record<Priority, string> = { critical: 'Critical', high: 'High', medium: 'Medium' };
 
@@ -85,6 +90,12 @@ function iconFor(item: ActionItem) {
 export default function ActionsSection({ data, onSelectFile, onViewSource }: Props) {
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [kind, setKind] = useState<'all' | ActionItem['kind']>('all');
+  const [showDone, setShowDone] = useState(false);
+  // Ticked-off actions are remembered in this browser, so a review can be resumed.
+  const [done, setDone] = usePersistentState<string[]>('cg.actions.done', NO_ACTIONS_DONE);
+  const toggleDone = (id: string) => setDone(list => list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
 
   const items = useMemo(
     () => toItems(data?.suggestions ?? [], data?.duplicates ?? []),
@@ -97,10 +108,17 @@ export default function ActionsSection({ data, onSelectFile, onViewSource }: Pro
     return c;
   }, [items]);
 
+  const doneSet = useMemo(() => new Set(done), [done]);
   const visible = useMemo(() => {
-    const filtered = priorityFilter === 'all' ? items : items.filter(i => i.priority === priorityFilter);
-    return [...filtered].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
-  }, [items, priorityFilter]);
+    const q = query.trim().toLowerCase();
+    const filtered = items.filter(i =>
+      (priorityFilter === 'all' || i.priority === priorityFilter)
+      && (kind === 'all' || i.kind === kind)
+      && (showDone || !doneSet.has(i.id))
+      && (!q || `${i.title} ${i.desc}`.toLowerCase().includes(q)));
+    return filtered.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+  }, [items, priorityFilter, kind, query, showDone, doneSet]);
+  const doneCount = items.filter(i => doneSet.has(i.id)).length;
 
   const selected = useMemo(
     () => visible.find(i => i.id === selectedId) ?? null,
@@ -153,10 +171,32 @@ export default function ActionsSection({ data, onSelectFile, onViewSource }: Pro
         </Tabs>
       </header>
 
+      <SummaryStrip items={[
+        { label: 'Critical', value: counts.critical, tone: counts.critical ? 'bad' : 'good', onClick: () => setPriorityFilter(priorityFilter === 'critical' ? 'all' : 'critical') },
+        { label: 'High', value: counts.high, tone: counts.high ? 'warn' : 'good', onClick: () => setPriorityFilter(priorityFilter === 'high' ? 'all' : 'high') },
+        { label: 'Medium', value: counts.medium, onClick: () => setPriorityFilter(priorityFilter === 'medium' ? 'all' : 'medium') },
+        { label: 'Done', value: `${doneCount}/${items.length}`, tone: doneCount === items.length && items.length ? 'good' : 'neutral', sub: items.length ? `${Math.round((doneCount / items.length) * 100)}% complete` : undefined },
+      ]} />
+
       <div className={`act-body${selected ? ' with-detail' : ''}`}>
         <section className="act-list-panel">
           <header className="act-list-header">
             <strong>{visible.length} action{visible.length === 1 ? '' : 's'}</strong>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search actions…" aria-label="Search actions" className="h-7 w-44 pl-7 text-xs" />
+              </span>
+              <Tabs value={kind} onValueChange={value => setKind(value as typeof kind)}>
+                <TabsList aria-label="Filter by type" className="h-7">
+                  <TabsTrigger value="all" className="px-2 text-xs">All types</TabsTrigger>
+                  <TabsTrigger value="suggestion" className="px-2 text-xs">Fixes</TabsTrigger>
+                  <TabsTrigger value="duplicate" className="px-2 text-xs">Duplicates</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" aria-pressed={showDone} onClick={() => setShowDone(v => !v)}>{showDone ? 'Hide done' : 'Show done'}</Button>
+              <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" disabled={!visible.length} onClick={() => downloadCsv('actions.csv', ['Priority', 'Type', 'Title', 'Description', 'Done'], visible.map(i => [PRIORITY_LABEL[i.priority], i.kind, i.title, i.desc, doneSet.has(i.id) ? 'yes' : 'no']))}><Download size={13} /> Export CSV</Button>
+            </div>
           </header>
 
           {visible.length === 0 ? (
@@ -170,8 +210,8 @@ export default function ActionsSection({ data, onSelectFile, onViewSource }: Pro
               {visible.map(item => {
                 const Glyph = iconFor(item);
                 return (
+                  <div key={item.id} className="act-row-wrap">
                   <Button
-                    key={item.id}
                     variant="ghost"
                     className={`act-row h-auto pri-${item.priority}${selectedId === item.id ? ' selected' : ''}`}
                     onClick={() => setSelectedId(item.id)}
@@ -185,6 +225,8 @@ export default function ActionsSection({ data, onSelectFile, onViewSource }: Pro
                     <Badge className={`act-badge pri-${item.priority}`}>{PRIORITY_LABEL[item.priority]}</Badge>
                     <ChevronRight className="act-row-chevron" size={16} strokeWidth={1.8} />
                   </Button>
+                  <Button variant="ghost" size="icon-sm" className={`act-done${doneSet.has(item.id) ? ' on' : ''}`} onClick={() => toggleDone(item.id)} aria-pressed={doneSet.has(item.id)} aria-label={doneSet.has(item.id) ? `Mark "${item.title}" not done` : `Mark "${item.title}" done`}><Check size={14} /></Button>
+                  </div>
                 );
               })}
             </div>

@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Download } from 'lucide-react';
 import CommitHeatmap from './CommitHeatmap';
+import { downloadCsv } from '../../../shared/services/exportCsv';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { githubFetch } from '../../repository/services/github';
 
 const AUTHOR_COLORS = ['var(--color-success)','var(--acc2)','var(--accent-orange)','var(--chart-purple)','var(--color-danger)','var(--teal-500)','var(--accent-orange)','var(--chart-purple)'];
@@ -112,6 +116,8 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
   const [copiedSha, setCopiedSha] = useState<string | null>(null);
   // A day picked on the heatmap (YYYY-MM-DD, UTC) narrows the list to it.
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [author, setAuthor] = useState('');
 
   ensureStyle();
 
@@ -209,6 +215,9 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
 
   // ── Computed stats ───────────────────────────────────────────────────────────
   const uniqueAuthors = [...new Set(commits.map(c => c.author?.login || c.commit.author.name || 'unknown'))];
+  const needle = query.trim().toLowerCase();
+  const visibleCommits = commits.filter(c => (!author || (c.author?.login || c.commit.author.name || 'unknown') === author)
+    && (!needle || c.commit.message.toLowerCase().includes(needle) || c.sha.startsWith(needle)));
   const authorCounts: Record<string, number> = {};
   for (const c of commits) {
     const login = c.author?.login || c.commit.author.name || 'unknown';
@@ -281,6 +290,19 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
         ))}
       </div>
 
+      {/* Search and filter */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search messages or SHA" aria-label="Search commits" className="h-8 max-w-64 text-xs" />
+        <select value={author} onChange={e => setAuthor(e.target.value)} aria-label="Filter by author" className="h-8 rounded-md border bg-card px-2 text-xs text-foreground">
+          <option value="">All authors</option>
+          {uniqueAuthors.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <Button variant="outline" size="sm" className="ml-auto h-8 gap-1.5 text-xs" onClick={() => downloadCsv('commits.csv', ['SHA', 'Author', 'Date', 'Message'], visibleCommits.map(c => [c.sha, c.author?.login || c.commit.author.name, c.commit.author.date, c.commit.message.split('\n')[0]]))}>
+          <Download className="size-3.5" /> Export CSV
+        </Button>
+      </div>
+      {visibleCommits.length === 0 && <p className="gi-note">No commits match.</p>}
+
       {/* Timeline list */}
       <div style={{ position: 'relative' }}>
         {/* Vertical guide line */}
@@ -295,7 +317,7 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
           zIndex: 0,
         }} />
 
-        {commits.map((commit, idx) => {
+        {visibleCommits.map((commit, idx) => {
           const login = commit.author?.login || commit.commit.author.name || 'unknown';
           const colorIdx = hashToColorIndex(login);
           const color = AUTHOR_COLORS[colorIdx];

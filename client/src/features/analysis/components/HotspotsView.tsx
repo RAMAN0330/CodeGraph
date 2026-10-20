@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Flame } from 'lucide-react';
+import { Download, Flame } from 'lucide-react';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
+import { downloadCsv } from '../../../shared/services/exportCsv';
+import { Button } from '@/components/ui/button';
 
 // Hotspots = complex files that also change often (server/src/analysis/hotspots.ts).
 // Churn is only fetched for the most complex files, so the chart plots those.
@@ -78,7 +81,15 @@ export default function HotspotsView({ data, onOpenFile }: Props) {
           <h1>Hotspots</h1>
           <p>Complex files that also change often — where bugs and slow reviews concentrate. Churn counts commits in the last {windowDays} days for the {points.length} most complex files.</p>
         </div>
+        <Button variant="outline" size="sm" disabled={!ranked.length} onClick={() => downloadCsv('hotspots.csv', ['File', 'Score', 'Complexity', 'Commits', 'Authors', 'Last change'], ranked.map(h => [h.path, h.score, h.complexity, h.churn, h.authors, h.lastChanged ?? '']))}><Download size={14} /> Export CSV</Button>
       </header>
+
+      {ranked.length > 0 && <SummaryStrip items={[
+        { label: 'Top hotspot', value: ranked[0].score, sub: <span title={ranked[0].path}>{base(ranked[0].path)}</span>, tone: 'bad', onClick: () => onOpenFile(ranked[0].path) },
+        { label: 'Files that change', value: points.length, sub: `in ${windowDays} days` },
+        { label: 'Single-author hotspots', value: ranked.slice(0, LABELLED).filter(h => h.authors === 1).length, tone: ranked.slice(0, LABELLED).some(h => h.authors === 1) ? 'warn' : 'good', sub: `of top ${Math.min(LABELLED, ranked.length)}` },
+        { label: 'Most commits', value: Math.max(...ranked.map(h => h.churn)), sub: 'one file' },
+      ]} />}
 
       {points.length === 0 ? (
         <div className="guide-card"><p className="guide-empty">None of the most complex files changed in the last {windowDays} days, so there are no hotspots.</p></div>

@@ -1,14 +1,20 @@
-import { useMemo, useState } from 'react';
-import { ArrowRight, FolderKanban, GitBranch } from 'lucide-react';
+import { useMemo } from 'react';
+import { AlertTriangle, ArrowRight, FolderKanban, Trash2 } from 'lucide-react';
 import AnalysisLoader, { type AnalysisStage } from '../../../shared/components/AnalysisLoader';
+import { DashboardGrid, EmptyNote, Meter, Metric, Panel } from '../../../shared/components/Dashboard';
+import { toneText, type Tone } from '../../../shared/components/dashboardTones';
+import AttentionFeed from '../../../shared/components/AttentionFeed';
+import { codeAttention } from '../../../shared/services/attention';
+import { findTangles } from '../../analysis/services/cycles';
 import OwnershipRiskPanel from './OwnershipRiskPanel';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { parseRepositoryInput } from '../../organization/services/pendingRepository';
+import { cn } from '@/lib/utils';
 import { describeAnalysisError } from '../services/analysisErrors';
+import type { AnalysisSnapshot } from '../../analysis/services/analysisHealth';
 
 interface Suggestion { title: string; desc: string; priority: 'critical' | 'high' | 'medium' | string }
 interface Pattern { name: string; isAnti?: boolean; severity?: string; files: any[] }
-import type { AnalysisSnapshot } from '../../analysis/services/analysisHealth';
 interface RegressionAlert { id: number; branch: string; commitSha: string; kind: string; message: string; createdAt: string }
 interface ArchitectureSnapshot { layers: number; modules: number; edges: number; circular: number }
 
@@ -30,14 +36,8 @@ interface Props {
   onOpenUnused: () => void;
 }
 
-function ArrowIcon() {
-  return <span className="icon icon-m"><ArrowRight size={14} strokeWidth={1.8} /></span>;
-}
-
-function Delta({ value }: { value: number }) {
-  if (!value) return <em className="ov-delta flat">—</em>;
-  return <em className={`ov-delta ${value > 0 ? 'good' : 'bad'}`}>{value > 0 ? '+' : ''}{value}</em>;
-}
+// The project's list of projects: /workspaces/:id/projects/:projectId → /workspaces/:id/projects.
+const projectsPath = () => typeof window === 'undefined' ? '/workspaces' : window.location.pathname.replace(/\/\d+$/, '') || '/workspaces';
 
 const CODEBASE_STAGES: AnalysisStage[] = [
   { id: 'read', label: 'Read repository' },
@@ -59,43 +59,30 @@ function stageIndexFor(progress: string) {
   return 0;
 }
 
+function hasRepositoryRequest() {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.has('repo') || params.has('share');
+}
+
+// Workspaces open from a project; without one there is nothing to analyze.
+function NoRepositorySelected() {
+  return (
+    <main className="m-auto flex max-w-md flex-col items-center gap-3 p-8 text-center">
+      <span className="grid size-14 place-items-center rounded-2xl border bg-card text-primary"><FolderKanban size={24} /></span>
+      <h1 className="text-2xl">No repository selected</h1>
+      <p className="text-sm text-muted-foreground">Open a codebase project to analyze its repository.</p>
+      <Button onClick={() => window.location.assign('/workspaces')}>Go to your projects <ArrowRight size={15} /></Button>
+    </main>
+  );
+}
+
 function analysisFacts(progress: string) {
   const parsed = progress.match(/^Analyzing (\d[\d,]*)\/(\d[\d,]*)/);
   if (parsed) return [`${parsed[2]} files`, `${parsed[1]} parsed`];
   const scanned = progress.match(/(\d[\d,]*) found/);
   if (scanned) return [`${scanned[1]} files found`];
   return [];
-}
-
-function NoRepositorySelected() {
-  const [value, setValue] = useState('');
-  const [invalid, setInvalid] = useState(false);
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const repository = parseRepositoryInput(value);
-    if (!repository) { setInvalid(true); return; }
-    window.location.assign(`/workspace?repo=${encodeURIComponent(repository)}`);
-  };
-  return (
-    <main className="workspace-no-repo">
-      <span className="workspace-no-repo-mark"><GitBranch size={26} /></span>
-      <h1>No repository selected</h1>
-      <p>Open a project to analyze its repository, or enter one directly.</p>
-      <form className="workspace-no-repo-form" onSubmit={submit} noValidate>
-        <label htmlFor="workspace-no-repo-input" className="sr-only">GitHub repository</label>
-        <input id="workspace-no-repo-input" value={value} onChange={event => { setValue(event.target.value); setInvalid(false); }} placeholder="owner/repository" autoComplete="off" spellCheck={false} aria-invalid={invalid} aria-describedby={invalid ? 'workspace-no-repo-error' : undefined} />
-        <Button type="submit" className="workspace-no-repo-primary">Analyze <ArrowRight size={15} /></Button>
-      </form>
-      {invalid && <p id="workspace-no-repo-error" className="workspace-no-repo-error" role="alert">Use owner/repository or a github.com link.</p>}
-      <Button variant="link" className="workspace-no-repo-link" onClick={() => window.location.assign('/workspaces')}><FolderKanban size={15} /> Go to your projects</Button>
-    </main>
-  );
-}
-
-function hasRepositoryRequest() {
-  if (typeof window === 'undefined') return false;
-  const params = new URLSearchParams(window.location.search);
-  return params.has('repo') || params.has('share');
 }
 
 export default function WorkspaceOverview(props: Props) {
@@ -126,64 +113,43 @@ export default function WorkspaceOverview(props: Props) {
       error={failure?.message ?? null}
       hint={failure?.hint}
       onRetry={() => window.location.reload()}
-      onBack={() => window.location.assign('/workspaces')}
+      onBack={() => window.location.assign(projectsPath())}
       onWorkspace={() => window.location.assign('/workspaces')}
-      onProject={() => window.location.assign('/workspaces')}
+      onProject={() => window.location.assign(projectsPath())}
     />
   );
 }
 
+
 const REGRESSION_LABELS: Record<string, string> = { health: 'Health', circular: 'Cycles', security: 'Security', violations: 'Architecture', rules: 'Rules' };
+const SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1 };
+const SEVERITY_TONE: Record<string, Tone> = { critical: 'bad', high: 'warn', medium: 'neutral', low: 'good' };
 
-function relativeDate(iso: string) {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (minutes < 60) return `${Math.max(1, minutes)}m ago`;
-  if (minutes < 60 * 24) return `${Math.round(minutes / 60)}h ago`;
-  return `${Math.round(minutes / (60 * 24))}d ago`;
-}
-
-// Regressions the server detected between consecutive analyzed commits,
-// including scheduled re-analyses nobody was watching.
-function RegressionPanel({ alerts }: { alerts: RegressionAlert[] }) {
-  return (
-    <article className="overview-panel ov-area-regressions">
-      <div className="overview-panel-heading"><div><h2>Regressions</h2></div><small>Between analyzed commits</small></div>
-      <ul className="ov-regression-list">
-        {alerts.slice(0, 5).map(alert => (
-          <li key={alert.id}>
-            <span className={`ov-regression-kind ${alert.kind}`}>{REGRESSION_LABELS[alert.kind] ?? alert.kind}</span>
-            <span className="ov-regression-message">{alert.message}</span>
-            <code>{alert.branch === 'HEAD' ? 'default' : alert.branch} @ {alert.commitSha.slice(0, 7)}</code>
-            <time dateTime={alert.createdAt}>{relativeDate(alert.createdAt)}</time>
-          </li>
-        ))}
-      </ul>
-    </article>
-  );
+function signed(value: number) {
+  return `${value > 0 ? '+' : ''}${value.toLocaleString()}`;
 }
 
 function OverviewContent({
   repoInfo, data, health,
-  vulns, vulnLoading, dbSchemaDetected,
+  vulns, vulnLoading, dbSchemaDetected, suggestions = [],
   previousSnapshot, regressionAlerts = [], architecture,
-  onOpen,
+  onOpen, onOpenUnused,
 }: Props) {
   const stats = data.stats ?? {};
   const patterns: Pattern[] = data.patterns ?? [];
   const antiPatterns = patterns.filter(p => p.isAnti || p.severity === 'warning');
   const duplicateCount = stats.duplicates ?? data.duplicates?.length ?? 0;
-  const vulnCount = vulns?.length ?? 0;
-  const securityIssues = data.securityIssues ?? [];
+  const securityIssues = useMemo(() => data.securityIssues ?? [], [data.securityIssues]);
   const securityCount = stats.security ?? securityIssues.length;
   const deadCount = stats.dead ?? data.deadFunctions?.length ?? 0;
-  const violations = data.layerViolations ?? [];
-  const violationCount = stats.violations ?? violations.length;
+  const layerViolations = data.layerViolations ?? [];
+  const violationCount = stats.violations ?? layerViolations.length;
+  const vulnCount = vulns?.length ?? 0;
   const riskTotal = securityCount + violationCount + vulnCount;
   const languages = (stats.languages ?? []).slice(0, 5);
-
   const prevStats = previousSnapshot?.stats;
-  const delta = (key: keyof NonNullable<typeof prevStats>, current: number) =>
-    prevStats ? current - (prevStats[key] ?? 0) : 0;
+  const healthTone: Tone = health.score >= 80 ? 'good' : health.score >= 60 ? 'warn' : 'bad';
+  const healthDelta = previousSnapshot ? health.score - previousSnapshot.healthScore : 0;
 
   // Real, deterministic bucketing of every signal type into one severity
   // taxonomy — not a fabricated score, just a shared vocabulary across
@@ -209,116 +175,141 @@ function OverviewContent({
   }, [securityIssues, vulns, violationCount, antiPatterns.length, duplicateCount, deadCount]);
   const distributionTotal = Math.max(1, issueDistribution.critical + issueDistribution.high + issueDistribution.medium + issueDistribution.low);
 
-  const complexityHotspots = useMemo(() => {
-    return [...(data.files ?? [])]
-      .filter((f: any) => f.complexity?.score > 0)
-      .sort((a: any, b: any) => b.complexity.score - a.complexity.score)
-      .slice(0, 6);
-  }, [data.files]);
-  const maxComplexity = Math.max(1, ...complexityHotspots.map((f: any) => f.complexity.score));
-  // Real hotspots (complexity × churn) when the analysis has commit history.
+  const codeFindings = useMemo(() => ({
+    high: securityIssues.filter((i: any) => i.severity === 'high').length,
+    medium: securityIssues.filter((i: any) => i.severity === 'medium').length,
+    low: securityIssues.filter((i: any) => i.severity !== 'high' && i.severity !== 'medium').length,
+  }), [securityIssues]);
+  const topFindings = useMemo(() => [...securityIssues].sort((a: any, b: any) => (SEVERITY_RANK[a.severity] ?? 2) - (SEVERITY_RANK[b.severity] ?? 2)).slice(0, 4), [securityIssues]);
+  const seriousVulns = (vulns ?? []).filter((v: any) => v.severity === 'CRITICAL' || v.severity === 'HIGH').length;
+
+  // Real hotspots (complexity × churn) when the analysis has commit history,
+  // otherwise the most complex files.
   const realHotspots: Array<{ path: string; score: number }> = data.hotspots?.status === 'ok' ? (data.hotspots.items ?? []).slice(0, 6) : [];
+  const complexityHotspots = useMemo(() => [...(data.files ?? [])]
+    .filter((f: any) => f.complexity?.score > 0)
+    .sort((a: any, b: any) => b.complexity.score - a.complexity.score)
+    .slice(0, 6), [data.files]);
+  const maxComplexity = Math.max(1, ...complexityHotspots.map((f: any) => f.complexity.score));
+  const hotspotRows = realHotspots.length
+    ? realHotspots.map(h => ({ path: h.path, value: h.score, display: h.score }))
+    : complexityHotspots.map((f: any) => ({ path: f.path, value: (f.complexity.score / maxComplexity) * 100, display: f.complexity.score }));
+
+  const attention = useMemo(() => {
+    const tangles = findTangles(data.connections ?? []);
+    return codeAttention({ data, vulns, regressions: regressionAlerts, cycleCount: tangles.length, cycleFiles: tangles.reduce((n, t) => n + t.files.length, 0), suggestions });
+  }, [data, vulns, regressionAlerts, suggestions]);
+
+  const metric = (label: string, value: number, previous?: number) => ({
+    label, value: value.toLocaleString(),
+    sub: prevStats && previous !== undefined && value !== previous ? `${signed(value - previous)} since last run` : undefined,
+  });
+  const metrics = [
+    metric('Files', stats.files ?? 0, prevStats?.files),
+    metric('Lines', stats.loc ?? 0, prevStats?.loc),
+    metric('Functions', stats.functions ?? 0, prevStats?.functions),
+    metric('Dependencies', stats.connections ?? 0, prevStats?.connections),
+    metric('Modules', architecture?.modules ?? 0),
+  ];
+  const languageName = (language: any, index: number) => language.name ?? language.language ?? language.ext ?? `Language ${index + 1}`;
+  const languagePercent = (language: any) => Math.round(language.percent ?? language.percentage ?? language.pct ?? language.value ?? 0);
 
   return (
-    <main className="workspace-overview">
-      <div className={`overview-master-grid ov-grid-v2${regressionAlerts.length ? ' has-regressions' : ''}`}>
-        <article className="overview-health-card ov-area-health">
-          <div className={`overview-health-score ${health.score >= 80 ? 'good' : health.score >= 60 ? 'warn' : 'risk'}`}>
-            <span>{health.score}</span><small>/100</small>
-          </div>
-          <div className="overview-health-copy">
-            <p>Codebase health</p>
-            <h2>Grade {health.grade} {previousSnapshot && <Delta value={health.score - previousSnapshot.healthScore} />}</h2>
-            <span>{riskTotal === 0 ? 'No high-priority risks detected.' : `${riskTotal} priority item${riskTotal === 1 ? '' : 's'} deserve attention.`}</span>
-          </div>
-          <Button variant="ghost" onClick={() => onOpen(riskTotal ? 'security' : 'debt')}>Review quality <ArrowIcon /></Button>
-        </article>
+    <DashboardGrid className={cn('lg:grid-cols-12', regressionAlerts.length ? 'lg:grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]')}>
+      <section className="flex items-center gap-4 rounded-xl border bg-card px-5 py-3 lg:col-span-3" aria-label="Codebase health">
+        <div className="flex items-baseline gap-1">
+          <strong className={cn('font-mono text-5xl leading-none font-semibold', toneText[healthTone])}>{health.score}</strong>
+          <small className="text-xs text-muted-foreground">/100</small>
+        </div>
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="flex items-center gap-2 text-sm font-semibold">
+            Grade {health.grade}
+            {healthDelta !== 0 && <Badge variant="outline" className={toneText[healthDelta > 0 ? 'good' : 'bad']}>{signed(healthDelta)}</Badge>}
+          </span>
+          <span className="text-xs text-muted-foreground">{riskTotal === 0 ? 'No high-priority risks detected.' : `${riskTotal.toLocaleString()} priority item${riskTotal === 1 ? '' : 's'} to review`}</span>
+          <Button variant="link" size="sm" className="h-auto justify-start p-0 text-xs" onClick={() => onOpen(riskTotal ? 'security' : 'debt')}>Review quality <ArrowRight className="size-3.5" /></Button>
+        </div>
+      </section>
 
-        <div className="overview-metrics ov-metrics-6 ov-area-metrics">
-          {[
-            ['Files', stats.files ?? 0, delta('files', stats.files ?? 0)],
-            ['Functions', stats.functions ?? 0, delta('functions', stats.functions ?? 0)],
-            ['Lines', (stats.loc ?? 0).toLocaleString(), delta('loc', stats.loc ?? 0)],
-            ['Dependencies', stats.connections ?? 0, delta('connections', stats.connections ?? 0)],
-            ['Modules', architecture?.modules ?? 0, 0],
-            ['Languages', languages.length, 0],
-          ].map(([label, value, d]) => (
-            <div key={label as string}>
-              <span>{label}</span>
-              <strong>{value}{previousSnapshot && typeof d === 'number' && d !== 0 && <Delta value={d} />}</strong>
-            </div>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:col-span-9 lg:grid-cols-6" aria-label="Codebase size">
+        {metrics.map(item => <Metric key={item.label} label={item.label} value={item.value} sub={item.sub} />)}
+        <Metric label="Languages" value={languages.length} sub={languages.slice(0, 2).map((l: any, i: number) => `${languageName(l, i)} ${languagePercent(l)}%`).join(' · ') || undefined} />
+      </section>
+
+      {regressionAlerts.length > 0 && (
+        <section className="flex items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--color-danger)_35%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)] px-4 py-2 text-xs lg:col-span-12" role="status">
+          <AlertTriangle className={cn('size-4 shrink-0', toneText.bad)} />
+          <b className="shrink-0">{regressionAlerts.length} regression{regressionAlerts.length === 1 ? '' : 's'} between analyzed commits</b>
+          <span className="truncate text-muted-foreground">
+            {regressionAlerts.slice(0, 2).map(alert => `${REGRESSION_LABELS[alert.kind] ?? alert.kind}: ${alert.message}`).join(' · ')}
+          </span>
+          <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => onOpen('trends')}>View trends <ArrowRight className="size-3.5" /></Button>
+        </section>
+      )}
+
+      <Panel title="Architecture" meta={`${architecture?.edges?.toLocaleString() ?? 0} links`} action="Open" onAction={() => onOpen('architecture')} className="lg:col-span-4">
+        <div className="grid grid-cols-4 gap-2">
+          <Metric label="Modules" value={architecture?.modules ?? 0} />
+          <Metric label="Layers" value={architecture?.layers ?? 0} />
+          <Metric label="Cycles" value={architecture?.circular ?? 0} tone={architecture?.circular ? 'bad' : 'good'} sub={architecture?.circular ? 'Open' : 'None'} onClick={() => onOpen('cycles')} />
+          <Metric label="Violations" value={violationCount} tone={violationCount ? 'warn' : 'good'} sub={violationCount ? 'Open' : 'None'} onClick={() => onOpen('rules')} />
+        </div>
+        {layerViolations.length ? (
+          <ul className="mt-2 flex min-h-0 flex-col divide-y text-xs">
+            {layerViolations.slice(0, 4).map((v: any, index: number) => (
+              <li key={index} className="flex items-center gap-2 py-1.5">
+                <span className="shrink-0 font-semibold capitalize">{v.fromLayer} → {v.toLayer}</span>
+                <span className="truncate font-mono text-muted-foreground" title={`${v.from} → ${v.to}`}>{v.from}</span>
+              </li>
+            ))}
+          </ul>
+        ) : <EmptyNote>Every import follows the layer order.</EmptyNote>}
+      </Panel>
+
+      <Panel title="Issues by severity" meta={vulnLoading ? 'Scanning dependencies…' : `${distributionTotal.toLocaleString()} signals`} action="Tech debt" onAction={() => onOpen('debt')} className="lg:col-span-4">
+        <div className="my-auto flex flex-col">
+          {(['critical', 'high', 'medium', 'low'] as const).map(tier => (
+            <Meter key={tier} label={<span className="capitalize">{tier}</span>} value={(issueDistribution[tier] / distributionTotal) * 100} display={issueDistribution[tier].toLocaleString()} tone={SEVERITY_TONE[tier]} />
           ))}
         </div>
+      </Panel>
 
-        {regressionAlerts.length > 0 && <RegressionPanel alerts={regressionAlerts} />}
+      <Panel title="Security" meta={securityIssues.length + vulnCount ? `${(securityIssues.length + vulnCount).toLocaleString()} findings` : 'Clear'} action="Open" onAction={() => onOpen('security')} className="lg:col-span-4">
+        <div className="grid grid-cols-2 gap-2">
+          <Metric label="Code findings" value={securityIssues.length} tone={codeFindings.high ? 'bad' : securityIssues.length ? 'warn' : 'good'} sub={securityIssues.length ? `${codeFindings.high} high · ${codeFindings.medium} medium · ${codeFindings.low} low` : 'None found'} />
+          <Metric label="Vulnerable packages" value={vulnLoading ? '…' : vulnCount} tone={seriousVulns ? 'bad' : vulnCount ? 'warn' : 'good'} sub={vulnLoading ? 'Scanning' : vulnCount ? `${seriousVulns} critical or high` : 'None known'} />
+        </div>
+        {topFindings.length > 0 && (
+          <ul className="mt-2 flex min-h-0 flex-col divide-y text-xs">
+            {topFindings.map((issue: any, index: number) => (
+              <li key={index} className="flex items-center gap-2 py-1.5">
+                <span className={cn('shrink-0 font-semibold', toneText[issue.severity === 'high' ? 'bad' : issue.severity === 'medium' ? 'warn' : 'neutral'])}>{issue.title}</span>
+                <span className="truncate font-mono text-muted-foreground" title={issue.path}>{issue.path}{issue.line ? `:${issue.line}` : ''}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
 
-        <article className="ov-area-arch ov-kpi-panel">
-          <div className="ov-kpi-grid">
-            <div className="ov-kpi-tile"><strong>{architecture?.modules ?? 0}</strong><span>Modules</span></div>
-            <div className="ov-kpi-tile"><strong>{architecture?.layers ?? 0}</strong><span>Layers</span></div>
-            <div className={`ov-kpi-tile${architecture?.circular ? ' risk' : ''}`}><strong>{architecture?.circular ?? 0}</strong><span>Circular deps</span></div>
-            <div className={`ov-kpi-tile${violationCount ? ' risk' : ''}`}><strong>{violationCount}</strong><span>Violations</span></div>
-          </div>
-        </article>
-
-        <article className="overview-panel ov-area-dist">
-          <div className="overview-panel-heading"><div><h2>Issue distribution</h2></div><small>{vulnLoading ? 'Scanning dependencies…' : `${distributionTotal} signals`}</small></div>
-          <div className="ov-dist-list">
-            {(['critical', 'high', 'medium', 'low'] as const).map(tier => (
-              <div key={tier} className="ov-dist-row">
-                <span className={`ov-dist-label ${tier}`}>{tier}</span>
-                <div className="ov-dist-track"><i className={tier} style={{ width: `${Math.round((issueDistribution[tier] / distributionTotal) * 100)}%` }} /></div>
-                <b>{issueDistribution[tier]}</b>
-              </div>
+      <Panel title={realHotspots.length ? 'Hotspots' : 'Complexity hotspots'} meta={realHotspots.length ? 'Complex and often changed' : 'Most complex files'} action="Open" onAction={() => onOpen(realHotspots.length ? 'hotspots' : 'explorer')} className="lg:col-span-4">
+        {hotspotRows.length ? (
+          <div className="flex flex-col">
+            {hotspotRows.map(row => (
+              <Meter key={row.path} label={<span className="font-mono" title={row.path}>{row.path}</span>} value={row.value} display={row.display} tone={row.value >= 66 ? 'bad' : row.value >= 33 ? 'warn' : 'neutral'} onClick={() => onOpen(realHotspots.length ? 'hotspots' : 'explorer')} />
             ))}
           </div>
-        </article>
+        ) : <EmptyNote>No high-complexity files detected.</EmptyNote>}
+      </Panel>
 
-        <article className="overview-panel ov-area-lang overview-language-panel">
-          <div className="overview-panel-heading"><div><h2>Language composition</h2></div><small>Share of lines</small></div>
-          {languages.length ? languages.map((language: any, index: number) => {
-            const name = language.name ?? language.language ?? language.ext ?? `Language ${index + 1}`;
-            const percent = Math.round(language.percent ?? language.percentage ?? language.pct ?? language.value ?? 0);
-            return (
-              <div className="overview-language" key={name}>
-                <div><span><i style={{ background: ['var(--teal-500)', 'var(--chart-purple)', 'var(--color-success)', 'var(--color-warning)', 'var(--chart-cyan)'][index] }} />{name}</span><b>{percent}%</b></div>
-                <div className="overview-language-track"><i style={{ width: `${Math.max(3, Math.min(100, percent))}%` }} /></div>
-              </div>
-            );
-          }) : <p className="overview-panel-empty">Language information is not available.</p>}
-          {dbSchemaDetected && <Button variant="ghost" className="overview-db-callout" onClick={() => onOpen('database')}><span>Database schema detected</span><ArrowIcon /></Button>}
-        </article>
+      <Panel title="Needs attention" meta="Ranked by severity and reach" className="lg:col-span-4">
+        <AttentionFeed items={attention} storageKey={`cg.attention.${repoInfo ? `${repoInfo.owner}/${repoInfo.repo}` : 'repo'}`} onOpen={target => (target === 'unused' ? onOpenUnused() : onOpen(target))} />
+        <div className="mt-auto flex flex-wrap gap-2 pt-2">
+          {deadCount > 0 && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onOpenUnused}><Trash2 className="size-3.5" /> Unused code · {deadCount.toLocaleString()}</Button>}
+          {dbSchemaDetected && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpen('database')}>Database schema detected <ArrowRight className="size-3.5" /></Button>}
+        </div>
+      </Panel>
 
-        <article className="overview-panel ov-area-complexity">
-          {realHotspots.length ? <>
-            <div className="overview-panel-heading"><div><h2>Hotspots</h2></div><small>Complex and frequently changed</small></div>
-            <div className="ov-hotspot-list">
-              {realHotspots.map(h => (
-                <Button variant="ghost" key={h.path} className="ov-hotspot-row" onClick={() => onOpen('hotspots')}>
-                  <span>{h.path}</span>
-                  <div className="ov-hotspot-track"><i style={{ width: `${Math.max(3, h.score)}%` }} /></div>
-                  <b>{h.score}</b>
-                </Button>
-              ))}
-            </div>
-          </> : <>
-          <div className="overview-panel-heading"><div><h2>Complexity hotspots</h2></div><small>Highest first</small></div>
-          {complexityHotspots.length ? (
-            <div className="ov-hotspot-list">
-              {complexityHotspots.map((f: any) => (
-                <Button variant="ghost" key={f.path} className="ov-hotspot-row" onClick={() => onOpen('explorer')}>
-                  <span>{f.path}</span>
-                  <div className="ov-hotspot-track"><i style={{ width: `${Math.round((f.complexity.score / maxComplexity) * 100)}%` }} /></div>
-                  <b>{f.complexity.score}</b>
-                </Button>
-              ))}
-            </div>
-          ) : <p className="overview-panel-empty">No high-complexity files detected.</p>}
-          </>}
-        </article>
-
-        <OwnershipRiskPanel repoInfo={repoInfo} files={data.files ?? []} />
-      </div>
-    </main>
+      <OwnershipRiskPanel repoInfo={repoInfo} files={data.files ?? []} className="lg:col-span-4" />
+    </DashboardGrid>
   );
 }

@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { StateCard } from '../../../../shared/components/StateCard';
+import { BellOff } from 'lucide-react';
+import type { DbNavId } from '../../types';
 import { GG, GGErrorBanner, ggInput, ggLabel } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import { Button } from '@/components/ui/button';
@@ -14,9 +17,11 @@ const METRIC_OPTIONS = [
   { id: 'blocked_queries', label: 'Blocked Queries' },
 ];
 
-interface AlertsPageProps { projectId: number; paused: boolean; }
+interface AlertsPageProps { projectId: number; paused: boolean; onNavigate: (section: DbNavId) => void; }
 
-export default function AlertsPage({ projectId, paused }: AlertsPageProps) {
+const METRIC_SECTION: Record<string, DbNavId> = { p95_latency_ms: 'queries', connections_pct: 'performance', blocked_queries: 'performance' };
+
+export default function AlertsPage({ projectId, paused, onNavigate }: AlertsPageProps) {
   const [tab, setTab] = useState<Tab>('active');
   const overviewFetcher = useCallback(() => dbTelemetryApi.overview(projectId), [projectId]);
   const { data: overview } = useDbTelemetry(overviewFetcher, [projectId], { pollMs: 10000, paused });
@@ -64,14 +69,17 @@ export default function AlertsPage({ projectId, paused }: AlertsPageProps) {
       {tab === 'active' && (
         <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, padding: 18 }}>
           {!overview ? <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 12 }}>Loading…</p> : overview.activeAlerts.length === 0 ? (
-            <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 12 }}>No active alerts. All monitored thresholds are within range.</p>
+            <StateCard icon={BellOff} title="No active alerts">All monitored thresholds are within range.</StateCard>
           ) : overview.activeAlerts.map((alert, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: i > 0 ? `1px solid ${GG.line}` : 'none' }}>
               <div>
                 <div style={{ fontFamily: GG.mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: alert.severity === 'critical' ? 'var(--color-danger)' : alert.severity === 'high' ? 'var(--color-warning)' : GG.info }}>{alert.severity}</div>
                 <div style={{ fontFamily: GG.sans, fontSize: 12.5, color: GG.fg2, marginTop: 3 }}>{METRIC_OPTIONS.find(m => m.id === alert.rule.metric)?.label ?? alert.rule.metric} {alert.rule.condition === 'gt' ? '>' : '<'} {alert.rule.threshold}</div>
               </div>
-              <div style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg, fontWeight: 700 }}>{alert.currentValue.toFixed(1)}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg, fontWeight: 700 }}>{alert.currentValue.toFixed(1)}</span>
+                <Button size="sm" variant="outline" onClick={() => onNavigate(METRIC_SECTION[alert.rule.metric] ?? 'performance')}>Investigate</Button>
+              </div>
             </div>
           ))}
         </div>
