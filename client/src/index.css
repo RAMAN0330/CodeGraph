@@ -2361,3 +2361,25 @@ p.rules-warn{margin:0;font-size:11.5px;font-weight:600}
 }
 
 .guide-page > section[aria-label="Summary"] { margin-bottom: 12px; }
+
+/* Fit-to-screen tool pages: header and figures stay put, panes scroll on their own */
+.gi-page.fit-page{display:flex;flex-direction:column;gap:12px;padding:18px 22px;overflow:hidden}
+.fit-page .guide-header{flex:none;margin:0;align-items:center}
+.fit-page .guide-header h1{margin:0 0 4px;font-size:19px}
+.fit-page .guide-header p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;max-width:100ch}
+.fit-page>section[aria-label="Summary"]{margin:0}
+.fit-body{display:grid;flex:1;gap:12px;min-height:0}
+.fit-page .guide-card{background:var(--surface-subtle)}
+.fit-pane{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.fit-pane>h2{flex:none}
+.fit-scroll{flex:1;min-height:0;overflow:auto;padding-right:4px}
+.fit-page .hotspots-table thead th{position:sticky;top:0;z-index:1;padding-top:2px;background:var(--surface-subtle)}
+.fit-list{display:flex;flex-direction:column;gap:6px}
+.fit-list>button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:10px 12px;border:1px solid var(--border-subtle);border-radius:9px;background:var(--bg1);color:var(--t1);text-align:left;cursor:pointer}
+.fit-list>button:hover{border-color:var(--border-medium)}
+.fit-list>button[aria-pressed="true"]{border-color:var(--teal-500);background:color-mix(in srgb,var(--teal-500) 7%,var(--bg1))}
+.fit-list>button strong{color:var(--t0);font-size:12.5px}
+.fit-list>button small{color:var(--t2);font-size:11px}
+.fit-empty{display:grid;flex:1;place-items:center;text-align:center;color:var(--t2);font-size:12.5px}
+@media(max-width:900px){.gi-page.fit-page{overflow:auto}.fit-body{grid-template-columns:1fr!important;grid-template-rows:none!important}.fit-pane{max-height:70vh}}
+.fit-page>.fit-pane{flex:1}

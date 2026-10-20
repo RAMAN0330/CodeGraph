@@ -3,7 +3,7 @@
 .welcome-brand{display:flex;align-items:center;gap:10px;font-size:.9rem}
 .welcome-brand-mark{display:grid;place-items:center;width:30px;height:30px;color:var(--wp-blue);border:1px solid rgba(79,70,229,.42);border-radius:9px;background:rgba(79,70,229,.1)}
 .welcome-signout{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--wp-border);border-radius:8px;padding:9px 13px;background:transparent;color:var(--wp-muted);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
-.welcome-signout:hover{color:var(--wp-text);border-color:#c2c5cc}
+.welcome-signout:hover{color:var(--wp-text);border-color:var(--text-secondary)}
 .welcome-hero{width:min(880px,100%);margin:0 auto;padding:56px clamp(20px,4vw,48px) 0;text-align:center}
 
 .welcome-hero h1{margin:18px 0 10px;font-size:clamp(2.1rem,4.5vw,3.2rem);letter-spacing:-.05em}
@@ -15,7 +15,7 @@
 .welcome-connection-copy span{color:var(--wp-dim);font-weight:600;font-size:.8rem}
 .welcome-connection-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
 .welcome-switch{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--wp-border);border-radius:8px;padding:8px 12px;background:var(--wp-raised);color:var(--wp-muted);font:inherit;font-size:.76rem;font-weight:700;cursor:pointer;white-space:nowrap}
-.welcome-switch:hover{color:var(--wp-text);border-color:#c2c5cc}
+.welcome-switch:hover{color:var(--wp-text);border-color:var(--text-secondary)}
 .welcome-disconnect{border:1px solid rgba(220,38,38,.35);border-radius:8px;padding:8px 12px;background:transparent;color:var(--color-danger);font:inherit;font-size:.76rem;font-weight:700;cursor:pointer;white-space:nowrap}
 .welcome-disconnect:hover{background:rgba(220,38,38,.1)}
 .welcome-disconnect:disabled{opacity:.6;cursor:wait}
@@ -24,7 +24,7 @@
 .welcome-connect-button{margin-left:auto;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--wp-blue);border-radius:8px;padding:10px 14px;background:var(--wp-blue);color:var(--wp-bg);font:inherit;font-size:.8rem;font-weight:750;cursor:pointer;white-space:nowrap}
 .welcome-connect-button:hover{background:var(--teal-600);border-color:var(--teal-600)}
 .welcome-notice{width:min(680px,calc(100% - 40px));margin:20px auto 0;padding:11px 14px;border-radius:10px;font-size:.8rem;font-weight:600;text-align:center}
-.welcome-notice-error{color:#4c2428;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.28)}
+.welcome-notice-error{color:var(--wp-text);background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.28)}
 .welcome-offers{width:min(1080px,100%);margin:52px auto 0;padding:0 clamp(20px,4vw,48px)}
 .welcome-offers h2{margin:0 0 22px;text-align:center;font-size:clamp(1.4rem,2.6vw,1.9rem);letter-spacing:-.03em}
 .welcome-offers-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}

@@ -79,6 +79,7 @@ function commonFolder(paths: string[]): string {
 // Fit to the canvas width, never above natural size; a tall system scrolls
 // vertically, and below this floor it scrolls sideways rather than shrink past legibility.
 const MIN_SCALE = 0.55;
+const FIT_MIN_SCALE = 0.3;
 const CANVAS_PADDING = 64;
 
 export default function ArchitectureDiagram({ nodes, connections, repoName = 'Repository', onOpenFile }: Props) {
@@ -91,6 +92,7 @@ export default function ArchitectureDiagram({ nodes, connections, repoName = 'Re
   const [enriching, setEnriching] = useState(false);
   const [message, setMessage] = useState('');
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [fitScreen, setFitScreen] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -166,8 +168,13 @@ export default function ArchitectureDiagram({ nodes, connections, repoName = 'Re
     observer.observe(canvas);
     return () => observer.disconnect();
   }, [graph.nodes.length]);
+  // Fit shows the whole system in the frame; actual size keeps it readable and scrolls.
+  const widthFit = (canvasSize.width - CANVAS_PADDING) / layout.width;
+  const heightFit = (canvasSize.height - CANVAS_PADDING) / layout.height;
   const scale = canvasSize.width
-    ? Math.max(MIN_SCALE, Math.min((canvasSize.width - CANVAS_PADDING) / layout.width, 1))
+    ? fitScreen
+      ? Math.max(FIT_MIN_SCALE, Math.min(widthFit, heightFit, 1))
+      : Math.max(MIN_SCALE, Math.min(widthFit, 1))
     : 1;
 
   async function copyMermaid() {
@@ -254,6 +261,7 @@ export default function ArchitectureDiagram({ nodes, connections, repoName = 'Re
         </div>
         <div className="architecture-actions">
           <Button type="button" variant="ghost" onClick={generateExplanation} disabled={enriching}><Sparkles size={15} />{enriching ? 'Generating…' : 'Generate explanation'}</Button>
+          <Button type="button" variant="ghost" onClick={() => setFitScreen(v => !v)} aria-pressed={fitScreen}>{fitScreen ? 'Actual size' : 'Fit to screen'}</Button>
           <Button type="button" variant="ghost" onClick={copyMermaid}><Clipboard size={15} />Copy Mermaid</Button>
           <Button type="button" variant="ghost" onClick={downloadPng}><Download size={15} />PNG</Button>
         </div>

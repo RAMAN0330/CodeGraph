@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
-import { LogOut, Users } from 'lucide-react';
+import { LogOut, ScrollText, Users } from 'lucide-react';
 import { appConfig } from '../../app/config';
 
 const API = appConfig.apiUrl;
 const TeamDialog = lazy(() => import('./TeamDialog'));
+const AuditLogDialog = lazy(() => import('./AuditLogDialog'));
 
 export interface AccountMenuItem {
   label: string;
@@ -70,6 +71,7 @@ export default function AccountMenu({ login, avatarUrl, variant, active, menuIte
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [teamOpen, setTeamOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,11 +146,15 @@ export default function AccountMenu({ login, avatarUrl, variant, active, menuIte
           <button role="menuitem" className="account-item" onClick={() => { setTeamOpen(true); setOpen(false); }}>
             <Users size={14} strokeWidth={1.9} /> Team
           </button>
+          <button role="menuitem" className="account-item" onClick={() => { setAuditOpen(true); setOpen(false); }}>
+            <ScrollText size={14} strokeWidth={1.9} /> Audit log
+          </button>
           <button role="menuitem" className="account-item danger" onClick={handleSignOut} disabled={signingOut}>
             <LogOut size={14} strokeWidth={1.9} /> {signingOut ? 'Signing out…' : 'Sign out'}
           </button>
         </div>
       )}
+      {auditOpen && <Suspense fallback={null}><AuditLogDialog onClose={() => setAuditOpen(false)} /></Suspense>}
       {teamOpen && <Suspense fallback={null}><TeamDialog onClose={() => setTeamOpen(false)} /></Suspense>}
     </div>
   );

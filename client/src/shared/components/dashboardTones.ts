@@ -11,5 +11,5 @@ export const toneFill: Record<Tone, string> = {
   good: 'bg-[var(--color-success)]',
   warn: 'bg-[var(--color-warning)]',
   bad: 'bg-[var(--color-danger)]',
-  neutral: 'bg-primary',
+  neutral: 'bg-muted-foreground',
 };

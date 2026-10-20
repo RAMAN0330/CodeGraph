@@ -10,9 +10,14 @@ import { toneFill, toneText, type Tone } from './dashboardTones';
 // sized to the viewport and never scroll the page.
 
 /** The page grid: fills the space under the header on desktop, stacks and scrolls on small screens. */
-export function DashboardGrid({ className, children }: { className?: string; children: ReactNode }) {
+export function DashboardGrid({ className, framed, children }: { className?: string; framed?: boolean; children: ReactNode }) {
   return (
-    <main className={cn('grid min-h-0 flex-1 auto-rows-min gap-3 overflow-y-auto p-3 lg:overflow-hidden', className)}>
+    <main className={cn(
+      'grid min-h-0 flex-1 auto-rows-min gap-3 overflow-y-auto p-3 lg:overflow-hidden',
+      // Same surface as the tool pages (.gi-page) so the sidebar and content read as one frame; cards sit one step darker.
+      framed && 'mx-3 mb-3 rounded-[18px] border bg-card p-4 shadow-[0_10px_28px_rgba(20,24,32,0.09)] [&_[data-slot=card]]:bg-[var(--surface-subtle)] [&_[data-slot=metric]]:bg-[var(--surface-subtle)]',
+      className,
+    )}>
       {children}
     </main>
   );
@@ -60,9 +65,10 @@ export function Metric({ label, value, sub, tone = 'neutral', icon, onClick }: {
     </>
   );
   const className = 'flex min-w-0 flex-col items-start gap-1 rounded-xl border bg-card px-4 py-3 text-left';
+  const slot = { 'data-slot': 'metric' };
   return onClick
-    ? <button type="button" className={cn(className, 'cursor-pointer transition-colors hover:bg-accent')} onClick={onClick}>{body}</button>
-    : <div className={className}>{body}</div>;
+    ? <button type="button" {...slot} className={cn(className, 'cursor-pointer transition-colors hover:bg-accent')} onClick={onClick}>{body}</button>
+    : <div {...slot} className={className}>{body}</div>;
 }
 
 /** One labelled horizontal bar; value is a 0-100 share. */

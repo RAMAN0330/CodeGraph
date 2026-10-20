@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { AlertTriangle, ArrowRight, FolderKanban, Trash2 } from 'lucide-react';
 import AnalysisLoader, { type AnalysisStage } from '../../../shared/components/AnalysisLoader';
 import { DashboardGrid, EmptyNote, Meter, Metric, Panel } from '../../../shared/components/Dashboard';
-import { toneText, type Tone } from '../../../shared/components/dashboardTones';
+import { toneFill, toneText, type Tone } from '../../../shared/components/dashboardTones';
 import AttentionFeed from '../../../shared/components/AttentionFeed';
 import { codeAttention } from '../../../shared/services/attention';
 import { findTangles } from '../../analysis/services/cycles';
@@ -215,7 +215,7 @@ function OverviewContent({
   const languagePercent = (language: any) => Math.round(language.percent ?? language.percentage ?? language.pct ?? language.value ?? 0);
 
   return (
-    <DashboardGrid className={cn('lg:grid-cols-12', regressionAlerts.length ? 'lg:grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]')}>
+    <DashboardGrid framed className={cn('lg:grid-cols-12', regressionAlerts.length ? 'lg:grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]')}>
       <section className="flex items-center gap-4 rounded-xl border bg-card px-5 py-3 lg:col-span-3" aria-label="Codebase health">
         <div className="flex items-baseline gap-1">
           <strong className={cn('font-mono text-5xl leading-none font-semibold', toneText[healthTone])}>{health.score}</strong>
@@ -267,10 +267,22 @@ function OverviewContent({
       </Panel>
 
       <Panel title="Issues by severity" meta={vulnLoading ? 'Scanning dependencies…' : `${distributionTotal.toLocaleString()} signals`} action="Tech debt" onAction={() => onOpen('debt')} className="lg:col-span-4">
-        <div className="my-auto flex flex-col">
-          {(['critical', 'high', 'medium', 'low'] as const).map(tier => (
-            <Meter key={tier} label={<span className="capitalize">{tier}</span>} value={(issueDistribution[tier] / distributionTotal) * 100} display={issueDistribution[tier].toLocaleString()} tone={SEVERITY_TONE[tier]} />
-          ))}
+        <div className="flex min-h-0 flex-1 flex-col justify-between gap-3">
+          <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted" role="img" aria-label="Share of signals by severity">
+            {(['critical', 'high', 'medium', 'low'] as const).map(tier => (
+              <i key={tier} className={cn('block h-full', toneFill[SEVERITY_TONE[tier]])} style={{ width: `${(issueDistribution[tier] / distributionTotal) * 100}%` }} />
+            ))}
+          </div>
+          <div className="flex flex-col">
+            {(['critical', 'high', 'medium', 'low'] as const).map(tier => (
+              <Meter key={tier} label={<span className="capitalize">{tier}</span>} value={(issueDistribution[tier] / distributionTotal) * 100} display={issueDistribution[tier].toLocaleString()} tone={SEVERITY_TONE[tier]} />
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {issueDistribution.critical + issueDistribution.high === 0
+              ? 'Nothing critical or high right now.'
+              : `${(issueDistribution.critical + issueDistribution.high).toLocaleString()} signals are critical or high. Start with security findings and layer violations.`}
+          </p>
         </div>
       </Panel>
 

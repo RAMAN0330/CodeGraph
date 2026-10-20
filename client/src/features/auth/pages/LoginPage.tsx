@@ -124,7 +124,7 @@ export default function LoginPage() {
 
             <div className="auth-new-user">
               <strong>New to Structrace?</strong>
-              <p><Link to="/register">Create an organization account</Link> — no credit card, no setup required.</p>
+              <p><Link to="/register">Create an organization account</Link> to get started with your team.</p>
             </div>
 
             <div className="auth-security">

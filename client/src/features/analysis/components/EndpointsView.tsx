@@ -31,7 +31,7 @@ export default function EndpointsView({ data, onOpenFile, onOpenTable }: Props) 
   const key = (e: EndpointWithReach) => `${e.method} ${e.path} ${e.file}:${e.line}`;
 
   return (
-    <div className="gi-page guide-page">
+    <div className="gi-page guide-page fit-page">
       <header className="guide-header">
         <div>
           <h1>API endpoints</h1>
@@ -51,7 +51,8 @@ export default function EndpointsView({ data, onOpenFile, onOpenTable }: Props) 
             <input id="endpoint-filter" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter by path, method, file or table" autoComplete="off" />
             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => downloadCsv('endpoints.csv', ['Method', 'Path', 'File', 'Line', 'Handler', 'Tables', 'Reach'], shown.map(e => [e.method, e.path, e.file, e.line, e.handler, e.tables.join(' '), e.reachCount]))}><Download className="size-3.5" /> CSV</Button>
           </div>
-          <section className="guide-card">
+          <section className="guide-card fit-pane">
+            <div className="fit-scroll">
             <table className="hotspots-table endpoints-table">
               <thead><tr><th scope="col"><span className="sr-only">Details</span></th><th scope="col">Endpoint</th><th scope="col">Handler</th><th scope="col">Tables</th><th scope="col">Reach</th></tr></thead>
               <tbody>
@@ -83,6 +84,7 @@ export default function EndpointsView({ data, onOpenFile, onOpenTable }: Props) 
               </tbody>
             </table>
             {!shown.length && <p className="guide-empty">No endpoint matches “{filter}”.</p>}
+            </div>
           </section>
         </>
       )}
