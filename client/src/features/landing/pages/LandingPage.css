@@ -3,6 +3,7 @@
    the workspace keeps client/DESIGN.md. The shadcn names (--primary, --card …)
    are redefined here so Buttons inside the page pick the theme up. */
 .landing-page{
+  color-scheme:light;
   --background:#f7f6fc;--foreground:#16142e;--card:#ffffff;--primary:#312e9e;--primary-hover:#282584;--primary-foreground:#ffffff;
   --brand-2:#7c3aed;--brand-3:#e08a4f;--gradient-end:#b4530a;--accent:#ede9fe;--muted:#f3f1fb;--muted-foreground:#5e5a7a;--border:#e4e1f2;--ring:var(--brand-2);
   --canvas-blob-1:rgba(124,58,237,.16);--canvas-blob-2:rgba(224,138,79,.18);--canvas-grid:rgba(49,46,158,.055);
@@ -21,16 +22,15 @@
   background-attachment:fixed;
 }
 /* Dark is a smooth neutral charcoal, not pure black and not tinted: soft greys,
-   an off-white primary, and colour only in the one gradient phrase and the data. */
-@media(prefers-color-scheme:dark){
-  .landing-page{
+   an off-white primary, and colour only in the one gradient phrase and the data.
+   LandingPage sets data-theme from the toggle, else from prefers-color-scheme. */
+.landing-page[data-theme="dark"]{
     color-scheme:dark;
     --background:#141416;--foreground:#ededef;--card:#1e1e21;--primary:#f4f4f5;--primary-hover:#ffffff;--primary-foreground:#18181b;
     --brand-2:#a5b4fc;--brand-3:#f5b583;--gradient-end:#f5b583;--accent:#2a2a2e;--muted:#1a1a1d;--muted-foreground:#a1a1aa;--border:#2c2c31;--border-medium:#3a3a40;
     --canvas-blob-1:rgba(165,180,252,.07);--canvas-blob-2:rgba(245,181,131,.05);--canvas-grid:rgba(255,255,255,.035);
     --glass-edge:rgba(255,255,255,.08);--glass-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 18px 44px -14px rgba(0,0,0,.6);
     --teal-500:#a5b4fc;--chart-cyan:#4fd1e0;--chart-purple:#d4b4f5;--color-warning:#fcd34d;--color-danger:#ff7a7e;--color-success:#4ade9a;
-  }
 }
 .landing-page ::selection{background:color-mix(in srgb,var(--brand-2) 24%,transparent);color:var(--ink)}
 .landing-page a:focus-visible,.landing-page button:focus-visible,.landing-page input:focus-visible{outline:2px solid var(--ring);outline-offset:3px}
@@ -59,18 +59,21 @@
 .landing-sign-in:hover{border-color:var(--brand-2);background:var(--accent);color:var(--ink)}
 
 /* ---- Buttons ---- */
-.landing-actions{display:flex;align-items:center;gap:26px}
 .landing-primary{display:inline-flex;align-items:center;justify-content:center;gap:9px;height:48px;padding:0 22px;border:1px solid var(--primary);border-radius:.75rem;color:var(--primary-foreground);background:var(--primary);font:inherit;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 10px 26px -8px color-mix(in srgb,var(--primary) 70%,transparent);transition:background .18s ease,transform .18s ease,box-shadow .18s ease}
 .landing-primary:hover{background:var(--primary-hover);border-color:var(--primary-hover)}
 .landing-primary:active{transform:translateY(1px)}
-.landing-secondary{display:inline-flex;align-items:center;min-height:44px;color:var(--ink);font-size:.85rem;font-weight:650;text-decoration:underline;text-decoration-color:var(--brand-2);text-underline-offset:6px}
-.landing-secondary:hover{color:var(--brand-2)}
+.landing-theme-toggle{display:inline-grid;place-items:center;width:44px;height:44px;margin-left:auto;padding:0;border:1px solid var(--border-medium);border-radius:.75rem;color:var(--ink);background:color-mix(in srgb,var(--card) 70%,transparent);cursor:pointer}
+.landing-theme-toggle:hover{border-color:var(--brand-2);background:var(--accent);color:var(--ink)}
+.landing-theme-toggle+.landing-sign-in{margin-left:0}
 
-/* ---- Hero ---- */
-.landing-hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:end;gap:clamp(28px,5vw,96px);padding:clamp(56px,9vh,104px) 0 clamp(36px,5vh,56px)}
-.landing-hero h1{max-width:12ch;margin:0;color:var(--ink);font-size:clamp(2.85rem,4.6vw,4.85rem);font-weight:800;line-height:1.02;letter-spacing:-.04em;text-wrap:balance}
-.landing-hero-side{max-width:480px;padding-bottom:8px}
-.landing-hero-side p{margin:0 0 28px;color:var(--muted-text);font-size:1.08rem;line-height:1.6}
+/* ---- Hero: centred, the repository field is the first action ---- */
+.landing-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:clamp(64px,11vh,128px) 0 clamp(40px,6vh,64px)}
+.landing-eyebrow{display:inline-flex;align-items:center;gap:10px;margin:0 0 24px;padding:6px 14px;border:1px solid var(--border-medium);border-radius:999px;background:color-mix(in srgb,var(--card) 70%,transparent);color:var(--muted-text);font-size:.85rem;font-weight:650}
+.landing-eyebrow-dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--brand-2),var(--gradient-end))}
+.landing-hero h1{max-width:14ch;margin:0;color:var(--ink);font-size:clamp(2.85rem,6.2vw,5.6rem);font-weight:800;line-height:1.02;letter-spacing:-.045em;text-wrap:balance}
+.landing-lede{max-width:62ch;margin:24px 0 36px;color:var(--muted-text);font-size:clamp(1.02rem,1.3vw,1.18rem);line-height:1.6}
+.landing-hero-form{width:min(640px,100%);padding:14px;border-radius:1rem;text-align:left}
+.landing-hero .start-works{justify-content:center;margin-top:18px}
 
 /* ---- Contact sheet: one large diagram, the others waiting beside it ---- */
 .sheet{display:grid;grid-template-columns:minmax(0,1fr) clamp(190px,16.5vw,240px);gap:16px;align-items:start}
@@ -103,14 +106,29 @@
 .sheet-tab-label small{margin-left:auto;color:var(--tone);font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
 .sheet-note{margin:16px 0 0;color:var(--muted-text);font-size:.85rem}
 
-/* ---- Questions: the quiet passage after the dense sheet ---- */
-.questions{padding:clamp(88px,12vh,128px) 0 clamp(64px,9vh,96px)}
-.questions h2,.start h2{max-width:18ch;margin:0 0 40px;color:var(--ink);font-size:clamp(1.75rem,3vw,2.85rem);font-weight:800;line-height:1.1;letter-spacing:-.03em;text-wrap:balance}
-.questions-row{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);align-items:center;gap:24px;padding:18px 0;border-top:1px solid var(--line)}
-.questions-head{padding:0 0 12px;border-top:0;color:var(--muted-text);font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
-.questions-ask{display:flex;align-items:center;gap:14px;color:var(--ink);font-size:1.08rem;font-weight:700}
-.questions-before{color:var(--muted-text);font-size:1rem}
-.questions-after{color:var(--ink);font-size:1rem;font-weight:650}
+/* ---- Section heads ---- */
+.section-kicker{margin:0 0 12px;color:var(--brand-2);font-size:.8rem;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+.questions h2,.how h2{max-width:20ch;margin:0 0 40px;color:var(--ink);font-size:clamp(1.75rem,3vw,2.85rem);font-weight:800;line-height:1.1;letter-spacing:-.03em;text-wrap:balance}
+
+/* ---- Questions: one glass card per question ---- */
+.questions{padding:clamp(88px,12vh,128px) 0 clamp(48px,7vh,72px)}
+.questions-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;margin:0;padding:0;list-style:none}
+.question-card{grid-column:span 2}
+.question-card:nth-child(-n+2){grid-column:span 3}
+.question-card{display:flex;flex-direction:column;gap:12px;padding:22px;border-radius:.75rem}
+.question-card h3{margin:4px 0 0;color:var(--ink);font-size:1.08rem;font-weight:750;letter-spacing:-.01em}
+.question-card p{display:flex;flex-direction:column;gap:2px;margin:0;font-size:.95rem;line-height:1.5}
+.question-card p span{color:var(--muted-text);font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.questions-before{color:var(--muted-text)}
+.questions-after{color:var(--ink);font-weight:650}
+
+/* ---- How it works ---- */
+.how{padding:clamp(48px,7vh,72px) 0 clamp(72px,10vh,112px)}
+.how-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0;padding:0;list-style:none}
+.how-step{position:relative;display:flex;flex-direction:column;gap:12px;padding:24px;border-radius:.75rem}
+.how-index{position:absolute;top:18px;right:22px;color:var(--border-medium);font-size:2.4rem;font-weight:800;line-height:1}
+.how-step h3{margin:4px 0 0;color:var(--ink);font-size:1.08rem;font-weight:750}
+.how-step p{margin:0;color:var(--muted-text);font-size:.95rem;line-height:1.55}
 
 /* ---- Teams ---- */
 .teams{padding:clamp(72px,10vh,112px) 0;border-top:1px solid var(--line)}
@@ -139,12 +157,16 @@
 .ledger-sends{color:var(--ink);font-size:1rem}
 .ledger-when{color:var(--muted-text);font-size:.85rem;font-weight:600}
 
-/* ---- Start ---- */
-.start{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);align-items:start;gap:clamp(28px,5vw,80px);margin-bottom:clamp(64px,9vh,104px);padding:clamp(36px,5vw,64px);border-radius:1rem}
-.start h2{margin-bottom:16px}
+/* ---- Repository form (hero) ---- */
 .start-works{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0;color:var(--muted-text);font-size:.85rem}
 .start-works svg{color:var(--brand-2)}
-.start-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding-top:6px}
+
+/* ---- Closing call to action ---- */
+.start{position:relative;display:flex;flex-direction:column;align-items:center;gap:16px;overflow:hidden;margin-bottom:clamp(64px,9vh,104px);padding:clamp(48px,7vw,88px) 24px;border-radius:1rem;text-align:center}
+.start::before{content:"";position:absolute;inset:-40% -10% auto;height:120%;background:radial-gradient(closest-side,var(--canvas-blob-1),transparent),radial-gradient(closest-side at 80% 50%,var(--canvas-blob-2),transparent);z-index:-1}
+.start h2{max-width:18ch;margin:0;color:var(--ink);font-size:clamp(1.9rem,3.6vw,3.2rem);font-weight:800;line-height:1.08;letter-spacing:-.035em;text-wrap:balance}
+.start p{max-width:46ch;margin:0 0 8px;color:var(--muted-text);font-size:1.05rem;line-height:1.6}
+.start-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px}
 .start-field{display:flex;align-items:center;height:60px;padding:0 18px;border:1px solid var(--border-medium);border-radius:8px;background:var(--card);font-size:1rem;cursor:text;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease}
 .start-field:focus-within{border-color:var(--brand-2);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-2) 18%,transparent)}
 .start-field:has(input[aria-invalid="true"]){border-color:var(--color-danger)}
@@ -177,8 +199,9 @@
 /* Tablet portrait and phones: one column, with the module tabs as a swipeable
    row above the frame so they are seen before the diagram. */
 @media(max-width:899px){
-  .landing-hero{grid-template-columns:1fr;align-items:start;gap:22px}
-  .landing-hero h1{max-width:14ch}
+  .questions-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .question-card,.question-card:nth-child(-n+2){grid-column:auto}
+  .question-card:last-child{grid-column:1/-1}
   .sheet{grid-template-columns:minmax(0,1fr);gap:12px}
   .sheet-rail{order:-1;position:static;display:flex;flex-direction:row;gap:8px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}
   .sheet-rail::-webkit-scrollbar{display:none}
@@ -186,24 +209,19 @@
 }
 @media(max-width:720px){
   .landing-nav-links{display:none}
-  .landing-hero{padding-top:36px}
-  .landing-actions{flex-wrap:wrap;gap:16px 24px}
+  .landing-hero{padding-top:44px}
+  .how-steps,.questions-grid{grid-template-columns:1fr}
+  .landing-sign-in{padding:0 12px}
   .sheet-topbar{padding:0 12px;font-size:.85rem}
   .sheet-caption{padding:12px 14px;font-size:.85rem}
   .sheet-pan-hint{display:block;flex-basis:100%;color:var(--muted-text);font-size:.85rem}
   .sheet-stage-body{aspect-ratio:auto;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
   .sheet-stage-body .dg{position:relative;width:720px;height:auto}
-  .questions-row{grid-template-columns:1fr;gap:6px;padding:18px 0}
-  .questions-head{display:none}
-  .questions-row:nth-child(2){border-top:0}
-  .questions-before::before{content:"Usually: "}
-  .questions-after::before{content:"In Structrace: ";color:var(--muted-text);font-weight:500}
   .ledger-row{grid-template-columns:1fr;gap:4px;padding:14px 0}
   .ledger-head{display:none}
   .ledger-row:nth-child(2){border-top:0}
   .selfhost-diagram{aspect-ratio:auto;overflow-x:auto;overscroll-behavior-x:contain}
   .selfhost-diagram .dg{position:relative;width:720px;height:auto}
-  .start{grid-template-columns:1fr;gap:24px;padding:24px 20px}
   .start-form{grid-template-columns:1fr}
   .start-field{height:54px;padding:0 14px;font-size:.85rem}
   .start-submit{height:52px}

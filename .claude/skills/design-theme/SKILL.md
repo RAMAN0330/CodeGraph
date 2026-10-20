@@ -13,7 +13,7 @@ Pairs with `.claude/skills/ui-style-selection` (clean base + glass).
 database and settings screens follow `client/DESIGN.md` and the house theme in `ui-style-selection`.
 
 All tokens are scoped to `.landing-page` in `client/src/features/landing/pages/LandingPage.css`
-(light by default, dark under `prefers-color-scheme: dark`). Dark is a smooth neutral charcoal, not pure black and not purple-tinted: soft greys, an off-white primary button, colour only in the gradient phrase and the data. They reuse the shadcn names, so shadcn
+(light by default, dark under `.landing-page[data-theme="dark"]`; the top-bar toggle sets `data-theme`, saved in localStorage, defaulting to `prefers-color-scheme`). Dark is a smooth neutral charcoal, not pure black and not purple-tinted: soft greys, an off-white primary button, colour only in the gradient phrase and the data. They reuse the shadcn names, so shadcn
 `Button`s inside the page pick them up. They also remap the house tokens the diagrams read
 (`--text-primary`, `--surface-card`, `--teal-500` …). Never hard-code hex in components or new rules.
 
@@ -59,6 +59,13 @@ Rules:
 - Keep surfaces that must be solid solid: diagram bodies, inputs, code blocks.
 - Don't stack glass in glass more than one level; inner tiles use `var(--card)` or `var(--muted)`.
 
+## Layout
+
+Centred hero (eyebrow pill, headline with the gradient phrase, lede, the repository field in a glass card),
+then the product frame, then sections that each open with a violet uppercase kicker and a headline.
+Repeating items (questions, steps) are glass cards in a grid with no orphan row; long reference lists
+(the outbound ledger) stay flat rows on the canvas. The page ends on one centred glass call to action.
+
 ## Type and emphasis
 
 - Manrope for all text (DESIGN.md); tight tracking on headings. No new typeface.
@@ -69,7 +76,7 @@ Rules:
 
 ## Checks before shipping
 
-- Screenshot at 390, 1280, 1440 and 1920, light and dark (`colorScheme` in Playwright), and confirm no
+- Screenshot at 390, 1280, 1440 and 1920, light and dark (`colorScheme` in Playwright, or the toggle), and confirm no
   horizontal scroll. Scroll through the page first: diagrams animate in on view.
 - Text contrast ≥ 4.5:1 (3:1 large text and UI parts) on glass over its busiest backdrop.
 - Status colours stay meaningful: green or red must mean good or bad.
