@@ -22,7 +22,8 @@ import { auditCsv, listAudit, parseAuditFilter, recordAudit } from './db/audit';
 import { UsernameTakenError, clearGithubConnection, createOrganizationWithAdmin, findUserById, findUserByUsername, setGithubConnection, toPublicUser, type UserRow } from './db/users';
 import { AccessError, NotFoundError, addMember, assertCanEditProject, createProject, createWorkspace, getAlertWebhook, getConnectionForQuerying, getDecryptedConnection, listProjects, listWorkspaces, removeMember, removeProject, removeWorkspace, setAlertWebhook, updateDbConnection, type Actor } from './db/projectStore';
 import { listAlerts, listSnapshots } from './db/analysisHistory';
-import { InviteUnavailableError, createInvite, findOpenInvite, joinOrganizationWithInvite, listMembers } from './db/organization';
+import { getPlan, hasFeature, seatLimit, upgradeMessage } from './db/plans';
+import { InviteUnavailableError, createInvite, findOpenInvite, joinOrganizationWithInvite, listMembers, ROLES, setMemberRole, type Role } from './db/organization';
 import { createAnnotation, deleteAnnotation, listAnnotations, updateAnnotation, validateNote } from './db/annotations';
 import { deleteCoverage, getCoverage, saveCoverage, validateCoverage } from './db/coverage';
 import { createView, deleteView, listViews, validateView } from './db/savedViews';
@@ -134,6 +135,13 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Viewers read; everything that changes data is refused. Session routes and their own UI state stay open.
+app.use((req: any, res, next) => {
+  if (req.user?.role !== 'viewer' || ['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  if (req.path.startsWith('/auth/') || req.path.startsWith('/api/me/')) return next();
+  res.status(403).json({ error: 'Your role is view-only. Ask an organization admin for edit access.' });
+});
 
 const githubAuthEnabled = Boolean(env.githubClientId && env.githubClientSecret);
 
@@ -585,6 +593,7 @@ const audit = (req: any, action: string, resource?: { type: string; id?: string 
 app.get('/api/organization/audit', requireAuth, async (req: any, res: any) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only organization admins can view the audit log.' });
   try {
+    if (!hasFeature(await getPlan(req.user.organization_id), 'audit')) return res.status(402).json({ error: upgradeMessage('audit') });
     const entries = await listAudit(req.user.organization_id, parseAuditFilter(req.query));
     if (req.query.format === 'csv') {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -605,9 +614,26 @@ app.get('/api/organization/members', requireAuth, async (req: any, res: any) => 
   }
 });
 
+app.patch('/api/organization/members/:id', requireAuth, async (req: any, res: any) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only organization admins can change roles.' });
+  const role = req.body?.role as Role;
+  const userId = Number(req.params.id);
+  if (!ROLES.includes(role) || !Number.isInteger(userId)) return res.status(400).json({ error: 'Choose admin, member or viewer.' });
+  try {
+    if (role === 'viewer' && !hasFeature(await getPlan(req.user.organization_id), 'roles')) return res.status(402).json({ error: upgradeMessage('roles') });
+    if (!(await setMemberRole(req.user.organization_id, userId, role))) return res.status(409).json({ error: 'That person is not in your organization, or is the last admin.' });
+    await audit(req, 'organization.member.role', { type: 'user', id: userId }, { role });
+    res.json({ members: await listMembers(req.user.organization_id) });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/organization/invites', requireAuth, credentialsRateLimit, async (req: any, res: any) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only organization admins can invite people.' });
   try {
+    const [plan, members] = [await getPlan(req.user.organization_id), await listMembers(req.user.organization_id)];
+    if (members.length >= seatLimit(plan)) return res.status(402).json({ error: `Your Team plan includes ${seatLimit(plan)} seats. Upgrade to Business to add more people.` });
     const { token, expiresAt } = await createInvite(req.user.organization_id, req.user.id);
     await audit(req, 'organization.invite.create', { type: 'organization', id: req.user.organization_id });
     res.status(201).json({ url: `${env.clientOrigin.replace(/\/$/, '')}/register?invite=${token}`, expiresAt });

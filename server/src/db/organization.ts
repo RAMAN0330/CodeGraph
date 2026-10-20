@@ -75,3 +75,17 @@ export async function joinOrganizationWithInvite(token: string, username: string
     client.release();
   }
 }
+
+export const ROLES = ['admin', 'member', 'viewer'] as const;
+export type Role = (typeof ROLES)[number];
+
+// Never leaves an organization without an admin: the check and the update share one statement.
+export async function setMemberRole(organizationId: number, userId: number, role: Role): Promise<boolean> {
+  const result = await pool.query(
+    `UPDATE users SET role = $3
+     WHERE id = $2 AND organization_id = $1
+       AND (role <> 'admin' OR $3 = 'admin' OR EXISTS (SELECT 1 FROM users WHERE organization_id = $1 AND role = 'admin' AND id <> $2))`,
+    [organizationId, userId, role],
+  );
+  return (result.rowCount ?? 0) > 0;
+}

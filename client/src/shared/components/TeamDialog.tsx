@@ -26,6 +26,19 @@ export default function TeamDialog({ onClose }: { onClose: () => void }) {
       .catch(e => setError(e.message));
   }, []);
 
+  const changeRole = (id: number, role: string) => {
+    setError('');
+    fetch(`${appConfig.apiUrl}/api/organization/members/${id}`, {
+      method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }),
+    })
+      .then(res => res.json().then(body => ({ res, body })))
+      .then(({ res, body }) => {
+        if (!res.ok) throw new Error(body?.error || 'Could not change that role.');
+        setMembers(body.members);
+      })
+      .catch(e => setError(e.message));
+  };
+
   const createInvite = () => {
     setError('');
     fetch(`${appConfig.apiUrl}/api/organization/invites`, { method: 'POST', credentials: 'include' })
@@ -48,14 +61,16 @@ export default function TeamDialog({ onClose }: { onClose: () => void }) {
       <DialogContent className="team-dialog">
         <DialogHeader>
           <DialogTitle><Users size={16} /> Your team</DialogTitle>
-          <DialogDescription>Everyone here shares notes on repository files. Projects and workspaces stay personal.</DialogDescription>
+          <DialogDescription>Everyone here shares notes on repository files. Admins manage people, members edit, viewers can only look.</DialogDescription>
         </DialogHeader>
         {error && <p className="organization-error" role="alert">{error}</p>}
         {members === null && !error && <p className="guide-empty">Loading…</p>}
         {members && (
           <ul className="team-members">
             {members.map(m => (
-              <li key={m.id}><strong>{m.username}</strong>{m.githubLogin && <small>@{m.githubLogin}</small>}<span className="guide-layer">{m.role}</span></li>
+              <li key={m.id}><strong>{m.username}</strong>{m.githubLogin && <small>@{m.githubLogin}</small>}{canInvite
+                ? <select aria-label={`Role for ${m.username}`} value={m.role} onChange={e => changeRole(m.id, e.target.value)}><option value="admin">admin</option><option value="member">member</option><option value="viewer">viewer</option></select>
+                : <span className="guide-layer">{m.role}</span>}</li>
             ))}
           </ul>
         )}
