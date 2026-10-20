@@ -60,6 +60,8 @@ When two rules match, the higher-stakes rule wins (rule 1 beats everything).
 
 CodeGraph is a Git-connected codebase and database workspace: a data-heavy productivity tool used in long sessions, with health, risk and security signals. Rule 2 applies, so it uses a **clean flat base + Glassmorphism accent for overlays only**. There is no geographic data, so no Spatial UI; the dependency graph canvas is the one "background" that glass floats over.
 
+Marketing surfaces (the landing page) use the brighter theme in `.claude/skills/design-theme`: the same clean base + glass split, but on a lavender grid canvas with glass cards, a violet→orange gradient phrase and a dark mode. Everything below is the workspace theme.
+
 The full visual system is `client/DESIGN.md` ("The Light Diagnostic Console"); tokens live in `client/src/index.css`. Read DESIGN.md before building any new surface. In short:
 
 **Palette**

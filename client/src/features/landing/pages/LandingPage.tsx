@@ -69,7 +69,7 @@ function ContactSheet() {
   return (
     <>
       <section className="sheet" id="product" aria-label="What Structrace shows for a repository">
-        <figure className={`sheet-stage tone-${current.tone}`} role="tabpanel" id="sheet-panel" aria-labelledby={`sheet-tab-${active}`}>
+        <figure className={`sheet-stage glass-card tone-${current.tone}`} role="tabpanel" id="sheet-panel" aria-labelledby={`sheet-tab-${active}`}>
           <div className="sheet-topbar">
             <span className={`sheet-dot${current.id === 'security' ? ' is-example' : ''}`} aria-hidden="true" />
             <span className="sheet-path">{current.path}</span>
@@ -98,7 +98,7 @@ function ContactSheet() {
                 key={m.id}
                 ref={element => { tabs.current[index] = element; }}
                 variant="ghost"
-                className={`sheet-tab tone-${m.tone}${isActive ? ' is-active' : ''}`}
+                className={`sheet-tab glass-card tone-${m.tone}${isActive ? ' is-active' : ''}`}
                 role="tab"
                 id={`sheet-tab-${m.id}`}
                 aria-selected={isActive}
@@ -156,7 +156,7 @@ function Teams() {
             ))}
           </ul>
         </div>
-        <figure className="selfhost-frame">
+        <figure className="selfhost-frame glass-card">
           <div className="sheet-topbar">
             <span className="sheet-dot is-example" aria-hidden="true" />
             <span className="sheet-path">example · organization</span>
@@ -175,12 +175,12 @@ function SelfHost() {
         <div className="selfhost-copy">
           <h2 id="selfhost-title">Runs inside your network.</h2>
           <p>Structrace ships as a Docker Compose stack. Repositories are analyzed and cached on your servers, in your own Postgres, with GitHub tokens and database credentials encrypted at rest.</p>
-          <figure className="selfhost-terminal">
+          <figure className="selfhost-terminal glass-card">
             <figcaption>Deploy</figcaption>
             <pre><code>{'cp server/.env.example server/.env\n# set POSTGRES_PASSWORD, SESSION_SECRET,\n# DB_CREDENTIALS_SECRET\nnpm run docker:up'}</code></pre>
           </figure>
         </div>
-        <figure className="selfhost-frame">
+        <figure className="selfhost-frame glass-card">
           <div className="sheet-topbar">
             <span className="sheet-dot" aria-hidden="true" />
             <span className="sheet-path">docker-compose.production.yml · network boundary</span>
@@ -249,26 +249,24 @@ export default function LandingPage() {
   return (
     <MotionConfig reducedMotion="user">
       <main className="landing-page" id="top">
-        <div className="landing-band">
-          <nav className="landing-nav" aria-label="Main navigation">
-            <a className="landing-brand" href="#top"><span className="landing-brand-mark"><StructraceMark /></span><span>Structrace</span></a>
-            <div className="landing-nav-links"><a href="#product">Product</a><a href="#questions">Why</a><a href="#teams">Teams</a><a href="#self-host">Self-host</a><a href="#start">Start</a></div>
-            <Button variant="ghost" className="landing-sign-in" onClick={start}>Sign in</Button>
-          </nav>
+        <nav className="landing-nav glass" aria-label="Main navigation">
+          <a className="landing-brand" href="#top"><span className="landing-brand-mark"><StructraceMark /></span><span>Structrace</span></a>
+          <div className="landing-nav-links"><a href="#product">Product</a><a href="#questions">Why</a><a href="#teams">Teams</a><a href="#self-host">Self-host</a><a href="#start">Start</a></div>
+          <Button variant="ghost" className="landing-sign-in" onClick={start}>Sign in</Button>
+        </nav>
 
-          <header className="landing-hero">
-            <h1>Read a repository as one graph.</h1>
-            <div className="landing-hero-side">
-              <p>Structrace analyzes a GitHub repository and opens it as a workspace: the code graph, architecture, Git history, database and security findings, side by side.</p>
-              <div className="landing-actions">
-                <Button className="landing-primary landing-primary-inverse" onClick={start}>Get started <ArrowRight size={17} aria-hidden="true" /></Button>
-                <a className="landing-secondary" href="#start">Paste a repository</a>
-              </div>
+        <header className="landing-hero">
+          <h1>Read a repository as <span className="text-gradient">one graph.</span></h1>
+          <div className="landing-hero-side">
+            <p>Structrace analyzes a GitHub repository and opens it as a workspace: the code graph, architecture, Git history, database and security findings, side by side.</p>
+            <div className="landing-actions">
+              <Button className="landing-primary" onClick={start}>Get started <ArrowRight size={17} aria-hidden="true" /></Button>
+              <a className="landing-secondary" href="#start">Paste a repository</a>
             </div>
-          </header>
+          </div>
+        </header>
 
-          <ContactSheet />
-        </div>
+        <ContactSheet />
 
         <section className="questions" id="questions" aria-labelledby="questions-title">
           <h2 id="questions-title">The questions you open five tools for.</h2>
@@ -293,7 +291,7 @@ export default function LandingPage() {
 
         <SelfHost />
 
-        <section className="start" id="start" aria-labelledby="start-title">
+        <section className="start glass-card" id="start" aria-labelledby="start-title">
           <div className="start-copy">
             <h2 id="start-title">Start with one repository.</h2>
             <p className="start-works"><GitBranch size={15} aria-hidden="true" /> GitHub repositories <span aria-hidden="true">·</span> <Database size={15} aria-hidden="true" /> PostgreSQL and MySQL</p>
