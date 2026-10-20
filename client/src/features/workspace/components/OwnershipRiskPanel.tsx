@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { computeOwnershipRisk, type OwnershipRiskSummary } from '../../git-insights/services/ownershipRisk';
-import { EmptyNote, Metric, Panel } from '../../../shared/components/Dashboard';
+import { EmptyNote, Meter, Metric, Panel } from '../../../shared/components/Dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Props {
@@ -83,6 +83,13 @@ function OwnershipSummary({ summary }: { summary: OwnershipRiskSummary }) {
             </li>
           ))}
         </ul>
+      ) : summary.contributors.length > 0 ? (
+        <div className="flex flex-col">
+          <p className="mb-1 text-xs text-muted-foreground">No area depends on a single author. Who wrote the sampled commits:</p>
+          {summary.contributors.slice(0, OWNER_ROWS).map(c => (
+            <Meter key={c.name} label={c.name} value={c.share * 100} display={`${Math.round(c.share * 100)}%`} tone={c.share > 0.5 ? 'warn' : 'neutral'} />
+          ))}
+        </div>
       ) : (
         <EmptyNote>No sampled area depends on a single author.</EmptyNote>
       )}

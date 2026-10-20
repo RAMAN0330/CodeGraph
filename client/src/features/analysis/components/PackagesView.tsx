@@ -15,6 +15,40 @@ function ruleFor(edge: PackageEdge, fromLabel: string, toLabel: string): string 
   return JSON.stringify({ name: `${fromLabel} must not use ${toLabel}`, from: glob(edge.from), disallow: glob(edge.to) }, null, 2);
 }
 
+// Packages on a ring, one arrow per dependency; dashed amber where the manifest doesn't declare it.
+function PackageMap({ nodes, edges }: { nodes: { root: string; label: string }[]; edges: PackageEdge[] }) {
+  const W = 560, H = 190, cx = W / 2, cy = H / 2, rx = 200, ry = 62;
+  const at = new Map(nodes.map((n, i) => {
+    const a = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
+    return [n.root, { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) }];
+  }));
+  return (
+    <svg className="mb-3 h-[190px] w-full shrink-0" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Package dependency map">
+      <defs>
+        <marker id="pkg-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 8 4 0 8z" fill="context-stroke" /></marker>
+      </defs>
+      {edges.map(e => {
+        const a = at.get(e.from), b = at.get(e.to);
+        if (!a || !b) return null;
+        const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+        const sx = a.x + (dx / len) * 44, sy = a.y + (dy / len) * 16, ex = b.x - (dx / len) * 50, ey = b.y - (dy / len) * 18;
+        return <line key={`${e.from}>${e.to}`} x1={sx} y1={sy} x2={ex} y2={ey} stroke={e.undeclared ? 'var(--color-warning)' : 'var(--text-muted)'} strokeWidth="1.5" strokeDasharray={e.undeclared ? '4 3' : undefined} markerEnd="url(#pkg-arrow)" />;
+      })}
+      {nodes.map(n => {
+        const p = at.get(n.root)!;
+        const text = n.label.length > 20 ? `${n.label.slice(0, 19)}…` : n.label;
+        const w = Math.max(76, text.length * 6.6 + 20);
+        return (
+          <g key={n.root}>
+            <rect x={p.x - w / 2} y={p.y - 14} width={w} height="28" rx="8" fill="var(--bg1)" stroke="var(--border-medium)" />
+            <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize="10.5" fontWeight="600" fill="var(--t0)">{text}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function PackagesView({ data, onOpenFile }: Props) {
   const graph = useMemo(() => packageGraph(data), [data]);
   const [open, setOpen] = useState<string | null>(null);
@@ -31,7 +65,7 @@ export default function PackagesView({ data, onOpenFile }: Props) {
   const undeclared = graph.edges.filter(e => e.undeclared);
 
   return (
-    <div className="gi-page guide-page">
+    <div className="gi-page guide-page fit-page">
       <header className="guide-header">
         <div>
           <h1>Packages</h1>
@@ -50,9 +84,11 @@ export default function PackagesView({ data, onOpenFile }: Props) {
       )}
 
       {graph.nodes.length > 1 && (
-        <div className="guide-grid">
-          <section className="guide-card">
+        <div className="fit-body" style={{ gridTemplateColumns: 'minmax(0,1.6fr) minmax(260px,1fr)' }}>
+          <section className="guide-card fit-pane">
             <h2><Boxes size={15} /> Dependencies between packages</h2>
+            <PackageMap nodes={graph.nodes} edges={graph.edges} />
+            <div className="fit-scroll">
             {graph.edges.length ? (
               <table className="hotspots-table packages-table">
                 <thead><tr><th scope="col"><span className="sr-only">Details</span></th><th scope="col">From</th><th scope="col">Uses</th><th scope="col">Calls</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
@@ -82,10 +118,11 @@ export default function PackagesView({ data, onOpenFile }: Props) {
               </table>
             ) : <p className="guide-empty">The packages don't call into each other.</p>}
             <p className="coverage-meta packages-hint">“Forbid as rule” copies an entry for <code>structrace.rules.json</code>, enforced by the PR review and <code>structrace check</code>.</p>
+            </div>
           </section>
-          <section className="guide-card">
+          <section className="guide-card fit-pane">
             <h2>Packages</h2>
-            <ul className="ask-list">
+            <ul className="ask-list fit-scroll">
               {graph.nodes.map(n => (
                 <li key={n.root}><div><strong className="packages-name">{n.label}</strong><span className="guide-layer">{n.ecosystem}</span><small>{n.files} files</small></div><p>{rootLabel(n.root)}</p></li>
               ))}

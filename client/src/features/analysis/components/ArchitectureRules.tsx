@@ -11,6 +11,12 @@ interface Props {
 type Relation = 'forbidden' | 'only';
 interface Draft { name: string; relation: Relation; a: string; b: string; severity: RuleSeverity }
 
+const EXAMPLES: Draft[] = [
+  { name: 'UI never touches the database', relation: 'forbidden', a: 'src/ui/**', b: 'src/db/**', severity: 'error' },
+  { name: 'Tests stay out of production code', relation: 'forbidden', a: 'src/**', b: 'tests/**', severity: 'error' },
+  { name: 'Only services call the database layer', relation: 'only', a: 'src/db/**', b: 'src/services/**', severity: 'warning' },
+];
+
 function FileLink({ path, onOpenFile }: { path: string; onOpenFile: (path: string) => void }) {
   return <button type="button" className="guide-file" onClick={() => onOpenFile(path)} title={`Open ${path} in the code graph`}>{path}</button>;
 }
@@ -86,7 +92,7 @@ export default function ArchitectureRules({ data, onOpenFile }: Props) {
   };
 
   return (
-    <div className="gi-page guide-page">
+    <div className="gi-page guide-page fit-page">
       <header className="guide-header">
         <div>
           <h1>Architecture rules</h1>
@@ -96,10 +102,24 @@ export default function ArchitectureRules({ data, onOpenFile }: Props) {
 
       {config.errors?.length > 0 && <div className="arch-impact-error rules-errors" role="alert">{config.errors.map((e: string) => <p key={e}>{e}</p>)}</div>}
 
-      <div className="guide-grid">
-        <section className="guide-card">
+      <div className="fit-body" style={{ gridTemplateColumns: 'minmax(0,1.2fr) minmax(300px,1fr)' }}>
+        <div className="fit-body" style={{ gridTemplateRows: 'minmax(0,1fr) minmax(0,1.1fr)' }}>
+        <section className="guide-card fit-pane">
           <h2><ShieldCheck size={15} /> {config.present ? `In the repository (${committed.length})` : `No ${RULES_FILE} yet`}</h2>
-          {!config.present && <p className="guide-empty">Add rules with the builder, test them against this analysis, then commit the file to the repository root.</p>}
+          <div className="fit-scroll">
+          {!config.present && (
+            <>
+              <p className="guide-empty">Add rules with the builder, test them against this analysis, then commit the file to the repository root. Start from an example:</p>
+              <div className="fit-list mt-3">
+                {EXAMPLES.map(example => (
+                  <button key={example.name} type="button" onClick={() => setForm(example)}>
+                    <strong>{example.name}</strong>
+                    <small className="font-mono">{example.a} {example.relation === 'forbidden' ? 'must not depend on' : 'may only be used by'} {example.b}</small>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           {committed.map(rule => {
             const own = violations.filter(v => v.rule === rule.name);
             return (
@@ -110,11 +130,30 @@ export default function ArchitectureRules({ data, onOpenFile }: Props) {
               </div>
             );
           })}
+          </div>
         </section>
-
-        <div className="guide-side">
-          <section className="guide-card">
+        <section className="guide-card fit-pane">
+            <h2>Draft {RULES_FILE}</h2>
+            <div className="fit-scroll">
+            {drafts.length ? (
+              <ul className="ask-list">
+                {drafts.map((rule, i) => (
+                  <li key={i}>
+                    <div><strong>{rule.name}</strong><small>{draftViolations.filter(v => v.rule === rule.name).length} violations</small>
+                      <button type="button" className="rules-remove" aria-label={`Remove ${rule.name}`} onClick={() => setDrafts(list => list.filter((_, j) => j !== i))}><Trash2 size={13} /></button></div>
+                    <p>{describe(rule)}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="guide-empty">No rules in the draft.</p>}
+            <pre className="rules-json">{toJson(drafts)}</pre>
+            </div>
+            <Button className="guide-copy" onClick={copy} disabled={!drafts.length}>{copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy {changed ? 'updated ' : ''}file</>}</Button>
+          </section>
+        </div>
+          <section className="guide-card fit-pane">
             <h2><Plus size={15} /> Add a rule</h2>
+            <div className="fit-scroll">
             <form className="rules-form" onSubmit={add}>
               <label>Name<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="UI never touches the database" /></label>
               <label>Files<input value={form.a} onChange={e => setForm({ ...form, a: e.target.value })} placeholder="src/ui/**" spellCheck={false} />
@@ -137,25 +176,9 @@ export default function ArchitectureRules({ data, onOpenFile }: Props) {
               {formReady && <p className={preview.length ? 'rules-warn' : 'rules-ok'}>{preview.length ? `${preview.length} existing dependenc${preview.length === 1 ? 'y' : 'ies'} would break this rule` : 'Nothing breaks this rule today'}</p>}
               <Button type="submit" className="guide-copy" disabled={!formReady}><Plus size={14} /> Add to draft</Button>
             </form>
+            </div>
           </section>
 
-          <section className="guide-card">
-            <h2>Draft {RULES_FILE}</h2>
-            {drafts.length ? (
-              <ul className="ask-list">
-                {drafts.map((rule, i) => (
-                  <li key={i}>
-                    <div><strong>{rule.name}</strong><small>{draftViolations.filter(v => v.rule === rule.name).length} violations</small>
-                      <button type="button" className="rules-remove" aria-label={`Remove ${rule.name}`} onClick={() => setDrafts(list => list.filter((_, j) => j !== i))}><Trash2 size={13} /></button></div>
-                    <p>{describe(rule)}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="guide-empty">No rules in the draft.</p>}
-            <pre className="rules-json">{toJson(drafts)}</pre>
-            <Button className="guide-copy" onClick={copy} disabled={!drafts.length}>{copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy {changed ? 'updated ' : ''}file</>}</Button>
-          </section>
-        </div>
       </div>
     </div>
   );
