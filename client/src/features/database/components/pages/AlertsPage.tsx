@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { StateCard } from '../../../../shared/components/StateCard';
 import { BellOff } from 'lucide-react';
+import type { DbNavId } from '../../types';
 import { GG, GGErrorBanner, ggInput, ggLabel } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import { Button } from '@/components/ui/button';
@@ -16,9 +17,11 @@ const METRIC_OPTIONS = [
   { id: 'blocked_queries', label: 'Blocked Queries' },
 ];
 
-interface AlertsPageProps { projectId: number; paused: boolean; }
+interface AlertsPageProps { projectId: number; paused: boolean; onNavigate: (section: DbNavId) => void; }
 
-export default function AlertsPage({ projectId, paused }: AlertsPageProps) {
+const METRIC_SECTION: Record<string, DbNavId> = { p95_latency_ms: 'queries', connections_pct: 'performance', blocked_queries: 'performance' };
+
+export default function AlertsPage({ projectId, paused, onNavigate }: AlertsPageProps) {
   const [tab, setTab] = useState<Tab>('active');
   const overviewFetcher = useCallback(() => dbTelemetryApi.overview(projectId), [projectId]);
   const { data: overview } = useDbTelemetry(overviewFetcher, [projectId], { pollMs: 10000, paused });
@@ -73,7 +76,10 @@ export default function AlertsPage({ projectId, paused }: AlertsPageProps) {
                 <div style={{ fontFamily: GG.mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: alert.severity === 'critical' ? 'var(--color-danger)' : alert.severity === 'high' ? 'var(--color-warning)' : GG.info }}>{alert.severity}</div>
                 <div style={{ fontFamily: GG.sans, fontSize: 12.5, color: GG.fg2, marginTop: 3 }}>{METRIC_OPTIONS.find(m => m.id === alert.rule.metric)?.label ?? alert.rule.metric} {alert.rule.condition === 'gt' ? '>' : '<'} {alert.rule.threshold}</div>
               </div>
-              <div style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg, fontWeight: 700 }}>{alert.currentValue.toFixed(1)}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg, fontWeight: 700 }}>{alert.currentValue.toFixed(1)}</span>
+                <Button size="sm" variant="outline" onClick={() => onNavigate(METRIC_SECTION[alert.rule.metric] ?? 'performance')}>Investigate</Button>
+              </div>
             </div>
           ))}
         </div>

@@ -18,9 +18,9 @@ function impactColor(impact: TopQueryRow['impact']): string {
   return GG.fg4;
 }
 
-interface QueriesPageProps { projectId: number; paused: boolean; }
+interface QueriesPageProps { projectId: number; paused: boolean; onOpenSql: (sql: string) => void; }
 
-export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
+export default function QueriesPage({ projectId, paused, onOpenSql }: QueriesPageProps) {
   const fetcher = useCallback(() => dbTelemetryApi.queries(projectId), [projectId]);
   const { data, loading, error } = useDbTelemetry(fetcher, [projectId], { pollMs: 15000, paused });
   const [search, setSearch] = useState('');
@@ -101,6 +101,7 @@ export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
         <div style={{ width: '100%', background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, padding: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
             <div style={{ fontFamily: GG.mono, fontSize: 13, fontWeight: 700, color: GG.fg }}>Query Details</div>
+            <Button size="sm" variant="outline" className="ml-auto mr-2" onClick={() => onOpenSql(selected.query)}>Open in SQL editor</Button>
             <Button variant="ghost" onClick={() => setSelected(null)} style={{ background: 'none', border: 0, color: GG.fg3, cursor: 'pointer' }}><X size={16} /></Button>
           </div>
 

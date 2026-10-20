@@ -3,7 +3,7 @@ import { StateCard } from '../../../../shared/components/StateCard';
 import { Activity } from 'lucide-react';
 import { GG, GGErrorBanner } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
-import type { ActivityEvent } from '../../types';
+import type { ActivityEvent, DbNavId } from '../../types';
 import { Button } from '@/components/ui/button';
 
 const KIND_LABEL: Record<ActivityEvent['kind'], string> = {
@@ -19,9 +19,11 @@ const FILTERS: { id: 'all' | ActivityEvent['kind']; label: string }[] = [
   { id: 'deadlock', label: 'Errors' },
 ];
 
-interface ActivityPageProps { projectId: number; paused: boolean; }
+interface ActivityPageProps { projectId: number; paused: boolean; onNavigate: (section: DbNavId) => void; }
 
-export default function ActivityPage({ projectId, paused }: ActivityPageProps) {
+const KIND_SECTION: Record<ActivityEvent['kind'], DbNavId> = { slow_query: 'queries', connection_opened: 'performance', connection_closed: 'performance', lock_detected: 'performance', deadlock: 'performance', schema_changed: 'schema' };
+
+export default function ActivityPage({ projectId, paused, onNavigate }: ActivityPageProps) {
   const fetcher = useCallback(() => dbTelemetryApi.activity(projectId), [projectId]);
   const { data, loading, error } = useDbTelemetry(fetcher, [projectId], { pollMs: 8000, paused });
   const [filter, setFilter] = useState<'all' | ActivityEvent['kind']>('all');
@@ -52,6 +54,7 @@ export default function ActivityPage({ projectId, paused }: ActivityPageProps) {
             <span style={{ flex: '0 0 auto', width: 150, fontFamily: GG.sans, fontSize: 12.5, color: GG.fg, fontWeight: 600 }}>{KIND_LABEL[event.kind]}</span>
             <span style={{ flex: 1, minWidth: 0, fontFamily: GG.mono, fontSize: 11, color: GG.fg3 }}>{event.summary}</span>
             {event.detail && <span style={{ flex: '0 0 auto', fontFamily: GG.mono, fontSize: 11, color: GG.fg4 }}>{event.detail}</span>}
+            <Button size="sm" variant="ghost" className="h-7 text-xs text-primary" onClick={() => onNavigate(KIND_SECTION[event.kind])}>View</Button>
           </div>
         ))}
       </div>

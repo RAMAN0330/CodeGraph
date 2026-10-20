@@ -14,9 +14,9 @@ function formatBytes(bytes: number | null): string {
   return `${value.toFixed(value >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-interface StoragePageProps { projectId: number; paused: boolean; }
+interface StoragePageProps { projectId: number; paused: boolean; onBrowseTable: (qualifiedName: string) => void; }
 
-export default function StoragePage({ projectId, paused }: StoragePageProps) {
+export default function StoragePage({ projectId, paused, onBrowseTable }: StoragePageProps) {
   const fetcher = useCallback(() => dbTelemetryApi.storage(projectId), [projectId]);
   const { data, loading, error } = useDbTelemetry(fetcher, [projectId], { pollMs: 60000, paused });
 
@@ -59,7 +59,9 @@ export default function StoragePage({ projectId, paused }: StoragePageProps) {
           <TableBody>
             {data.tables.map(t => (
               <TableRow key={`${t.schema}.${t.name}`} style={{ borderTop: `1px solid ${GG.line}` }}>
-                <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{t.schema ? `${t.schema}.` : ''}{t.name}</TableCell>
+                <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>
+                  <button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-left font-[inherit] text-inherit hover:text-primary hover:underline" title="Browse rows" onClick={() => onBrowseTable(`${t.schema ? `${t.schema}.` : ''}${t.name}`)}>{t.schema ? `${t.schema}.` : ''}{t.name}</button>
+                </TableCell>
                 <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{t.rows === null ? '—' : t.rows.toLocaleString()}</TableCell>
                 <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{formatBytes(t.dataBytes)}</TableCell>
                 <TableCell style={{ padding: '9px 18px', color: GG.fg2 }}>{formatBytes(t.indexBytes)}</TableCell>
