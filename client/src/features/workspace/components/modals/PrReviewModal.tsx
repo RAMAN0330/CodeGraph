@@ -33,6 +33,9 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
   const reviewers: Array<{ login: string; commits: number }> = prData ? prData.reviewers : [];
   const testImpact = prData ? prData.testImpact : [];
   const chains = prData ? prData.chains : [];
+  const endpoints: any[] = prData?.endpointsAffected ?? [];
+  const dbChanges: any[] = prData?.changes?.database ?? [];
+  const touchedHotspots: any[] = prData?.hotspotsTouched ?? [];
   const [automatic, setAutomatic] = useState<{ automatic: boolean; installUrl: string | null } | null>(null);
   useEffect(() => {
     fetch(`${appConfig.apiUrl}/api/pr-review/config`, { credentials: 'include' })
@@ -141,6 +144,38 @@ export default function PrReviewModal({ prUrl, onPrUrlChange, onAnalyze, prData,
                   </div>
                 )}
               </div>
+              {(endpoints.length > 0 || dbChanges.length > 0 || touchedHotspots.length > 0) && (
+                <div className="pr-impact-grid" style={{ marginTop: 16 }}>
+                  {endpoints.length > 0 && (
+                    <div className="pr-impact-card">
+                      <div className="pr-impact-card-title">{iconLabel('link', `Endpoints affected (${endpoints.length})`)}</div>
+                      {endpoints.slice(0, 8).map((e: any) => (
+                        <div key={`${e.method} ${e.path}`} className="pr-metric-row" title={`via ${e.via}`}><span className="pr-metric-label"><b>{e.method}</b> {e.path}</span></div>
+                      ))}
+                      {endpoints.length > 8 && <div style={{ fontSize: 10, color: 'var(--t3)' }}>+{endpoints.length - 8} more</div>}
+                    </div>
+                  )}
+                  {dbChanges.length > 0 && (
+                    <div className="pr-impact-card">
+                      <div className="pr-impact-card-title">{iconLabel('database', `Database tables changed (${dbChanges.length})`)}</div>
+                      {dbChanges.map((d: any) => (
+                        <div key={d.table} className="pr-metric-row" title={d.usedBy.join(', ')}>
+                          <span className="pr-metric-label"><b>{d.table}</b> via {d.via}</span>
+                          <span className="pr-metric-value">{d.total} file{d.total === 1 ? '' : 's'} query it</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {touchedHotspots.length > 0 && (
+                    <div className="pr-impact-card">
+                      <div className="pr-impact-card-title">{iconLabel('activity', 'Touches known hotspots')}</div>
+                      {touchedHotspots.map((h: any) => (
+                        <div key={h.path} className="pr-metric-row" title={h.path}><span className="pr-metric-label">{h.path.split('/').pop()}</span><span className="pr-metric-value">{h.churn} recent changes</span></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {chains.length > 0 && (
                 <div className="pr-impact-card" style={{ marginTop: 16 }}>
                   <div className="pr-impact-card-title">{iconLabel('link', 'Dependency Chains')}</div>
