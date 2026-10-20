@@ -7,6 +7,7 @@ import DomainMap from './DomainMap';
 import TableMap from './TableMap';
 import ObjectsPanel from './ObjectsPanel';
 import DetailDrawer from './DetailDrawer';
+import { Segmented } from '../../../../shared/components/Page';
 import type { Schema, SchemaTable } from '../../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,15 +57,10 @@ export default function SchemaExplorer({ projectId, schema, onBrowse, onQuery }:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%', minHeight: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {(['flow', 'graph', 'objects', 'dependencies', 'indexes'] as ExplorerTab[]).map(t => (
-            <Button key={t} variant="ghost" onClick={() => setTab(t)} style={{
-              padding: '6px 12px', borderRadius: 7, border: `1px solid ${tab === t ? GG.accent + '55' : GG.lineStrong}`,
-              background: tab === t ? `${GG.accent}18` : 'transparent', color: tab === t ? GG.accent : GG.fg3,
-              fontFamily: GG.mono, fontSize: 11, fontWeight: 700, textTransform: 'capitalize', cursor: 'pointer',
-            }}>{t === 'flow' ? 'relations' : t}</Button>
-          ))}
-        </div>
+        <Segmented label="Schema view" value={tab} onChange={setTab} options={[
+          { value: 'flow', label: 'Relations' }, { value: 'graph', label: 'Graph' }, { value: 'objects', label: 'Objects' },
+          { value: 'dependencies', label: 'Dependencies' }, { value: 'indexes', label: 'Indexes' },
+        ]} />
         <div style={{ position: 'relative', flex: '0 1 280px', minWidth: 200 }}>
           <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: GG.fg4 }} />
           <Input style={{ ...ggInput, paddingLeft: 30 }} placeholder="Search tables, columns…" value={search} onChange={e => setSearch(e.target.value)} />
@@ -77,10 +73,7 @@ export default function SchemaExplorer({ projectId, schema, onBrowse, onQuery }:
           )}
         </div>
         {tab === 'graph' && level === 'graph' && (
-          <div style={{ display: 'flex', gap: 2, padding: 3, border: `1px solid ${GG.lineStrong}`, borderRadius: 8, marginLeft: 'auto' }}>
-            <Button variant="ghost" onClick={() => setDepth('1hop')} style={{ padding: '5px 10px', border: 0, borderRadius: 5, background: depth === '1hop' ? GG.bg2 : 'transparent', color: depth === '1hop' ? GG.accent : GG.fg3, fontFamily: GG.mono, fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}>1 hop</Button>
-            <Button variant="ghost" onClick={() => setDepth('all')} style={{ padding: '5px 10px', border: 0, borderRadius: 5, background: depth === 'all' ? GG.bg2 : 'transparent', color: depth === 'all' ? GG.accent : GG.fg3, fontFamily: GG.mono, fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}>All</Button>
-          </div>
+          <Segmented label="Graph depth" className="ml-auto" value={depth} onChange={setDepth} options={[{ value: '1hop', label: '1 hop' }, { value: 'all', label: 'All' }]} />
         )}
       </div>
 
