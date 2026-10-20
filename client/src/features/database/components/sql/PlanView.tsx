@@ -3,7 +3,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { planWarnings, type ExplainResult } from '../../services/sqlApi';
 
 export default function PlanView({ plan }: { plan: ExplainResult | null }) {
-  if (!plan) return <div className="grid h-full place-items-center rounded-md border text-xs text-muted-foreground">Explain a statement to see how the database will run it. The statement itself is not executed.</div>;
+  if (!plan) return <div className="grid h-full place-items-center rounded-md border bg-card p-6 text-center text-xs text-muted-foreground">Explain a statement to see how the database will run it. The statement itself is not executed.</div>;
   if (!plan.nodes.length) {
     return (
       <ScrollArea className="h-full rounded-md border bg-card">
@@ -17,8 +17,8 @@ export default function PlanView({ plan }: { plan: ExplainResult | null }) {
     <ScrollArea className="h-full rounded-md border bg-card">
       <div className="space-y-3 p-3">
         {warnings.length > 0 && (
-          <ul className="space-y-1 rounded-md border border-amber-500/40 bg-amber-50 p-2 text-xs text-amber-900">
-            {warnings.map(w => <li key={w} className="flex gap-1.5"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" />{w}</li>)}
+          <ul className="space-y-1 rounded-md border border-[color-mix(in_srgb,var(--color-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--color-warning)_10%,transparent)] p-2 text-xs text-foreground">
+            {warnings.map(w => <li key={w} className="flex gap-1.5"><AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-[var(--color-warning)]" />{w}</li>)}
           </ul>
         )}
         <ol className="list-none space-y-1">
@@ -31,8 +31,8 @@ export default function PlanView({ plan }: { plan: ExplainResult | null }) {
                   cost {node.totalCost?.toLocaleString() ?? '–'} · ~{node.planRows?.toLocaleString() ?? '–'} rows
                 </span>
               </div>
-              <div className="mt-0.5 h-1 rounded bg-muted">
-                <div className="h-1 rounded bg-primary/70" style={{ width: `${Math.max(2, ((node.totalCost ?? 0) / maxCost) * 100)}%` }} />
+              <div className="mt-0.5 h-1 rounded-full bg-muted">
+                <div className="h-1 rounded-full bg-[var(--viz-1)]" style={{ width: `${Math.max(2, ((node.totalCost ?? 0) / maxCost) * 100)}%` }} />
               </div>
               {node.detail && <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground" title={node.detail}>{node.detail}</div>}
             </li>

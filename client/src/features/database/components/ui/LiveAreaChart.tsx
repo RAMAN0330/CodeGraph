@@ -1,15 +1,16 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { GG } from '../dbConnectTheme';
 
 interface LiveAreaChartProps {
   points: number[];
   color?: string;
-  /** Rendered under the axis when there is not yet a trend to draw. */
+  /** Rendered when there is not yet a trend to draw. */
   emptyLabel?: string;
   format?: (value: number) => string;
+  /** Unit shown in the hover tooltip, e.g. "ops/s". */
+  unit?: string;
 }
 
-const PAD = { top: 16, right: 14, bottom: 22, left: 48 };
+const PAD = { top: 14, right: 14, bottom: 22, left: 44 };
 
 /** Rounds a scale ceiling up to 1/2/5 × a power of ten so gridline labels read cleanly. */
 function niceCeil(value: number): number {
@@ -20,9 +21,7 @@ function niceCeil(value: number): number {
   return step * magnitude;
 }
 
-function clamp(v: number, lo: number, hi: number) {
-  return Math.min(hi, Math.max(lo, v));
-}
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /** Catmull-Rom through the samples, with control points clamped inside the plot so a
  *  spike can never bow the curve past the axis it is measured against. */
@@ -43,13 +42,14 @@ function smoothPath(pts: { x: number; y: number }[], top: number, bottom: number
 }
 
 /**
- * A full-bleed area instrument that fills whatever box it is given. It measures
- * itself rather than stretching a fixed viewBox, so the live marker stays round
- * and the axis labels stay at their authored size at any width.
+ * A single-series area chart that fills whatever box it is given. It measures
+ * itself rather than stretching a fixed viewBox, so markers stay round and the
+ * axis labels keep their size at any width. Hover shows the sample under the pointer.
  */
-export default function LiveAreaChart({ points, color = GG.accent, emptyLabel, format }: LiveAreaChartProps) {
+export default function LiveAreaChart({ points, color = 'var(--viz-1)', emptyLabel, format, unit = '' }: LiveAreaChartProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
+  const [hover, setHover] = useState<number | null>(null);
   const gradientId = useId();
 
   useEffect(() => {
@@ -72,8 +72,8 @@ export default function LiveAreaChart({ points, color = GG.accent, emptyLabel, f
   const label = (v: number) =>
     format ? format(v) : ceiling < 10 ? String(Math.round(v * 10) / 10) : Math.round(v).toLocaleString();
   const describe = ready
-    ? `Throughput trend over ${points.length} samples, peak ${label(Math.max(...points))}`
-    : (emptyLabel ?? 'Throughput trend, not enough samples yet');
+    ? `Trend over ${points.length} samples, peak ${label(Math.max(...points))}`
+    : (emptyLabel ?? 'Trend, not enough samples yet');
 
   const coords = ready
     ? points.map((v, i) => ({
@@ -86,36 +86,32 @@ export default function LiveAreaChart({ points, color = GG.accent, emptyLabel, f
     ? `${line} L${coords[coords.length - 1].x.toFixed(1)},${(PAD.top + plotH).toFixed(1)} L${coords[0].x.toFixed(1)},${(PAD.top + plotH).toFixed(1)} Z`
     : '';
   const head = coords[coords.length - 1];
+  const tip = hover !== null && coords[hover] ? coords[hover] : null;
+
+  const onMove = (event: React.MouseEvent) => {
+    if (!ready) return;
+    const x = event.clientX - event.currentTarget.getBoundingClientRect().left;
+    setHover(Math.round(clamp((x - PAD.left) / plotW, 0, 1) * (points.length - 1)));
+  };
 
   return (
-    <div className="perf-chart" ref={hostRef}>
+    <div className="relative min-h-0 flex-1" ref={hostRef} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
       {box.w > 0 && (
-        <svg width={box.w} height={box.h} role="img" aria-label={describe}>
+        <svg width={box.w} height={box.h} role="img" aria-label={describe} className="block">
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity="0.26" />
+              <stop offset="0%" stopColor={color} stopOpacity="0.18" />
               <stop offset="100%" stopColor={color} stopOpacity="0" />
             </linearGradient>
           </defs>
 
-          {/* Scale: four intervals, labelled at top, middle and floor. */}
-          {[0, 0.25, 0.5, 0.75, 1].map(t => {
+          {[0, 0.5, 1].map(t => {
             const y = PAD.top + t * plotH;
-            const value = ceiling * (1 - t);
-            /* No numbers on the scale until there is a trend to measure against it. */
-            const labelled = ready && (t === 0 || t === 0.5 || t === 1);
             return (
               <g key={t}>
-                <line
-                  x1={PAD.left} y1={y} x2={box.w - PAD.right} y2={y}
-                  stroke={GG.line}
-                  strokeWidth="1"
-                  strokeDasharray={t === 1 ? undefined : '2 5'}
-                />
-                {labelled && (
-                  <text x={PAD.left - 10} y={y + 3.5} textAnchor="end" fill={GG.fg3} fontSize="9.5" fontFamily="'JetBrains Mono', monospace">
-                    {label(value)}
-                  </text>
+                <line x1={PAD.left} y1={y} x2={box.w - PAD.right} y2={y} stroke="var(--border-subtle)" strokeWidth="1" />
+                {ready && (
+                  <text x={PAD.left - 8} y={y + 3.5} textAnchor="end" fontSize="10" className="fill-muted-foreground font-mono">{label(ceiling * (1 - t))}</text>
                 )}
               </g>
             );
@@ -124,26 +120,35 @@ export default function LiveAreaChart({ points, color = GG.accent, emptyLabel, f
           {ready && (
             <>
               <path d={area} fill={`url(#${gradientId})`} />
-              <path d={line} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1={head.x} y1={PAD.top} x2={head.x} y2={PAD.top + plotH} stroke={color} strokeOpacity="0.22" strokeWidth="1" />
-              <circle className="perf-chart__pulse" cx={head.x} cy={head.y} r="4" fill={color} />
-              <circle cx={head.x} cy={head.y} r="3.2" fill={color} stroke={GG.bg} strokeWidth="1.5" />
+              <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx={head.x} cy={head.y} r="3.5" fill={color} stroke="var(--surface-card)" strokeWidth="1.5" />
+              {tip && (
+                <>
+                  <line x1={tip.x} y1={PAD.top} x2={tip.x} y2={PAD.top + plotH} stroke="var(--border-medium)" strokeWidth="1" />
+                  <circle cx={tip.x} cy={tip.y} r="4" fill={color} stroke="var(--surface-card)" strokeWidth="2" />
+                </>
+              )}
             </>
           )}
 
-          <text x={PAD.left} y={box.h - 6} fill={GG.fg3} fontSize="9.5" fontFamily="'JetBrains Mono', monospace">
-            {ready ? `oldest of ${points.length}` : 'oldest'}
-          </text>
-          <text x={box.w - PAD.right} y={box.h - 6} textAnchor="end" fill={GG.fg3} fontSize="9.5" fontFamily="'JetBrains Mono', monospace">
-            now
-          </text>
+          <text x={PAD.left} y={box.h - 6} fontSize="10" className="fill-muted-foreground font-mono">{ready ? `${points.length - 1} samples ago` : ''}</text>
+          <text x={box.w - PAD.right} y={box.h - 6} textAnchor="end" fontSize="10" className="fill-muted-foreground font-mono">now</text>
         </svg>
       )}
 
+      {tip && hover !== null && (
+        <div
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md border bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-sm"
+          style={{ left: clamp(tip.x, 60, box.w - 60), top: Math.max(tip.y - 8, 34) }}
+        >
+          <b className="font-mono">{label(points[hover])}{unit && ` ${unit}`}</b>
+          <span className="ml-1.5 text-muted-foreground">{hover === points.length - 1 ? 'now' : `${points.length - 1 - hover} sample${points.length - 2 === hover ? '' : 's'} ago`}</span>
+        </div>
+      )}
+
       {!ready && box.w > 0 && (
-        <div className="perf-chart__empty">
-          <i className="perf-dot perf-dot--alert" style={{ background: GG.fg3 }} />
-          {emptyLabel ?? `Collecting — ${points.length} of 2 samples`}
+        <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+          {emptyLabel ?? `Collecting samples (${points.length} of 2)`}
         </div>
       )}
     </div>

@@ -1,45 +1,34 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Download } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Check, Copy, Download, ExternalLink, FileText, GitCommitHorizontal, GitMerge, History, Search, X } from 'lucide-react';
 import CommitHeatmap from './CommitHeatmap';
+import { Avatar, labelClass, shortDate, timeAgo } from './InsightsBits';
 import { downloadCsv } from '../../../shared/services/exportCsv';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { Page, PageHeader, Section, Segmented, Toolbar } from '../../../shared/components/Page';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
+import { StateCard } from '../../../shared/components/StateCard';
 import { githubFetch } from '../../repository/services/github';
-
-const AUTHOR_COLORS = ['var(--color-success)','var(--acc2)','var(--accent-orange)','var(--chart-purple)','var(--color-danger)','var(--teal-500)','var(--accent-orange)','var(--chart-purple)'];
-
-function hashToColorIndex(login: string): number {
-  return login.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AUTHOR_COLORS.length;
-}
-
-function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHr = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay > 0) return `${diffDay}d ago`;
-  if (diffHr > 0) return `${diffHr}h ago`;
-  if (diffMin > 0) return `${diffMin}m ago`;
-  return 'just now';
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
+import { resolveBranch } from '../services/branch';
 
 interface CommitItem {
   sha: string;
+  html_url?: string;
+  parents?: { sha: string }[];
   commit: {
     message: string;
-    author: {
-      name: string;
-      date: string;
-    };
+    author: { name: string; email?: string; date: string };
+    committer?: { name: string; date: string };
+    verification?: { verified: boolean };
   };
-  author: { login: string } | null;
+  author: { login: string; avatar_url?: string } | null;
 }
+
+interface CommitFile { filename: string; status: string; additions: number; deletions: number }
+interface CommitDetail { stats?: { additions: number; deletions: number; total: number }; files?: CommitFile[] }
 
 interface CommitTimelineProps {
   owner: string;
@@ -48,78 +37,24 @@ interface CommitTimelineProps {
   branch: string;
 }
 
-// Shimmer skeleton animation via a style tag injected once
-const SHIMMER_STYLE = `
-@keyframes shimmer {
-  0% { background-position: -600px 0; }
-  100% { background-position: 600px 0; }
-}
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.ct-card:hover {
-  background: var(--surface-card) !important;
-  border-color: var(--teal-500) !important;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--teal-500) 13%, transparent), 0 4px 16px rgba(0,0,0,.2) !important;
-  transform: translateY(-1px);
-}
-.ct-sha:hover {
-  background: color-mix(in srgb, var(--teal-500) 13%, transparent) !important;
-  border-color: var(--teal-500) !important;
-  color: var(--teal-500) !important;
-  cursor: pointer;
-}
-`;
-
-let styleInjected = false;
-function ensureStyle() {
-  if (styleInjected) return;
-  styleInjected = true;
-  const el = document.createElement('style');
-  el.textContent = SHIMMER_STYLE;
-  document.head.appendChild(el);
-}
-
-function SkeletonRow() {
-  const shimmer: React.CSSProperties = {
-    background: 'linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%)',
-    backgroundSize: '600px 100%',
-    animation: 'shimmer 1.4s infinite linear',
-    borderRadius: 4,
-  };
-  return (
-    <div style={{ display: 'flex', gap: 16, marginBottom: 20, alignItems: 'flex-start' }}>
-      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: '50%', ...shimmer }} />
-      </div>
-      <div style={{
-        flex: 1, background: 'var(--bg3)', border: '1px solid var(--border-subtle)',
-        borderRadius: 8, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8,
-      }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ width: 56, height: 18, ...shimmer }} />
-          <div style={{ width: 80, height: 18, ...shimmer }} />
-          <div style={{ width: 60, height: 18, marginLeft: 'auto', ...shimmer }} />
-        </div>
-        <div style={{ width: '70%', height: 14, ...shimmer }} />
-        <div style={{ width: '45%', height: 14, ...shimmer }} />
-      </div>
-    </div>
-  );
-}
+type Kind = 'all' | 'changes' | 'merges';
+const ALL_AUTHORS = '__all__';
+const who = (c: CommitItem) => c.author?.login || c.commit.author.name || 'unknown';
+const isMerge = (c: CommitItem) => (c.parents?.length ?? 0) > 1;
+const FILE_STATUS: Record<string, string> = { added: 'A', removed: 'D', modified: 'M', renamed: 'R', copied: 'C' };
 
 export default function CommitTimeline({ owner, repo, token, branch }: CommitTimelineProps) {
   const [commits, setCommits] = useState<CommitItem[]>([]);
+  const [resolvedBranch, setResolvedBranch] = useState(branch);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copiedSha, setCopiedSha] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
   // A day picked on the heatmap (YYYY-MM-DD, UTC) narrows the list to it.
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [author, setAuthor] = useState('');
-
-  ensureStyle();
+  const [author, setAuthor] = useState(ALL_AUTHORS);
+  const [kind, setKind] = useState<Kind>('all');
+  const [selectedSha, setSelectedSha] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,11 +62,13 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
     setError(null);
     (async () => {
       try {
+        const sha = await resolveBranch(owner, repo, branch, token);
+        if (!cancelled) setResolvedBranch(sha);
         const range = selectedDay ? `&since=${selectedDay}T00:00:00Z&until=${selectedDay}T23:59:59Z` : '';
-        const res = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=${selectedDay ? 100 : 30}&sha=${encodeURIComponent(branch)}${range}`, token);
-        if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+        const res = await githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits?per_page=100${sha ? `&sha=${encodeURIComponent(sha)}` : ''}${range}`, token);
+        if (!res.ok) throw new Error(`GitHub answered ${res.status} for the commit list.`);
         const data = await res.json();
-        if (!cancelled) setCommits(data);
+        if (!cancelled) setCommits(Array.isArray(data) ? data : []);
       } catch (e: any) {
         if (!cancelled) setError(e.message || 'Failed to load commits');
       } finally {
@@ -139,296 +76,212 @@ export default function CommitTimeline({ owner, repo, token, branch }: CommitTim
       }
     })();
     return () => { cancelled = true; };
-  }, [owner, repo, token, branch, selectedDay]);
+  }, [owner, repo, token, branch, selectedDay, reload]);
 
-  const heatmap = <CommitHeatmap owner={owner} repo={repo} token={token} selectedDay={selectedDay} onSelectDay={setSelectedDay} />;
-  const dayFilter = selectedDay && (
-    <div className="ct-day-filter" role="status">
-      Showing commits on <strong>{new Date(`${selectedDay}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</strong> on {branch}
-      <button type="button" onClick={() => setSelectedDay(null)}>Show recent commits</button>
-    </div>
-  );
+  const authors = useMemo(() => {
+    const counts = new Map<string, number>();
+    commits.forEach(c => counts.set(who(c), (counts.get(who(c)) ?? 0) + 1));
+    return [...counts].sort((a, b) => b[1] - a[1]);
+  }, [commits]);
+  const merges = useMemo(() => commits.filter(isMerge).length, [commits]);
 
-  const handleCopySha = useCallback((sha: string) => {
-    navigator.clipboard.writeText(sha).catch(() => {});
-    setCopiedSha(sha);
-    setTimeout(() => setCopiedSha(null), 1500);
-  }, []);
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return commits.filter(c => (author === ALL_AUTHORS || who(c) === author)
+      && (kind === 'all' || (kind === 'merges') === isMerge(c))
+      && (!needle || c.commit.message.toLowerCase().includes(needle) || c.sha.startsWith(needle)));
+  }, [commits, author, kind, query]);
+  const selected = visible.find(c => c.sha === selectedSha) ?? visible[0] ?? null;
 
-  // ── Loading state ────────────────────────────────────────────────────────────
-  // Picking a day keeps the heatmap in place and only reloads the list.
-  if (loading && selectedDay) return (
-    <div className="gi-page">
-      {heatmap}
-      {dayFilter}
-      {[0,1,2].map(i => <SkeletonRow key={i} />)}
-    </div>
-  );
-  if (loading) return (
-    <div className="gi-page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-        <div style={{
-          width: 180, height: 28,
-          background: 'linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%)',
-          backgroundSize: '600px 100%', animation: 'shimmer 1.4s infinite linear', borderRadius: 6,
-        }} />
-        <div style={{
-          width: 80, height: 22,
-          background: 'linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%)',
-          backgroundSize: '600px 100%', animation: 'shimmer 1.4s infinite linear', borderRadius: 20,
-        }} />
-      </div>
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-        gap: 12, marginBottom: 28,
-      }}>
-        {[0,1,2,3].map(i => (
-          <div key={i} style={{
-            height: 72, borderRadius: 10,
-            background: 'linear-gradient(90deg, var(--surface-card) 25%, var(--bg3) 50%, var(--surface-card) 75%)',
-            backgroundSize: '600px 100%', animation: 'shimmer 1.4s infinite linear',
-          }} />
-        ))}
-      </div>
-      {[0,1,2,3,4].map(i => <SkeletonRow key={i} />)}
-    </div>
-  );
+  const filtersOn = query || author !== ALL_AUTHORS || kind !== 'all';
+  const clearFilters = () => { setQuery(''); setAuthor(ALL_AUTHORS); setKind('all'); };
+  const dayLabel = selectedDay && new Date(`${selectedDay}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  const newest = commits[0]?.commit.author.date;
+  const oldest = commits[commits.length - 1]?.commit.author.date;
 
-  // ── Error state ──────────────────────────────────────────────────────────────
-  if (error) return (
-    <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 200 }}>
-      {selectedDay && <div style={{ alignSelf: 'stretch' }}>{heatmap}{dayFilter}</div>}
-      <div style={{ fontSize: 36 }}>⚠️</div>
-      <div style={{ fontSize: 15, color: 'var(--color-danger)', fontWeight: 600 }}>Failed to load commits</div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 360, textAlign: 'center' }}>{error}</div>
-    </div>
-  );
-
-  // ── Empty state ──────────────────────────────────────────────────────────────
-  if (!commits.length) return (
-    <div className="gi-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 200 }}>
-      {selectedDay && <div style={{ alignSelf: 'stretch' }}>{heatmap}{dayFilter}</div>}
-      <div style={{ fontSize: 36 }}>📭</div>
-      <div style={{ fontSize: 15, color: 'var(--text-muted)' }}>{selectedDay ? `No commits on "${branch}" that day — the heatmap counts the default branch.` : `No commits found on branch "${branch}".`}</div>
-    </div>
-  );
-
-  // ── Computed stats ───────────────────────────────────────────────────────────
-  const uniqueAuthors = [...new Set(commits.map(c => c.author?.login || c.commit.author.name || 'unknown'))];
-  const needle = query.trim().toLowerCase();
-  const visibleCommits = commits.filter(c => (!author || (c.author?.login || c.commit.author.name || 'unknown') === author)
-    && (!needle || c.commit.message.toLowerCase().includes(needle) || c.sha.startsWith(needle)));
-  const authorCounts: Record<string, number> = {};
-  for (const c of commits) {
-    const login = c.author?.login || c.commit.author.name || 'unknown';
-    authorCounts[login] = (authorCounts[login] || 0) + 1;
-  }
-  const mostActiveAuthor = Object.entries(authorCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
-  const dates = commits.map(c => c.commit.author.date).sort();
-  const firstDate = formatDate(dates[0]);
-  const lastDate = formatDate(dates[dates.length - 1]);
-
-  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="gi-page">
+    <Page>
+      <PageHeader
+        icon={History}
+        tone="insights"
+        title="Commits"
+        description={<>Recent history of <code className="font-mono text-foreground">{resolvedBranch || 'the default branch'}</code>{resolvedBranch && resolvedBranch !== branch ? <> (the workspace asked for <code className="font-mono">{branch}</code>, which this repository doesn't have)</> : null}. Pick a day on the heatmap, filter by author, and open a commit to see what it changed.</>}
+        actions={
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={!visible.length} onClick={() => downloadCsv('commits.csv', ['SHA', 'Author', 'Date', 'Message'], visible.map(c => [c.sha, who(c), c.commit.author.date, c.commit.message.split('\n')[0]]))}>
+            <Download className="size-3.5" /> Export CSV
+          </Button>
+        }
+      />
 
-      {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--t0)', letterSpacing: '-0.3px' }}>
-          Commit History
-        </h2>
-        <span style={{
-          fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-          fontSize: 12, fontWeight: 500,
-          background: 'var(--bg3)', color: 'var(--teal-500)',
-          border: '1px solid color-mix(in srgb, var(--acc2) 33%, transparent)',
-          borderRadius: 20, padding: '3px 10px',
-          letterSpacing: '0.3px',
-        }}>
-          #{branch}
-        </span>
-        <span style={{
-          fontSize: 12, fontWeight: 600,
-          background: 'var(--bg3)', color: 'var(--text-muted)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 20, padding: '3px 10px',
-        }}>
-          {commits.length} commits
-        </span>
-      </div>
+      {!error && !loading && commits.length > 0 && (
+        <SummaryStrip items={[
+          { label: selectedDay ? 'Commits that day' : 'Commits loaded', value: commits.length, sub: selectedDay ? dayLabel : commits.length >= 100 ? 'Latest 100' : 'All on this branch' },
+          { label: 'Authors', value: authors.length, sub: `${authors[0][0]} made ${Math.round((authors[0][1] / commits.length) * 100)}%`, onClick: () => setAuthor(author === authors[0][0] ? ALL_AUTHORS : authors[0][0]) },
+          { label: 'Merges', value: merges, sub: kind === 'merges' ? 'Click to clear' : 'Show only merges', onClick: () => setKind(kind === 'merges' ? 'all' : 'merges') },
+          { label: 'Latest commit', value: newest ? timeAgo(newest) : '—', sub: oldest ? `Since ${shortDate(oldest)}` : undefined },
+        ]} />
+      )}
 
-      {heatmap}
-      {dayFilter}
+      <CommitHeatmap owner={owner} repo={repo} token={token} selectedDay={selectedDay} onSelectDay={setSelectedDay} />
 
-      {/* Stats row */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-        gap: 12,
-        marginBottom: 32,
-      }}>
-        {[
-          { label: 'Total Commits', value: commits.length, accent: 'var(--teal-500)' },
-          { label: 'Unique Authors', value: uniqueAuthors.length, accent: 'var(--color-success)' },
-          { label: 'Date Range', value: `${firstDate} → ${lastDate}`, accent: 'var(--chart-purple)', small: true },
-          { label: 'Most Active', value: mostActiveAuthor, accent: 'var(--accent-orange)', small: true },
-        ].map(({ label, value, accent, small }) => (
-          <div key={label} style={{
-            background: 'var(--surface-card)',
-            border: '1px solid var(--bg3)',
-            borderRadius: 10,
-            padding: '14px 18px',
-            display: 'flex', flexDirection: 'column', gap: 4,
-          }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-              {label}
-            </div>
-            <div style={{ fontSize: small ? 13 : 22, fontWeight: 700, color: accent, lineHeight: 1.2, wordBreak: 'break-word' }}>
-              {value}
-            </div>
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)]">
+        <Section className="min-h-[320px]" bodyClassName="p-0 flex flex-col">
+          <div className="flex flex-col gap-2 border-b px-4 py-3">
+            <Toolbar count={loading ? 'Loading…' : `${visible.length.toLocaleString()} commit${visible.length === 1 ? '' : 's'}`}>
+              <span className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Message or SHA" aria-label="Search commits" className="h-8 w-44 bg-card pl-8 text-xs" />
+              </span>
+              <Select value={author} onValueChange={setAuthor}>
+                <SelectTrigger size="sm" aria-label="Filter by author" className="h-8 w-40 bg-card text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_AUTHORS}>All authors</SelectItem>
+                  {authors.map(([login, n]) => <SelectItem key={login} value={login}>{login} ({n})</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Segmented label="Commit type" value={kind} onChange={setKind} options={[
+                { value: 'all', label: 'All' },
+                { value: 'changes', label: 'Changes', count: commits.length - merges },
+                { value: 'merges', label: 'Merges', count: merges },
+              ]} />
+            </Toolbar>
+            {(selectedDay || filtersOn) && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" role="status">
+                {selectedDay && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border bg-card py-0.5 pr-1 pl-2.5">
+                    Day: <strong className="font-semibold text-foreground">{dayLabel}</strong>
+                    <button type="button" aria-label="Show recent commits" className="grid size-5 place-items-center rounded-full border-0 bg-transparent text-muted-foreground hover:bg-[var(--surface-hover)]" onClick={() => setSelectedDay(null)}><X className="size-3" /></button>
+                  </span>
+                )}
+                {filtersOn && <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={clearFilters}>Clear filters</Button>}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
 
-      {/* Search and filter */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search messages or SHA" aria-label="Search commits" className="h-8 max-w-64 text-xs" />
-        <select value={author} onChange={e => setAuthor(e.target.value)} aria-label="Filter by author" className="h-8 rounded-md border bg-card px-2 text-xs text-foreground">
-          <option value="">All authors</option>
-          {uniqueAuthors.map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <Button variant="outline" size="sm" className="ml-auto h-8 gap-1.5 text-xs" onClick={() => downloadCsv('commits.csv', ['SHA', 'Author', 'Date', 'Message'], visibleCommits.map(c => [c.sha, c.author?.login || c.commit.author.name, c.commit.author.date, c.commit.message.split('\n')[0]]))}>
-          <Download className="size-3.5" /> Export CSV
-        </Button>
-      </div>
-      {visibleCommits.length === 0 && <p className="gi-note">No commits match.</p>}
-
-      {/* Timeline list */}
-      <div style={{ position: 'relative' }}>
-        {/* Vertical guide line */}
-        <div style={{
-          position: 'absolute',
-          left: 17,
-          top: 18,
-          bottom: 18,
-          width: 2,
-          background: 'linear-gradient(to bottom, var(--border-subtle) 0%, var(--bg3) 100%)',
-          borderRadius: 2,
-          zIndex: 0,
-        }} />
-
-        {visibleCommits.map((commit, idx) => {
-          const login = commit.author?.login || commit.commit.author.name || 'unknown';
-          const colorIdx = hashToColorIndex(login);
-          const color = AUTHOR_COLORS[colorIdx];
-          const sha7 = commit.sha.slice(0, 7);
-          const fullMsg = commit.commit.message.split('\n')[0];
-          const message = fullMsg.length > 72 ? fullMsg.slice(0, 72) + '…' : fullMsg;
-          const date = commit.commit.author.date;
-          const initials = login.slice(0, 2).toUpperCase();
-
-          return (
-            <div
-              key={commit.sha}
-              style={{
-                display: 'flex',
-                gap: 14,
-                marginBottom: idx === commits.length - 1 ? 0 : 14,
-                position: 'relative',
-                animation: `fadeIn 0.3s ease both`,
-                animationDelay: `${Math.min(idx * 30, 300)}ms`,
-              }}
-            >
-              {/* Timeline dot column */}
-              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}>
-                <div style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  background: `${color}22`,
-                  border: `2px solid ${color}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: color,
-                  letterSpacing: '0.5px',
-                  boxShadow: `0 0 0 3px var(--surface-card), 0 0 8px color-mix(in srgb, ${color} 27%, transparent)`,
-                }}>
-                  {initials}
-                </div>
-              </div>
-
-              {/* Card */}
-              <div
-                className="ct-card"
-                style={{
-                  flex: 1,
-                  background: 'var(--surface-card)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 8,
-                  padding: '11px 16px',
-                  minWidth: 0,
-                  transition: 'background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease',
-                }}
-              >
-                {/* Top row: sha + author + timestamp */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                  <span
-                    className="ct-sha"
-                    title={copiedSha === commit.sha ? 'Copied!' : 'Click to copy SHA'}
-                    onClick={() => handleCopySha(commit.sha)}
-                    style={{
-                      fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                      fontSize: 11,
-                      background: 'var(--bg3)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 5,
-                      padding: '2px 7px',
-                      color: copiedSha === commit.sha ? 'var(--color-success)' : 'var(--text-muted)',
-                      transition: 'background 0.1s, border-color 0.1s, color 0.1s',
-                      userSelect: 'none',
-                    }}
-                  >
-                    {copiedSha === commit.sha ? '✓ copied' : sha7}
-                  </span>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{
-                      width: 18, height: 18, borderRadius: '50%',
-                      background: color, display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: 9, fontWeight: 700, color: 'var(--t0)',
-                    }}>
-                      {login[0].toUpperCase()}
-                    </div>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{login}</span>
-                  </div>
-
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-                    {timeAgo(date)}
-                  </span>
-                </div>
-
-                {/* Commit message */}
-                <p
-                  title={fullMsg}
-                  style={{
-                    margin: 0,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: 'var(--t0)',
-                    lineHeight: 1.45,
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {message}
-                </p>
-              </div>
+          {loading ? (
+            <div className="flex flex-col gap-3 p-4" aria-busy="true">
+              {[0, 1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="flex items-center gap-3"><Skeleton className="size-8 rounded-full" /><div className="flex flex-1 flex-col gap-1.5"><Skeleton className="h-3.5 w-3/4" /><Skeleton className="h-3 w-1/3" /></div></div>
+              ))}
             </div>
-          );
-        })}
+          ) : error ? (
+            <StateCard icon={AlertTriangle} title="Couldn't load commits" action={<Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setReload(n => n + 1)}>Try again</Button>}>
+              {error} Check that the repository is still reachable with your GitHub connection, then try again.
+            </StateCard>
+          ) : visible.length === 0 ? (
+            <StateCard icon={GitCommitHorizontal} title={commits.length ? 'No matching commits' : selectedDay ? 'No commits that day on this branch' : 'No commits yet'}
+              action={commits.length ? <Button variant="outline" size="sm" className="h-8 text-xs" onClick={clearFilters}>Clear filters</Button> : selectedDay ? <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setSelectedDay(null)}>Show recent commits</Button> : undefined}>
+              {commits.length ? 'Try another author or type, or clear the search.' : selectedDay ? `The heatmap counts the default branch; ${resolvedBranch} had no commits on ${dayLabel}.` : `Nothing has been committed to ${resolvedBranch} yet.`}
+            </StateCard>
+          ) : (
+            <ul className="min-h-0 flex-1 divide-y overflow-y-auto">
+              {visible.map(c => {
+                const active = selected?.sha === c.sha;
+                const title = c.commit.message.split('\n')[0];
+                return (
+                  <li key={c.sha}>
+                    <button type="button" onClick={() => setSelectedSha(c.sha)} aria-current={active} className={cn('flex w-full items-center gap-3 border-0 bg-transparent px-4 py-2.5 text-left text-inherit hover:bg-[var(--surface-hover)]', active && 'bg-[var(--surface-hover)]')}>
+                      <Avatar login={who(c)} src={c.author?.avatar_url} />
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-[13px] font-semibold" title={title}>{title}</span>
+                        <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+                          {isMerge(c) && <GitMerge className="size-3 shrink-0" aria-label="Merge commit" />}
+                          {who(c)} · <code className="font-mono text-[11px]">{c.sha.slice(0, 7)}</code>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground" title={new Date(c.commit.author.date).toLocaleString()}>{timeAgo(c.commit.author.date)}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Section>
+
+        {selected && !loading && !error
+          ? <CommitDetailPane commit={selected} owner={owner} repo={repo} token={token} />
+          : <Section className="min-h-[320px]"><StateCard icon={GitCommitHorizontal} title={loading ? 'Loading commits…' : 'No commit selected'}>{loading ? 'The list appears on the left in a moment.' : 'Pick a commit to see its full message and the files it changed.'}</StateCard></Section>}
       </div>
-    </div>
+    </Page>
+  );
+}
+
+function CommitDetailPane({ commit, owner, repo, token }: { commit: CommitItem; owner: string; repo: string; token: string }) {
+  const [detail, setDetail] = useState<CommitDetail | null | undefined>(undefined);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDetail(undefined);
+    githubFetch(`https://api.github.com/repos/${owner}/${repo}/commits/${commit.sha}`, token)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled) setDetail(d); })
+      .catch(() => { if (!cancelled) setDetail(null); });
+    return () => { cancelled = true; };
+  }, [owner, repo, token, commit.sha]);
+
+  const [title, ...rest] = commit.commit.message.split('\n');
+  const body = rest.join('\n').trim();
+  const copy = () => {
+    navigator.clipboard.writeText(commit.sha).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
+  };
+  const files = detail?.files ?? [];
+  const maxChange = Math.max(1, ...files.map(f => f.additions + f.deletions));
+
+  return (
+    <Section className="min-h-[320px]" bodyClassName="flex flex-col gap-4 p-5">
+      <div className="flex items-start gap-3">
+        <Avatar login={who(commit)} src={commit.author?.avatar_url} size="lg" />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base leading-snug font-semibold break-words">{title}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            <strong className="font-semibold text-foreground">{who(commit)}</strong> committed {timeAgo(commit.commit.author.date)} · {new Date(commit.commit.author.date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" className="h-7 gap-1.5 font-mono text-xs" onClick={copy} aria-label="Copy full SHA">
+          {copied ? <Check className="size-3.5 text-[var(--color-success)]" /> : <Copy className="size-3.5" />}{commit.sha.slice(0, 7)}
+        </Button>
+        {isMerge(commit) && <span className="inline-flex h-7 items-center gap-1.5 rounded-md border bg-card px-2 text-xs text-muted-foreground"><GitMerge className="size-3.5" /> Merge of {commit.parents!.length} parents</span>}
+        {commit.commit.verification?.verified && <span className="inline-flex h-7 items-center gap-1.5 rounded-md border bg-card px-2 text-xs text-[var(--color-success)]"><Check className="size-3.5" /> Verified</span>}
+        {commit.html_url && (
+          <Button asChild variant="ghost" size="sm" className="ml-auto h-7 gap-1 px-2 text-xs text-primary">
+            <a href={commit.html_url} target="_blank" rel="noreferrer">Open on GitHub <ExternalLink className="size-3.5" /></a>
+          </Button>
+        )}
+      </div>
+
+      {body && <pre className="max-h-40 shrink-0 overflow-auto rounded-lg border bg-card p-3 font-sans text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">{body}</pre>}
+
+      <div className="flex min-h-0 flex-col gap-2">
+        <h3 className={labelClass}>
+          {detail === undefined ? 'Files changed' : detail?.stats ? <>Files changed · {files.length}{files.length >= 300 ? '+' : ''} · <span className="text-[var(--color-success)]">+{detail.stats.additions}</span> <span className="text-[var(--color-danger)]">−{detail.stats.deletions}</span></> : 'Files changed'}
+        </h3>
+        {detail === undefined ? (
+          <div className="flex flex-col gap-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-7 w-full" />)}</div>
+        ) : detail === null ? (
+          <p className="text-xs text-muted-foreground">The file list isn't available right now. Open the commit on GitHub to see it.</p>
+        ) : files.length === 0 ? (
+          <p className="text-xs text-muted-foreground">This commit changed no files (an empty or merge-only commit).</p>
+        ) : (
+          <ul className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card">
+            {files.map(f => (
+              <li key={f.filename} className="grid grid-cols-[1.25rem_minmax(0,1fr)_4.5rem_3.5rem] items-center gap-2 px-3 py-1.5" title={f.filename}>
+                <span className="font-mono text-[11px] font-semibold text-muted-foreground">{FILE_STATUS[f.status] ?? '?'}</span>
+                <span className="flex min-w-0 items-center gap-1.5"><FileText className="size-3.5 shrink-0 text-muted-foreground" /><code className="truncate font-mono text-[11px]">{f.filename}</code></span>
+                {/* Share of the biggest file's change, split into lines added and removed. */}
+                <span className="flex h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                  <i className="block h-full bg-[var(--color-success)]" style={{ width: `${(f.additions / maxChange) * 100}%` }} />
+                  <i className="block h-full bg-[var(--color-danger)]" style={{ width: `${(f.deletions / maxChange) * 100}%` }} />
+                </span>
+                <span className="text-right font-mono text-[11px] text-muted-foreground">+{f.additions} −{f.deletions}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Section>
   );
 }

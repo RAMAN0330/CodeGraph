@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, RefreshCw, Search, SquareTerminal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, RefreshCw, Search, SquareTerminal, Table2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Page, PageHeader } from '../../../../shared/components/Page';
+import { StateCard } from '../../../../shared/components/StateCard';
 import { usePersistentState } from '../../../../shared/hooks/usePersistentState';
 import { qualifiedName, sqlApi, type BrowseParams, type BrowseResult } from '../../services/sqlApi';
 import type { Schema } from '../../types';
@@ -38,7 +40,8 @@ export default function DataBrowserPage({ projectId, schema, onOpenSql }: DataBr
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
-  const table = useMemo(() => schema.tables.find(t => qualifiedName(t) === tableKey) ?? schema.tables[0] ?? null, [schema, tableKey]);
+  // Older links (Storage) stored "public.orders" while qualifiedName drops "public.", so match both forms.
+  const table = useMemo(() => schema.tables.find(t => qualifiedName(t) === tableKey || `${t.schema ?? 'public'}.${t.name}` === tableKey) ?? schema.tables[0] ?? null, [schema, tableKey]);
   const tables = useMemo(() => {
     const needle = tableSearch.trim().toLowerCase();
     return schema.tables.filter(t => !needle || qualifiedName(t).toLowerCase().includes(needle));
@@ -83,16 +86,27 @@ export default function DataBrowserPage({ projectId, schema, onOpenSql }: DataBr
     setSort(current => (current?.column !== column ? { column, dir: 'asc' } : current.dir === 'asc' ? { column, dir: 'desc' } : null));
   };
 
+  const header = (
+    <PageHeader
+      icon={Table2}
+      tone="database"
+      title="Data"
+      description="Browse table rows page by page. Click a column to sort, filter on any column, or hand the view to SQL to go further. Read-only."
+    />
+  );
+
   if (!schema.tables.length) {
-    return <div className="grid h-full place-items-center text-sm text-muted-foreground">This connection has no tables to browse.</div>;
+    return <Page>{header}<StateCard icon={Table2} title="No tables to browse">This connection has no tables yet. Create tables in the database, then refresh the schema from Database Settings.</StateCard></Page>;
   }
 
   const from = data && data.rowCount ? page * pageSize + 1 : 0;
   const to = data ? page * pageSize + data.rowCount : 0;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[240px_minmax(0,1fr)] gap-3 text-foreground">
-      <div className="flex min-h-0 flex-col gap-2 rounded-lg border bg-card p-2">
+    <Page>
+      {header}
+    <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)] gap-3 max-[900px]:grid-cols-1">
+      <div className="flex min-h-0 flex-col gap-2 rounded-xl border bg-[var(--surface-subtle)] p-2 max-[900px]:max-h-60">
         <div className="relative">
           <Search className="absolute top-2.5 left-2 size-3.5 text-muted-foreground" />
           <Input value={tableSearch} onChange={e => setTableSearch(e.target.value)} placeholder="Find a table" className="h-8 pl-7 text-xs" aria-label="Find a table" />
@@ -105,9 +119,9 @@ export default function DataBrowserPage({ projectId, schema, onOpenSql }: DataBr
               return (
                 <li key={key}>
                   <button type="button" onClick={() => selectTable(key)} aria-current={selected ? 'true' : undefined}
-                    className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded border-0 px-2 py-1 text-left text-xs ${selected ? 'bg-primary/10 font-medium text-primary' : 'bg-transparent hover:bg-accent'}`}>
+                    className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border-0 px-2 py-1.5 text-left text-xs ${selected ? 'bg-card font-semibold text-foreground shadow-[0_1px_2px_rgba(20,24,32,0.08)]' : 'bg-transparent hover:bg-[var(--surface-hover)]'}`}>
                     <span className="truncate font-mono">{key}</span>
-                    {t.rowEstimate != null && <span className="shrink-0 text-[10px] text-muted-foreground">{Intl.NumberFormat(undefined, { notation: 'compact' }).format(t.rowEstimate)}</span>}
+                    {!!t.rowEstimate && <span className="shrink-0 text-[10px] text-muted-foreground">{Intl.NumberFormat(undefined, { notation: 'compact' }).format(t.rowEstimate)}</span>}
                   </button>
                 </li>
               );
@@ -141,7 +155,13 @@ export default function DataBrowserPage({ projectId, schema, onOpenSql }: DataBr
         </div>
 
         {error ? (
-          <div className="grid place-items-center rounded-md border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">{error}</div>
+          <div className="grid place-items-center rounded-md border bg-card p-6"><StateCard icon={Table2} title="Could not load rows">{error}</StateCard></div>
+        ) : data && !loading && data.rowCount === 0 && page === 0 ? (
+          <div className="grid place-items-center rounded-md border bg-card">
+            <StateCard icon={Table2} title={filter ? 'No rows match the filter' : `${table ? qualifiedName(table) : 'This table'} is empty`}>
+              {filter ? `No ${filterTarget} value contains "${filter}". Clear the filter or pick another column.` : 'The table exists but holds no rows yet. Pick another table on the left.'}
+            </StateCard>
+          </div>
         ) : (
           <ResultGrid columns={data?.columns ?? []} rows={data?.rows ?? []} columnTypes={data?.columnTypes} sort={sort} onSort={toggleSort}
             emptyText={loading ? 'Loading rows…' : 'No rows match.'} />
@@ -162,5 +182,6 @@ export default function DataBrowserPage({ projectId, schema, onOpenSql }: DataBr
         </div>
       </div>
     </div>
+    </Page>
   );
 }

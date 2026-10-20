@@ -19,7 +19,7 @@ interface ResultGridProps {
 const components: TableComponents<unknown[]> = {
   Table: props => <table {...props} className="w-full caption-bottom border-separate border-spacing-0 text-xs" />,
   TableHead: forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>((props, ref) => <thead {...props} ref={ref} className="z-10" />),
-  TableRow: props => <tr {...props} className="hover:bg-muted/60" />,
+  TableRow: props => <tr {...props} className="hover:bg-[var(--surface-hover)]" />,
   TableBody: forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>((props, ref) => <tbody {...props} ref={ref} />),
 };
 
@@ -30,7 +30,7 @@ function renderCell(value: unknown) {
 }
 
 export default function ResultGrid({ columns, rows, columnTypes, sort, onSort, emptyText = 'No rows.' }: ResultGridProps) {
-  if (!columns.length) return <div className="grid h-full place-items-center text-xs text-muted-foreground">{emptyText}</div>;
+  if (!columns.length) return <div className="grid h-full place-items-center rounded-md border bg-card p-6 text-center text-xs text-muted-foreground">{emptyText}</div>;
   return (
     <div className="h-full min-h-0 rounded-md border bg-card">
       <TableVirtuoso

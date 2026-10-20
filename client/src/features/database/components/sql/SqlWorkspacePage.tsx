@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Bookmark, Clipboard, Download, History, Loader2, Play, Search, Table2, Trash2, Workflow } from 'lucide-react';
+import { AlertTriangle, Bookmark, Clipboard, Download, History, Loader2, Play, Search, SquareTerminal, Table2, Trash2, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Page, PageHeader, Segmented } from '../../../../shared/components/Page';
 import { usePersistentState } from '../../../../shared/hooks/usePersistentState';
 import { qualifiedName, sqlApi, toCsv, type ExplainResult, type HistoryEntry, type QueryResult, type SavedQuery } from '../../services/sqlApi';
 import type { Schema } from '../../types';
@@ -126,8 +127,15 @@ export default function SqlWorkspacePage({ projectId, schema, pendingSql, onPend
   }, [notice]);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[260px_minmax(0,1fr)] gap-3 text-foreground">
-      <Tabs value={railTab} onValueChange={setRailTab} className="flex min-h-0 flex-col rounded-lg border bg-card p-2">
+    <Page>
+      <PageHeader
+        icon={SquareTerminal}
+        tone="database"
+        title="SQL"
+        description="Write and run read-only queries against this database. Ctrl+Enter runs, Explain shows the plan without running. Results stop at the row limit."
+      />
+    <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)] gap-3 max-[900px]:grid-cols-1">
+      <Tabs value={railTab} onValueChange={setRailTab} className="flex min-h-0 flex-col rounded-xl border bg-[var(--surface-subtle)] p-2">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="tables" title="Tables"><Table2 className="size-3.5" /></TabsTrigger>
           <TabsTrigger value="saved" title="Saved queries"><Bookmark className="size-3.5" /></TabsTrigger>
@@ -149,7 +157,7 @@ export default function SqlWorkspacePage({ projectId, schema, pendingSql, onPend
                     title={table.columns.map(c => `${c.name} ${c.type}`).join('\n')}
                   >
                     <span className="truncate font-mono">{qualifiedName(table)}</span>
-                    {table.rowEstimate != null && <span className="shrink-0 text-[10px] text-muted-foreground">{Intl.NumberFormat(undefined, { notation: 'compact' }).format(table.rowEstimate)}</span>}
+                    {!!table.rowEstimate && <span className="shrink-0 text-[10px] text-muted-foreground">{Intl.NumberFormat(undefined, { notation: 'compact' }).format(table.rowEstimate)}</span>}
                   </button>
                 </li>
               ))}
@@ -200,7 +208,7 @@ export default function SqlWorkspacePage({ projectId, schema, pendingSql, onPend
         </TabsContent>
       </Tabs>
 
-      <div className="grid min-h-0 grid-rows-[auto_minmax(120px,38%)_auto_minmax(0,1fr)] gap-2">
+      <div className="grid min-h-0 grid-rows-[auto_minmax(120px,36%)_auto_minmax(0,1fr)] gap-2 max-[900px]:min-h-[640px]">
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" onClick={() => execute('run')} disabled={!sql.trim() || running !== null}>
             {running === 'run' ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />} Run
@@ -237,7 +245,7 @@ export default function SqlWorkspacePage({ projectId, schema, pendingSql, onPend
             <>
               <Badge variant="secondary">{result.rowCount.toLocaleString()} rows</Badge>
               <Badge variant="secondary">{result.durationMs} ms</Badge>
-              {result.truncated && <Badge variant="outline" className="border-amber-500/50 text-amber-700">Stopped at the {result.limit.toLocaleString()}-row limit</Badge>}
+              {result.truncated && <Badge variant="outline" className="border-[color-mix(in_srgb,var(--color-warning)_50%,transparent)] text-[var(--color-warning)]">Stopped at the {result.limit.toLocaleString()}-row limit</Badge>}
             </>
           ) : null}
           {notice && <span className="text-muted-foreground">{notice}</span>}
@@ -247,19 +255,19 @@ export default function SqlWorkspacePage({ projectId, schema, pendingSql, onPend
           </div>
         </div>
 
-        <Tabs value={resultTab} onValueChange={v => setResultTab(v as 'results' | 'plan')} className="flex min-h-0 flex-col">
-          <TabsList className="h-8">
-            <TabsTrigger value="results" className="text-xs">Results</TabsTrigger>
-            <TabsTrigger value="plan" className="text-xs">Plan</TabsTrigger>
-          </TabsList>
-          <TabsContent value="results" className="mt-2 min-h-0 flex-1">
-            <ResultGrid columns={result?.columns ?? []} rows={result?.rows ?? []} emptyText="Run a statement to see results here." />
-          </TabsContent>
-          <TabsContent value="plan" className="mt-2 min-h-0 flex-1">
-            <PlanView plan={plan} />
-          </TabsContent>
-        </Tabs>
+        <div className="flex min-h-0 flex-col gap-2">
+          <Segmented label="Result view" className="self-start" value={resultTab} onChange={setResultTab} options={[
+            { value: 'results', label: 'Results', count: result?.rowCount },
+            { value: 'plan', label: 'Plan' },
+          ]} />
+          <div className="min-h-0 flex-1">
+            {resultTab === 'results'
+              ? <ResultGrid columns={result?.columns ?? []} rows={result?.rows ?? []} emptyText="Run a statement to see results here. Pick a table on the left to start from SELECT *." />
+              : <PlanView plan={plan} />}
+          </div>
+        </div>
       </div>
     </div>
+    </Page>
   );
 }

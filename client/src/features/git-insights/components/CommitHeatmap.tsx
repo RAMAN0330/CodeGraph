@@ -17,7 +17,15 @@ interface Props {
 // the Commits page around the heatmap, and this keeps it from re-fetching.
 const activityCache = new Map<string, WeekActivity[]>();
 
-const CELL = 11, GAP = 3, STEP = CELL + GAP, LEFT = 30, TOP = 18;
+const CELL = 10, GAP = 2, STEP = CELL + GAP, LEFT = 30, TOP = 18;
+// One hue (the first data colour) at rising strength; empty days stay a recessive surface.
+const LEVEL_FILL = [
+  'fill-[var(--surface-hover)]',
+  'fill-[color-mix(in_srgb,var(--viz-1)_28%,var(--surface-subtle))]',
+  'fill-[color-mix(in_srgb,var(--viz-1)_52%,var(--surface-subtle))]',
+  'fill-[color-mix(in_srgb,var(--viz-1)_76%,var(--surface-subtle))]',
+  'fill-[var(--viz-1)]',
+];
 const WEEKDAYS: Array<[number, string]> = [[1, 'Mon'], [3, 'Wed'], [5, 'Fri']];
 
 function longDate(day: string) {
@@ -43,10 +51,11 @@ export default function CommitHeatmap({ owner, repo, token, selectedDay, onSelec
 
   const map = useMemo(() => (activity ? buildHeatmap(activity) : null), [activity]);
 
-  if (error) return <section className="heatmap-card"><p className="guide-empty">Commit activity is unavailable right now ({error}).</p></section>;
-  if (activity === undefined) return <section className="heatmap-card heatmap-loading" aria-busy="true"><p className="guide-empty">Loading a year of commit activity…</p></section>;
-  if (activity === null) return <section className="heatmap-card"><p className="guide-empty">GitHub is still computing this repository's commit statistics. Reopen this page in a minute.</p></section>;
-  if (!map || !map.weeks.length) return <section className="heatmap-card"><p className="guide-empty">No commits in the last year.</p></section>;
+  const note = (text: string, busy = false) => <section aria-busy={busy} className="shrink-0 rounded-xl border bg-[var(--surface-subtle)] px-4 py-3 text-xs text-muted-foreground">{text}</section>;
+  if (error) return note(`A year of commit activity is unavailable right now (${error}).`);
+  if (activity === undefined) return note('Loading a year of commit activity…', true);
+  if (activity === null) return note("GitHub is still computing this repository's commit statistics. Reopen this page in a minute.");
+  if (!map || !map.weeks.length) return note('No commits in the last year.');
   return <HeatmapGrid map={map} selectedDay={selectedDay} onSelectDay={onSelectDay} />;
 }
 
@@ -87,25 +96,27 @@ export function HeatmapGrid({ map, selectedDay, onSelectDay }: { map: Heatmap; s
   const busiest = map.busiest;
 
   return (
-    <section className="heatmap-card">
-      <header className="heatmap-head">
-        <h3>{map.total.toLocaleString()} commits in the last year</h3>
-        <span>
+    <section className="flex shrink-0 flex-col gap-2 rounded-xl border bg-[var(--surface-subtle)] px-4 py-3">
+      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h3 className="text-sm font-semibold">{map.total.toLocaleString()} commits in the last year</h3>
+        <span className="text-xs text-muted-foreground">
           {map.activeDays} active day{map.activeDays === 1 ? '' : 's'} · longest streak {map.longestStreak} day{map.longestStreak === 1 ? '' : 's'}
           {busiest ? ` · busiest ${longDate(busiest.date)} (${busiest.count})` : ''}
+          {' · default branch, UTC'}{selectedDay ? '' : ' · click a day to list its commits'}
         </span>
+        <span className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground" aria-hidden="true">Less {[0, 1, 2, 3, 4].map(l => <svg key={l} width={CELL} height={CELL}><rect width={CELL} height={CELL} rx={2} className={LEVEL_FILL[l]} /></svg>)} More</span>
       </header>
-      <div className="heatmap-scroll">
-        <div className="heatmap-plot" style={{ width }}>
-          <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" tabIndex={0} className="heatmap-svg"
+      <div className="max-w-full overflow-x-auto">
+        <div className="relative" style={{ width }}>
+          <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" tabIndex={0} className="block rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--border-focus)]"
             aria-label={`Commit heatmap: ${map.total} commits on ${map.activeDays} days in the last year on the default branch. Use the arrow keys to move between days and Enter to list a day's commits.`}
             onKeyDown={onKeyDown} onBlur={() => { setFocus(null); setHover(null); }}>
-            {map.months.map(m => <text key={`${m.label}${m.column}`} className="heatmap-label" x={LEFT + m.column * STEP} y={11}>{m.label}</text>)}
-            {WEEKDAYS.map(([d, label]) => <text key={label} className="heatmap-label" x={0} y={TOP + d * STEP + 9}>{label}</text>)}
+            {map.months.map(m => <text key={`${m.label}${m.column}`} className="fill-muted-foreground text-[10px]" x={LEFT + m.column * STEP} y={11}>{m.label}</text>)}
+            {WEEKDAYS.map(([d, label]) => <text key={label} className="fill-muted-foreground text-[10px]" x={0} y={TOP + d * STEP + 9}>{label}</text>)}
             {map.weeks.map((week, w) => week.map((cell, d) => cell.future ? null : (
               <rect
                 key={cell.date}
-                className={`heatmap-cell l${cell.level}${selectedDay === cell.date ? ' selected' : ''}${focus?.w === w && focus?.d === d ? ' focused' : ''}`}
+                className={`${LEVEL_FILL[cell.level] ?? LEVEL_FILL[0]} ${cell.count ? 'cursor-pointer' : ''} ${selectedDay === cell.date ? 'stroke-foreground stroke-2' : focus?.w === w && focus?.d === d ? 'stroke-foreground stroke-[1.5]' : 'hover:stroke-foreground'}`}
                 x={LEFT + w * STEP} y={TOP + d * STEP} width={CELL} height={CELL} rx={2}
                 onMouseEnter={() => setHover({ date: cell.date, count: cell.count, x: LEFT + w * STEP + CELL / 2, y: TOP + d * STEP })}
                 onMouseLeave={() => setHover(null)}
@@ -114,16 +125,12 @@ export function HeatmapGrid({ map, selectedDay, onSelectDay }: { map: Heatmap; s
             )))}
           </svg>
           {hover && (
-            <div className="heatmap-tooltip" style={{ left: hover.x, top: hover.y }} role="status">
-              <strong>{hover.count ? `${hover.count} commit${hover.count === 1 ? '' : 's'}` : 'No commits'}</strong> on {longDate(hover.date)}
+            <div className="pointer-events-none absolute z-[2] -translate-x-1/2 -translate-y-[calc(100%+8px)] rounded-md border bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-sm" style={{ left: hover.x, top: hover.y }} role="status">
+              <strong className="font-semibold">{hover.count ? `${hover.count} commit${hover.count === 1 ? '' : 's'}` : 'No commits'}</strong> on {longDate(hover.date)}
             </div>
           )}
         </div>
       </div>
-      <footer className="heatmap-foot">
-        <span>Default branch · days in UTC{selectedDay ? '' : ' · click a day to see its commits'}</span>
-        <span className="heatmap-legend" aria-hidden="true">Less {[0, 1, 2, 3, 4].map(l => <i key={l} className={`heatmap-cell l${l}`} />)} More</span>
-      </footer>
     </section>
   );
 }

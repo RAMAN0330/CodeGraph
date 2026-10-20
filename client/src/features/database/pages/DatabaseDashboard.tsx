@@ -15,6 +15,8 @@ import ActivityPage from '../components/pages/ActivityPage';
 import SecurityPage from '../components/pages/SecurityPage';
 import AlertsPage from '../components/pages/AlertsPage';
 import SchemaExplorer from '../components/schema/SchemaExplorer';
+import { Network } from 'lucide-react';
+import { Page, PageHeader } from '../../../shared/components/Page';
 import { dbTelemetryApi, useDbTelemetry } from '../services/dbTelemetryApi';
 import { DB_NAV_IDS, DB_NAV_LABELS, type DbNavId, type Schema, type SchemaTable, type TimeRange } from '../types';
 
@@ -76,7 +78,12 @@ export default function DatabaseDashboard({
           {section === 'queries' && <QueriesPage projectId={projectId} paused={paused} onOpenSql={openSql} />}
           {section === 'sql' && <SqlWorkspacePage projectId={projectId} schema={schema} pendingSql={pendingSql} onPendingSqlConsumed={clearPendingSql} />}
           {section === 'data' && <DataBrowserPage projectId={projectId} schema={schema} onOpenSql={openSql} />}
-          {section === 'schema' && <SchemaExplorer projectId={projectId} schema={schema} onBrowse={browseTable} onQuery={queryTable} />}
+          {section === 'schema' && (
+            <Page>
+              <PageHeader icon={Network} tone="database" title="Schema" description="Tables, relationships and indexes, and which code reads or writes each table." />
+              <SchemaExplorer projectId={projectId} schema={schema} onBrowse={browseTable} onQuery={queryTable} />
+            </Page>
+          )}
           {section === 'storage' && <StoragePage projectId={projectId} paused={paused} onBrowseTable={browseByName} />}
           {section === 'replication' && <ReplicationPage projectId={projectId} paused={paused} />}
           {section === 'activity' && <ActivityPage projectId={projectId} paused={paused} onNavigate={setSection} />}
