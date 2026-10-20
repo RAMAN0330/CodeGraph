@@ -76,7 +76,7 @@ export default function DatabaseDashboard({
           {section === 'queries' && <QueriesPage projectId={projectId} paused={paused} onOpenSql={openSql} />}
           {section === 'sql' && <SqlWorkspacePage projectId={projectId} schema={schema} pendingSql={pendingSql} onPendingSqlConsumed={clearPendingSql} />}
           {section === 'data' && <DataBrowserPage projectId={projectId} schema={schema} onOpenSql={openSql} />}
-          {section === 'schema' && <SchemaExplorer schema={schema} onBrowse={browseTable} onQuery={queryTable} />}
+          {section === 'schema' && <SchemaExplorer projectId={projectId} schema={schema} onBrowse={browseTable} onQuery={queryTable} />}
           {section === 'storage' && <StoragePage projectId={projectId} paused={paused} onBrowseTable={browseByName} />}
           {section === 'replication' && <ReplicationPage projectId={projectId} paused={paused} />}
           {section === 'activity' && <ActivityPage projectId={projectId} paused={paused} onNavigate={setSection} />}

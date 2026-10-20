@@ -27,9 +27,9 @@ function groupBySchema(tables: Schema['tables']): Map<string, Schema['tables']> 
   return map;
 }
 
-interface SchemaExplorerProps { schema: Schema; onBrowse?: (table: SchemaTable) => void; onQuery?: (table: SchemaTable) => void; }
+interface SchemaExplorerProps { projectId?: number; schema: Schema; onBrowse?: (table: SchemaTable) => void; onQuery?: (table: SchemaTable) => void; }
 
-export default function SchemaExplorer({ schema, onBrowse, onQuery }: SchemaExplorerProps) {
+export default function SchemaExplorer({ projectId, schema, onBrowse, onQuery }: SchemaExplorerProps) {
   const [tab, setTab] = useState<ExplorerTab>('flow');
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState<GraphLevel>('domain');
@@ -91,7 +91,7 @@ export default function SchemaExplorer({ schema, onBrowse, onQuery }: SchemaExpl
           </div>
           {activeTable && (
             <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 10, padding: 16, overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
-              <DetailDrawer table={activeTable} allTables={schema.tables} onBrowse={onBrowse} onQuery={onQuery} />
+              <DetailDrawer projectId={projectId} table={activeTable} allTables={schema.tables} onBrowse={onBrowse} onQuery={onQuery} />
             </div>
           )}
         </div>
@@ -116,7 +116,7 @@ export default function SchemaExplorer({ schema, onBrowse, onQuery }: SchemaExpl
               </div>
               {activeTable && (
                 <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 10, padding: 16, overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
-                  <DetailDrawer table={activeTable} allTables={schema.tables} onBrowse={onBrowse} onQuery={onQuery} />
+                  <DetailDrawer projectId={projectId} table={activeTable} allTables={schema.tables} onBrowse={onBrowse} onQuery={onQuery} />
                 </div>
               )}
             </div>

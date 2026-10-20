@@ -26,15 +26,23 @@ Teams inherit code and databases they did not write, and the cost is the time be
 4. **Continuity.** Resume where you left off on any device, digest emails of what changed since you last looked (weekly digest exists), and "N commits behind" sync status.
 5. **Proof.** Audit log, roles and exportable reports so a team can adopt it formally.
 
-## 4. Monetisation (assumption: seat-based SaaS)
+## 4. Monetisation (decided 2026-10-20: Team and Business, no free tier)
 
 | Plan | Who | Includes |
 |---|---|---|
-| Free | Individuals, public repos | 1 project, public GitHub repos, schema and overview for one database, community support |
 | Team | Engineering teams | Private repos, organizations, unlimited projects, PR review bot, digests, SQL workspace, saved queries, 90-day history |
-| Business | Larger orgs | SSO, audit log, roles and teams, prod safeguards, retention controls, SLA |
+| Business | Larger orgs | Everything in Team plus SSO, audit log, roles and teams, prod safeguards, retention controls, SLA |
 
-Gates are enforced in the API (plan and role checks), never only hidden in the UI.
+Priced per seat (assumption; confirm). Competing database monitors price per monitored host or by usage, which punishes growth in infrastructure; per seat is a differentiator for teams with many databases. Without a free tier, a time-limited trial and a sample project are needed so a visitor reaches the first useful feed in minutes. Gates are enforced in the API (plan and role checks), never only hidden in the UI.
+
+## 4b. What the market says (web research, 2026-10-20)
+
+Directional, mostly practitioner and vendor sources, not market data:
+- **Review and understanding are the bottleneck.** AI made writing code cheap; understanding and reviewing it did not get cheaper. Reported effects include review times up sharply and larger PRs ([Addy Osmani, Agentic Code Review](https://addyosmani.com/blog/agentic-code-review/); [Kunal Ganglani, citing Faros AI](https://www.kunalganglani.com/blog/ai-coding-assistant-team-adoption.md)). This supports the impact view and PR blast radius slices.
+- **Change-impact analysis is being productised**, and context-aware review is a selling point ([Unblocked](https://getunblocked.com/blog/building-ai-code-review-with-context-as-a-first-class-system)).
+- **Onboarding to unfamiliar code stays slow** and AI help works best with persistent team context ([Martin Fowler, onboarding to a legacy codebase](https://martinfowler.com/articles/exploring-gen-ai/09-ai-help-onboarding-codebase.html); [Claude blog](https://claude.com/blog/onboarding-claude-code-like-a-new-developer-lessons-from-17-years-of-development)).
+- **Leaders cannot measure AI's effect**: 70% adoption but 31% of teams measure gains ([LeadDev, AI Impact Report 2026](https://leaddev.com/the-ai-impact-report-2026-pre-register)). A "what changed and what is risky" feed gives them a number to track.
+- **Database monitoring buyers want query-level answers** (which statement, did its plan change) with service context, not CPU graphs; pricing is per host or usage-based ([Atatus guide](https://www.atatus.com/blog/top-5-database-monitoring-software), [Datadog pricing summary](https://www.softomatesolutions.com/blog/database-performance-monitoring-tools-uk/)). Little coverage of schema-change safety, which is room for us.
 
 ## 5. System design
 
@@ -75,7 +83,7 @@ Score = severity weight × reach (dependents, affected rows or endpoints) so a v
 ## 6. Delivery slices
 
 1. **Needs-attention feed** on both Overview pages, with deep links and tests. (Codebase first, then database.)
-2. **Impact view**: table ↔ code navigation; PR blast radius.
+2. **Impact view** (table → code shipped in the database Schema page via a linked codebase project; code → table already in the codebase workspace). Still to do: PR blast radius.
 3. **Persistence**: dismiss and snooze, "since your last visit", sync status.
 4. **Teams**: roles, audit log, plan gates (Phase 4 of the modernization plan).
 5. **Onboarding**: connect GitHub and a database, first feed in under 5 minutes, sample project.
@@ -84,6 +92,6 @@ Score = severity weight × reach (dependents, affected rows or endpoints) so a v
 Time from opening a project to first action; share of feed items acted on or dismissed with a reason; weekly active projects; free-to-team conversion.
 
 ## 8. Open questions for the owner
-- Which plan limits matter most to you (projects, seats, history length)?
+- Which limits matter most (seats, projects, history length), and what price per seat?
 - Is a hosted-only product acceptable, or do customers need self-hosting?
 - Which database engines come after Postgres and MySQL?
