@@ -95,7 +95,7 @@ export default function TrendChart({
                 <text x={-8} y={y(t)} dy="0.32em" textAnchor="end" className="fill-[var(--text-muted)] text-[11px] tabular-nums">{Math.abs(t) >= 1000 ? fmtTick(t) : t}</text>
               </g>
             ))}
-            {labels.map((l, i) => i % every === 0 || i === n - 1 ? (
+            {labels.map((l, i) => (i % every === 0 && n - 1 - i >= every) || i === n - 1 ? (
               <g key={i} transform={`translate(${cx(i)},${h})`}>
                 <text y={16} textAnchor="middle" className="fill-[var(--text-muted)] font-mono text-[10.5px]">{l}</text>
                 {sublabels && <text y={29} textAnchor="middle" className="fill-[var(--text-muted)] text-[10.5px]">{sublabels[i]}</text>}

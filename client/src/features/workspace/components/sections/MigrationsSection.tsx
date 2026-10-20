@@ -14,7 +14,7 @@ const STEPS = [
 export default function MigrationsSection() {
   const { workspaceId } = useParams();
   const href = workspaceId ? `/workspaces/${workspaceId}/projects` : '/workspaces';
-  const open = <Button asChild size="sm" className="h-8 gap-1.5 text-xs"><a href={href}>Open your database projects <ArrowRight className="size-3.5" /></a></Button>;
+  const open = <Button asChild size="sm" className="h-8 gap-1.5 text-xs"><a href={href} className="no-underline">Open your database projects <ArrowRight className="size-3.5" /></a></Button>;
   return (
     <Page>
       <PageHeader
