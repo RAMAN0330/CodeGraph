@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bug, Check, ChevronRight, Copy, Database, ExternalLink, Globe, Info,
-  KeyRound, LayoutGrid, List, Lock, Package, Play, Search, ShieldAlert,
+  Download, KeyRound, LayoutGrid, List, Lock, Package, Play, Search, ShieldAlert,
   ShieldCheck, Terminal, X,
 } from 'lucide-react';
 import type { VulnResult } from '../../../security/services/osv';
@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { vulnReach, type Reach } from '../../../security/services/vulnReach';
+import { SummaryStrip } from '../../../../shared/components/SummaryStrip';
+import { downloadCsv } from '../../../../shared/services/exportCsv';
 
 type Severity = 'high' | 'medium' | 'low' | 'info';
 
@@ -137,6 +139,15 @@ export default function SecuritySection({
     return c;
   }, [findings]);
 
+  // Files with the most findings: where fixing time pays back first.
+  const topFile = useMemo(() => {
+    const perFile = new Map<string, number>();
+    findings.forEach(f => { if (f.kind === 'code' && f.path) perFile.set(f.path, (perFile.get(f.path) ?? 0) + 1); });
+    return [...perFile.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
+  }, [findings]);
+  const dependencyCount = findings.filter(f => f.kind === 'dependency').length;
+  const reachable = findings.filter(f => f.kind === 'dependency' && f.reach?.importers.length).length;
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = findings.filter(f => {
@@ -236,6 +247,14 @@ export default function SecuritySection({
         tabs={tabsNode}
       />
 
+      <SummaryStrip items={[
+        { label: 'High', value: counts.high, tone: counts.high ? 'bad' : 'good', sub: counts.high ? 'Fix first' : 'None', onClick: () => setSeverityFilter(severityFilter === 'high' ? 'all' : 'high') },
+        { label: 'Medium', value: counts.medium, tone: counts.medium ? 'warn' : 'good', onClick: () => setSeverityFilter(severityFilter === 'medium' ? 'all' : 'medium') },
+        { label: 'Low and info', value: counts.low + counts.info, onClick: () => setSeverityFilter(severityFilter === 'low' ? 'all' : 'low') },
+        { label: 'Dependencies', value: vulnLoading ? '…' : dependencyCount, tone: reachable ? 'warn' : 'neutral', sub: vulnLoading ? 'Scanning' : reachable ? `${reachable} imported by your code` : 'None known' },
+        { label: 'Most findings', value: topFile ? topFile[1] : 0, sub: topFile ? <span title={topFile[0]}>{topFile[0].split('/').slice(-2).join('/')}</span> : 'No hot file', onClick: topFile ? () => setQuery(topFile[0]) : undefined },
+      ]} />
+
       {vulnError && <Alert className="sec-notice"><AlertDescription className="text-inherit">{vulnError}</AlertDescription></Alert>}
 
       <div className={`sec-body${selected ? ' with-detail' : ''}`}>
@@ -254,6 +273,9 @@ export default function SecuritySection({
                   <option value="file">File</option>
                 </select>
               </label>
+              <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" disabled={!visible.length} onClick={() => downloadCsv('security-findings.csv', ['Severity', 'Type', 'Title', 'Location', 'Line', 'Description'], visible.map(f => [SEVERITY_LABEL[f.severity], f.kind, f.title, f.path ?? '', f.line ?? '', f.desc]))}>
+                <Download size={13} /> Export CSV
+              </Button>
               <div className="sec-view-toggle">
                 <Button
                   variant="ghost"

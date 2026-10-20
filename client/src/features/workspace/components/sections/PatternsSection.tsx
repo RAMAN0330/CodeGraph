@@ -4,6 +4,8 @@ import {
   Globe, Layers, Link2, Lock, Puzzle, Radio, RefreshCw, Route, ScrollText,
   Search, Shapes, ShieldCheck, Sparkles, Workflow,
 } from 'lucide-react';
+import { Download } from 'lucide-react';
+import { downloadCsv } from '../../../../shared/services/exportCsv';
 import { patternReferenceFor } from '../../../analysis/data/patternReference';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -122,6 +124,11 @@ export default function PatternsSection({ data, onSelectFile, onViewSource }: Pr
         <section className="pat-list-panel">
           <header className="pat-list-header">
             <strong>{visible.length} pattern{visible.length === 1 ? '' : 's'}</strong>
+            {visible.length > 0 && (
+              <Button variant="ghost" size="sm" className="ml-auto h-7 gap-1 text-xs" onClick={() => downloadCsv('patterns.csv', ['Pattern', 'Type', 'Files', 'Description'], visible.map(p => [p.name, isAntiPattern(p) ? 'Anti-pattern' : 'Design pattern', p.files.length, p.desc]))}>
+                <Download className="size-3.5" /> Export CSV
+              </Button>
+            )}
           </header>
 
           {visible.length === 0 ? (

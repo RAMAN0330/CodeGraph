@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FileUp, ShieldAlert, Trash2 } from 'lucide-react';
+import { Download, FileUp, ShieldAlert, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SummaryStrip } from '../../../shared/components/SummaryStrip';
+import { downloadCsv } from '../../../shared/services/exportCsv';
 import { appConfig } from '../../../app/config';
 import { CoverageFormatError, coverageRisk, matchCoverageToRepo, parseCoverage, percent, type LineCounts } from '../services/coverage';
 
@@ -90,15 +92,18 @@ export default function CoverageView({ owner, repo, branch, data, onOpenFile }: 
 
       {report && totals && (
         <>
-          <div className="db-usage-impact coverage-stats">
-            <div><strong>{totals.percent}%</strong><span>line coverage</span></div>
-            <div><strong>{totals.files}</strong><span>files in the report</span></div>
-            <div><strong>{risks.length}</strong><span>files at risk</span></div>
-          </div>
+          <SummaryStrip items={[
+            { label: 'Line coverage', value: `${totals.percent}%`, tone: totals.percent >= 80 ? 'good' : totals.percent >= 50 ? 'warn' : 'bad', sub: 'Across the report' },
+            { label: 'Files in report', value: totals.files },
+            { label: 'Files at risk', value: risks.length, tone: risks.length ? 'warn' : 'good', sub: 'Used widely, poorly tested' },
+            { label: 'Untested', value: missing.length, tone: missing.length ? 'warn' : 'good', sub: 'Absent from report' },
+          ]} />
           <p className="coverage-meta">{report.format} report uploaded {new Date(report.uploadedAt).toLocaleString()}{report.uploadedBy ? ` by ${report.uploadedBy}` : ''}.</p>
           <div className="guide-grid">
             <section className="guide-card">
-              <h2><ShieldAlert size={15} /> Widely used, poorly tested</h2>
+              <h2><ShieldAlert size={15} /> Widely used, poorly tested
+                {risks.length > 0 && <Button variant="ghost" size="sm" className="ml-auto h-7 gap-1 text-xs" onClick={() => downloadCsv('coverage-risk.csv', ['File', 'Coverage %', 'Dependents', 'Risk'], risks.map(r => [r.path, r.percent, r.dependents, r.risk]))}><Download className="size-3.5" /> CSV</Button>}
+              </h2>
               {risks.length ? (
                 <table className="hotspots-table">
                   <thead><tr><th scope="col">File</th><th scope="col">Coverage</th><th scope="col">Dependents</th><th scope="col">Risk</th></tr></thead>
