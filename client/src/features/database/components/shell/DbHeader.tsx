@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { Database, RefreshCw, Pause, Play, Settings2, MoreVertical, FileCode, LayoutDashboard } from 'lucide-react';
+import { Database, RefreshCw, Pause, Play, Settings2, MoreVertical, FileCode } from 'lucide-react';
 import type { DbIdentity, HealthStatus, TimeRange } from '../../types';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ThemeToggle } from '../../../../shared/components/ThemeToggle';
 
 const RANGES: { id: TimeRange; label: string }[] = [
   { id: 'live', label: 'Live' },
@@ -31,26 +32,14 @@ interface DbHeaderProps {
   onTogglePause: () => void;
   onRefresh: () => void;
   onOpenSettings: () => void;
-  onNewConnection?: () => void;
   onOpenMigration?: () => void;
 }
 
 export default function DbHeader({
   workspaceName, onOpenWorkspace, projectName, onBackToProjects, currentSectionLabel,
   identity, healthStatus, range, onRangeChange,
-  paused, onTogglePause, onRefresh, onOpenSettings, onNewConnection, onOpenMigration,
+  paused, onTogglePause, onRefresh, onOpenSettings, onOpenMigration,
 }: DbHeaderProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onMouseDown(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
-    }
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
-  }, []);
-
   const engineLabel = identity?.dbType === 'mysql' ? 'MySQL' : 'PostgreSQL';
 
   return (
@@ -60,9 +49,9 @@ export default function DbHeader({
           <span className="db-brand-mark"><Database size={18} /></span>
         </Button>
         <nav className="db-breadcrumb" aria-label="Breadcrumb">
-          <Button variant="ghost" onClick={onOpenWorkspace} title={workspaceName}>Workspace</Button>
+          <Button variant="ghost" onClick={onOpenWorkspace} title="All workspaces">{workspaceName}</Button>
           <span className="db-breadcrumb-sep">/</span>
-          <Button variant="ghost" onClick={onBackToProjects} title={projectName}>Project</Button>
+          <Button variant="ghost" onClick={onBackToProjects} title="Back to projects">{projectName}</Button>
           <span className="db-breadcrumb-sep">/</span>
           <span className="db-breadcrumb-current">{currentSectionLabel}</span>
         </nav>
@@ -84,23 +73,17 @@ export default function DbHeader({
           {paused ? <Play size={15} /> : <Pause size={15} />}
         </Button>
         <Button variant="ghost" className="db-header-action" onClick={onOpenSettings}><Settings2 size={14} /> Database Settings</Button>
-        <div ref={menuRef} style={{ position: 'relative' }}>
-          <Button variant="ghost" className="db-header-icon-btn" onClick={() => setMenuOpen(o => !o)} aria-expanded={menuOpen} title="More actions"><MoreVertical size={15} /></Button>
-          {menuOpen && (
-            <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 40, minWidth: 180, padding: 5, border: '1px solid var(--border-subtle)', borderRadius: 9, background: 'var(--surface-card)', boxShadow: '0 16px 36px rgba(20,24,32,.14)' }}>
-              {onOpenMigration && (
-                <Button variant="ghost" onClick={() => { setMenuOpen(false); onOpenMigration(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 8, border: 0, borderRadius: 7, background: 'transparent', color: 'var(--text-primary)', font: 'inherit', fontSize: 11, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }}>
-                  <FileCode size={14} /> Migration
-                </Button>
-              )}
-              {onNewConnection && (
-                <Button variant="ghost" onClick={() => { setMenuOpen(false); onNewConnection(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: 8, border: 0, borderRadius: 7, background: 'transparent', color: 'var(--text-primary)', font: 'inherit', fontSize: 11, fontWeight: 600, textAlign: 'left', cursor: 'pointer' }}>
-                  <LayoutDashboard size={14} /> New Connection
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
+        <ThemeToggle />
+        {onOpenMigration && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="db-header-icon-btn" title="More actions"><MoreVertical size={15} /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onOpenMigration}><FileCode size={14} /> Migration</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </header>
   );

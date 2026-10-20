@@ -1,28 +1,26 @@
-import { useCallback } from 'react';
-import { AlertTriangle, ArrowRight, Server, Database, Clock, Activity, Gauge, Link2, Zap, HardDrive } from 'lucide-react';
-import { GG, GGErrorBanner } from '../dbConnectTheme';
-import KpiCard from '../ui/KpiCard';
+import { useCallback, useMemo } from 'react';
+import { AlertTriangle, ArrowRight } from 'lucide-react';
+import { GGErrorBanner } from '../dbConnectTheme';
 import MiniLineChart from '../ui/MiniLineChart';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import { useRollingSeries } from '../../services/useRollingSeries';
-import type { DbNavId, HealthStatus } from '../../types';
+import type { DbNavId, HealthStatus, Schema } from '../../types';
+import { DashboardGrid, EmptyNote, Meter, Metric, Panel } from '../../../../shared/components/Dashboard';
+import { toneText, type Tone } from '../../../../shared/components/dashboardTones';
 import { Button } from '@/components/ui/button';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) return 'Not available';
+function formatBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined) return 'Not available';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes, i = 0;
+  let value = Math.abs(bytes), i = 0;
   while (value >= 1024 && i < units.length - 1) { value /= 1024; i += 1; }
-  return `${value.toFixed(value >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
+  return `${bytes < 0 ? '-' : ''}${value.toFixed(value >= 100 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function statusColor(status: HealthStatus): string {
-  if (status === 'healthy') return GG.cyan;
-  if (status === 'warning') return 'var(--color-warning)';
-  if (status === 'critical') return 'var(--color-danger)';
-  return GG.fg4;
-}
+const STATUS_TONE: Record<HealthStatus, Tone> = { healthy: 'good', warning: 'warn', critical: 'bad', unknown: 'neutral' };
+const STATUS_LABEL: Record<HealthStatus, string> = { healthy: 'Healthy', warning: 'Warning', critical: 'Critical', unknown: 'Unknown' };
 
 const CATEGORY_LABEL: Record<string, string> = {
   connections: 'Connections', latency: 'Latency', queries: 'Queries', locks: 'Locks',
@@ -31,163 +29,149 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 interface OverviewPageProps {
   projectId: number;
+  schema: Schema;
   paused: boolean;
   onNavigate: (section: DbNavId) => void;
 }
 
-export default function OverviewPage({ projectId, paused, onNavigate }: OverviewPageProps) {
+export default function OverviewPage({ projectId, schema, paused, onNavigate }: OverviewPageProps) {
   const fetcher = useCallback(() => dbTelemetryApi.overview(projectId), [projectId]);
   const { data, loading, error } = useDbTelemetry(fetcher, [projectId], { pollMs: 10000, paused });
 
   const opsHistory = useRollingSeries(data?.opsPerSecond ?? null, `ops-${projectId}`);
   const latencyHistory = useRollingSeries(data?.latencyMs ?? null, `latency-${projectId}`);
 
-  if (loading && !data) return <div style={{ padding: 40, color: GG.fg3, fontFamily: GG.mono, fontSize: 12 }}>Loading overview…</div>;
-  if (error && !data) return <GGErrorBanner msg={error} />;
+  const schemaSummary = useMemo(() => {
+    const tables = schema.tables ?? [];
+    const largest = [...tables]
+      .filter(t => (t.sizeBytes ?? t.rowEstimate ?? 0) > 0)
+      .sort((a, b) => (b.sizeBytes ?? b.rowEstimate ?? 0) - (a.sizeBytes ?? a.rowEstimate ?? 0))
+      .slice(0, 5);
+    return {
+      tables: tables.length,
+      foreignKeys: tables.reduce((sum, t) => sum + t.foreignKeys.length, 0),
+      noPrimaryKey: tables.filter(t => !t.columns.some(c => c.isPrimary)).length,
+      largest,
+      maxSize: Math.max(1, ...largest.map(t => t.sizeBytes ?? t.rowEstimate ?? 0)),
+    };
+  }, [schema]);
+
+  if (loading && !data) {
+    return (
+      <DashboardGrid className="lg:grid-cols-6 lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]">
+        {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        <Skeleton className="h-full min-h-40 rounded-xl lg:col-span-6" />
+        <Skeleton className="h-full min-h-40 rounded-xl lg:col-span-6" />
+      </DashboardGrid>
+    );
+  }
+  if (error && !data) return <div className="p-4"><GGErrorBanner msg={error} /></div>;
   if (!data) return null;
 
   const uptime = data.identity.uptimeSeconds !== null
-    ? `${Math.floor(data.identity.uptimeSeconds / 86400)}d ${Math.floor((data.identity.uptimeSeconds % 86400) / 3600)}h`
-    : 'Not available';
+    ? `up ${Math.floor(data.identity.uptimeSeconds / 86400)}d ${Math.floor((data.identity.uptimeSeconds % 86400) / 3600)}h`
+    : null;
+  const { connections } = data;
+  const connectionRows: [string, number][] = [['Active', connections.active], ['Idle', connections.idle], ['Waiting', connections.waiting]];
+  const connectionScale = Math.max(1, connections.max ?? connections.total);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18, width: '100%' }}>
-      {/* Header */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-        {[
-          [Server, 'Host', data.identity.host],
-          [Database, 'Database', data.identity.database],
-          [Clock, 'Uptime', uptime],
-        ].map(([Icon, label, value]) => {
-          const IconComp = Icon as typeof Server;
-          return (
-            <div key={label as string} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 18px', background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-              <span style={{ display: 'grid', placeItems: 'center', width: 34, height: 34, flexShrink: 0, borderRadius: 9, background: `${GG.accent}18`, color: GG.accent }}>
-                <IconComp size={16} />
-              </span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: GG.mono, fontSize: 9, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>{label as string}</div>
-                <div style={{ fontFamily: GG.sans, fontSize: 13, color: GG.fg, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value as string}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <DashboardGrid className={cn('lg:grid-cols-12', data.activeAlerts.length ? 'lg:grid-rows-[auto_auto_minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]')}>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:col-span-12 lg:grid-cols-6" aria-label="Database health">
+        <Metric label="Health" value={data.healthScore} tone={STATUS_TONE[data.healthStatus]} sub={[STATUS_LABEL[data.healthStatus], uptime].filter(Boolean).join(' · ')} />
+        <Metric label="Latency" value={data.latencyMs === null ? '—' : `${data.latencyMs.toFixed(0)} ms`} sub={data.latencyMs === null ? 'Not available' : 'Round trip'} />
+        <Metric label="Connections" value={connections.max ? `${connections.active}/${connections.max}` : connections.active} sub={`${connections.total} open`} onClick={() => onNavigate('performance')} />
+        <Metric label="Operations" value={data.opsPerSecond === null ? '—' : `${data.opsPerSecond.toFixed(0)}/s`} sub={data.opsPerSecond === null ? 'Warming up' : 'Per second'} onClick={() => onNavigate('performance')} />
+        <Metric label="Size" value={formatBytes(data.databaseSizeBytes)} sub={data.storageGrowthBytes7d === null ? 'Growth: collecting history' : `${data.storageGrowthBytes7d >= 0 ? '+' : ''}${formatBytes(data.storageGrowthBytes7d)} in 7 days`} onClick={() => onNavigate('storage')} />
+        <Metric label="Active issues" value={data.activeIssues} tone={data.criticalIssues ? 'bad' : data.activeIssues ? 'warn' : 'good'} sub={data.criticalIssues ? `${data.criticalIssues} critical` : data.activeIssues ? 'Needs a look' : 'None'} onClick={() => onNavigate('alerts')} />
+      </section>
 
       {data.activeAlerts.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(224,108,117,.08)', border: '1px solid rgba(224,108,117,.3)', borderRadius: 8, color: 'var(--color-danger)', fontFamily: GG.mono, fontSize: 12 }}>
-          <AlertTriangle size={14} /> {data.activeAlerts.length} alert{data.activeAlerts.length === 1 ? '' : 's'} active
-          <Button variant="ghost" onClick={() => onNavigate('alerts')} style={{ marginLeft: 'auto', background: 'none', border: 0, color: 'var(--color-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View <ArrowRight size={12} /></Button>
-        </div>
+        <section className="flex items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--color-danger)_35%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)] px-4 py-2 text-xs lg:col-span-12" role="status">
+          <AlertTriangle className={cn('size-4 shrink-0', toneText.bad)} />
+          <b>{data.activeAlerts.length} alert{data.activeAlerts.length === 1 ? '' : 's'} firing</b>
+          <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => onNavigate('alerts')}>View alerts <ArrowRight className="size-3.5" /></Button>
+        </section>
       )}
 
-      {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
-        <KpiCard icon={<Activity size={14} />} value={data.healthScore} label="Database Health" sub={data.healthStatus === 'healthy' ? 'Healthy' : data.healthStatus === 'warning' ? 'Warning' : 'Critical'} subTone={data.healthStatus === 'healthy' ? 'good' : data.healthStatus === 'warning' ? 'neutral' : 'bad'} />
-        <KpiCard icon={<Gauge size={14} />} value={data.latencyMs === null ? '—' : `${data.latencyMs.toFixed(0)} ms`} label="Round-trip latency" sub={data.latencyMs === null ? 'Not available' : undefined} />
-        <KpiCard icon={<Link2 size={14} />} value={data.connections.active} label="Active Connections" sub={`${data.connections.total} total`} onClick={() => onNavigate('performance')} />
-        <KpiCard icon={<Zap size={14} />} value={data.opsPerSecond === null ? '—' : `${data.opsPerSecond.toFixed(0)}/s`} label="Operations" sub={data.opsPerSecond === null ? 'Warming up' : undefined} onClick={() => onNavigate('performance')} />
-        <KpiCard icon={<HardDrive size={14} />} value={formatBytes(data.databaseSizeBytes)} label="Database Size" sub={data.storageGrowthBytes7d === null ? 'Growth: collecting history' : `${data.storageGrowthBytes7d >= 0 ? '+' : ''}${formatBytes(data.storageGrowthBytes7d)} / 7d`} onClick={() => onNavigate('storage')} />
-        <KpiCard icon={<AlertTriangle size={14} />} value={data.activeIssues} label="Active Issues" sub={data.criticalIssues > 0 ? `${data.criticalIssues} critical` : undefined} subTone={data.criticalIssues > 0 ? 'bad' : 'neutral'} onClick={() => onNavigate('alerts')} />
-      </div>
-
-      {/* Second row: throughput + connections */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 14 }}>Operations / second</div>
-          <MiniLineChart series={[{ label: 'Ops/sec', color: GG.accent, points: opsHistory }, { label: 'Latency (ms)', color: GG.magenta, points: latencyHistory }]} />
+      <Panel title="Throughput and latency" meta="Live, since this page opened" action="Performance" onAction={() => onNavigate('performance')} className="lg:col-span-6">
+        <div className="min-h-32 flex-1">
+          <MiniLineChart fill series={[{ label: 'Operations / s', color: 'var(--teal-500)', points: opsHistory }, { label: 'Latency (ms)', color: 'var(--chart-purple)', points: latencyHistory }]} />
         </div>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 14 }}>Connections</div>
-          {[
-            ['Active', data.connections.active],
-            ['Idle', data.connections.idle],
-            ['Waiting', data.connections.waiting],
-            ['Total', data.connections.total],
-          ].map(([label, value]) => (
-            <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderTop: `1px solid ${GG.line}`, fontFamily: GG.mono, fontSize: 12 }}>
-              <span style={{ color: GG.fg3 }}>{label}</span>
-              <strong style={{ color: GG.fg }}>{value}</strong>
-            </div>
+      </Panel>
+
+      <Panel title="Connections" meta={connections.max ? `${connections.total} of ${connections.max} allowed` : `${connections.total} open`} className="lg:col-span-3">
+        <div className="my-auto flex flex-col">
+          {connectionRows.map(([label, value]) => (
+            <Meter key={label} label={label} value={(value / connectionScale) * 100} display={value} tone={label === 'Waiting' && value > 0 ? 'warn' : 'neutral'} />
           ))}
         </div>
-      </div>
+      </Panel>
 
-      {/* Third row: health matrix + live activity */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 10 }}>Database Health</div>
+      <Panel title="Health checks" meta={`${data.healthMatrix.filter(row => row.status === 'healthy').length} of ${data.healthMatrix.length} healthy`} className="lg:col-span-3">
+        <ul className="flex min-h-0 flex-col text-xs">
           {data.healthMatrix.map(row => (
-            <div key={row.category} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderTop: `1px solid ${GG.line}`, fontFamily: GG.sans, fontSize: 12.5 }}>
-              <span style={{ color: GG.fg2 }}>{CATEGORY_LABEL[row.category]}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: statusColor(row.status), fontWeight: 700, fontSize: 11, textTransform: 'capitalize' }}>
-                {row.detail && <span style={{ color: GG.fg4, fontWeight: 400, fontFamily: GG.mono }}>{row.detail}</span>}
-                {row.status}
+            <li key={row.category} className="flex items-center justify-between gap-2 border-b py-1.5" title={row.detail ?? undefined}>
+              <span className="truncate">{CATEGORY_LABEL[row.category]}</span>
+              <span className={cn('flex shrink-0 items-center gap-1.5 font-semibold', toneText[STATUS_TONE[row.status]])}>
+                <i className="size-1.5 rounded-full bg-current" />{STATUS_LABEL[row.status]}
               </span>
-            </div>
+            </li>
           ))}
-        </div>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em' }}>Live Activity</span>
-            <Button variant="ghost" onClick={() => onNavigate('activity')} style={{ background: 'none', border: 0, color: GG.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View Activity <ArrowRight size={12} /></Button>
-          </div>
-          {data.recentActivity.length === 0 ? (
-            <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5, fontStyle: 'italic' }}>No notable events since the dashboard started polling.</p>
-          ) : data.recentActivity.map((event, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 0', borderTop: i > 0 ? `1px solid ${GG.line}` : 'none', fontFamily: GG.mono, fontSize: 11.5 }}>
-              <span style={{ color: GG.fg4, flex: '0 0 auto' }}>{new Date(event.at).toLocaleTimeString()}</span>
-              <span style={{ color: GG.fg2, flex: 1 }}>{event.summary}</span>
-              {event.detail && <span style={{ color: GG.fg4 }}>{event.detail}</span>}
-            </div>
-          ))}
-        </div>
-      </div>
+        </ul>
+      </Panel>
 
-      {/* Fourth row: top problem queries + storage growth */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 24 }}>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em' }}>Top Problem Queries</span>
-            <Button variant="ghost" onClick={() => onNavigate('queries')} style={{ background: 'none', border: 0, color: GG.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, font: 'inherit', fontSize: 11, fontWeight: 700 }}>View all <ArrowRight size={12} /></Button>
-          </div>
-          {Array.isArray(data.topQueries) ? (
-            data.topQueries.length === 0 ? <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5, fontStyle: 'italic' }}>No queries recorded yet.</p> : (
-              <Table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: GG.mono, fontSize: 11.5 }}>
-                <TableHeader><TableRow style={{ color: GG.fg4, textAlign: 'left' }}>
-                  <TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Query</TableHead><TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Avg</TableHead><TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Calls</TableHead><TableHead style={{ fontWeight: 600, paddingBottom: 6 }}>Impact</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {data.topQueries.map(q => (
-                    <TableRow key={q.fingerprint} style={{ borderTop: `1px solid ${GG.line}` }}>
-                      <TableCell style={{ padding: '7px 0', color: GG.fg2, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</TableCell>
-                      <TableCell style={{ color: GG.fg2 }}>{q.avgMs.toFixed(0)}ms</TableCell>
-                      <TableCell style={{ color: GG.fg2 }}>{q.calls.toLocaleString()}</TableCell>
-                      <TableCell style={{ color: q.impact === 'critical' ? 'var(--color-danger)' : q.impact === 'high' ? 'var(--color-warning)' : GG.fg3, fontWeight: 700, textTransform: 'capitalize' }}>{q.impact}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )
-          ) : (
-            <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 11.5 }}>{data.topQueries.reason}</p>
-          )}
+      <Panel title="Slowest queries" meta="By total time" action="Queries" onAction={() => onNavigate('queries')} className="lg:col-span-6">
+        {Array.isArray(data.topQueries) ? (
+          data.topQueries.length === 0 ? <EmptyNote>No queries recorded yet.</EmptyNote> : (
+            <table className="w-full table-fixed text-xs">
+              <thead className="text-left text-muted-foreground">
+                <tr><th className="pb-1.5 font-medium">Query</th><th className="w-16 pb-1.5 text-right font-medium">Avg</th><th className="w-20 pb-1.5 text-right font-medium">Calls</th><th className="w-20 pb-1.5 text-right font-medium">Impact</th></tr>
+              </thead>
+              <tbody>
+                {data.topQueries.slice(0, 6).map(q => (
+                  <tr key={q.fingerprint} className="border-t">
+                    <td className="truncate py-1.5 pr-3 font-mono" title={q.query}>{q.query}</td>
+                    <td className="text-right font-mono">{q.avgMs.toFixed(0)} ms</td>
+                    <td className="text-right font-mono">{q.calls.toLocaleString()}</td>
+                    <td className={cn('text-right font-semibold capitalize', toneText[q.impact === 'critical' ? 'bad' : q.impact === 'high' ? 'warn' : 'neutral'])}>{q.impact}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        ) : <EmptyNote>{data.topQueries.reason}</EmptyNote>}
+      </Panel>
+
+      <Panel title="Schema" meta={`${data.identity.database} on ${data.identity.host}`} action="Explore" onAction={() => onNavigate('schema')} className="lg:col-span-3">
+        <div className="grid grid-cols-3 gap-2">
+          <Metric label="Tables" value={schemaSummary.tables} />
+          <Metric label="Keys" value={schemaSummary.foreignKeys} />
+          <Metric label="No PK" value={schemaSummary.noPrimaryKey} tone={schemaSummary.noPrimaryKey ? 'warn' : 'good'} />
         </div>
-        <div style={{ padding: 18, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12 }}>
-          <div style={{ fontFamily: GG.mono, fontSize: 10, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 10 }}>Storage Growth</div>
-          <div style={{ fontFamily: GG.mono, fontSize: 20, fontWeight: 700, color: GG.fg }}>{formatBytes(data.databaseSizeBytes)}</div>
-          <div style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg4, marginTop: 4 }}>7 day growth</div>
-          <div style={{ fontFamily: GG.mono, fontSize: 13, color: data.storageGrowthBytes7d === null ? GG.fg4 : GG.cyan, marginBottom: 12 }}>
-            {data.storageGrowthBytes7d === null ? 'Collecting history' : `${data.storageGrowthBytes7d >= 0 ? '+' : ''}${formatBytes(data.storageGrowthBytes7d)}`}
+        <p className="mt-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Largest tables</p>
+        {schemaSummary.largest.length ? (
+          <div className="flex min-h-0 flex-col">
+            {schemaSummary.largest.map(t => {
+              const size = t.sizeBytes ?? t.rowEstimate ?? 0;
+              return <Meter key={`${t.schema ?? ''}.${t.name}`} label={<span className="font-mono">{t.name}</span>} value={(size / schemaSummary.maxSize) * 100} display={t.sizeBytes ? formatBytes(t.sizeBytes) : size.toLocaleString()} />;
+            })}
           </div>
-          {data.largestObject && (
-            <>
-              <div style={{ fontFamily: GG.mono, fontSize: 9, color: GG.fg4, textTransform: 'uppercase', letterSpacing: '.08em' }}>Largest object</div>
-              <div style={{ fontFamily: GG.mono, fontSize: 12, color: GG.fg2 }}>{data.largestObject.name} · {formatBytes(data.largestObject.sizeBytes)}</div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+        ) : <EmptyNote>{data.largestObject ? `${data.largestObject.name} · ${formatBytes(data.largestObject.sizeBytes)}` : 'Table sizes are not available.'}</EmptyNote>}
+      </Panel>
+
+      <Panel title="Recent activity" action="Activity" onAction={() => onNavigate('activity')} className="lg:col-span-3">
+        {data.recentActivity.length === 0 ? <EmptyNote>No notable events since the dashboard started polling.</EmptyNote> : (
+          <ul className="flex min-h-0 flex-col divide-y text-xs">
+            {data.recentActivity.map((event, i) => (
+              <li key={i} className="flex gap-2 py-1.5">
+                <time className="shrink-0 font-mono text-muted-foreground">{new Date(event.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                <span className="truncate" title={event.detail}>{event.summary}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+    </DashboardGrid>
   );
 }

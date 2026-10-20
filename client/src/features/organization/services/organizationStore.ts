@@ -32,6 +32,8 @@ export type CreateProjectInput = {
 };
 export type OrganizationState = { workspaces: Workspace[]; projects: Project[] };
 
+export const projectPath = (project: Pick<Project, 'id' | 'workspaceId'>) => `/workspaces/${project.workspaceId}/projects/${project.id}`;
+
 const emptyState = (): OrganizationState => ({ workspaces: [], projects: [] });
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {

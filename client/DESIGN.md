@@ -2,18 +2,18 @@
 name: Structrace
 description: A code-intelligence workspace that turns a repository into an explorable dependency graph.
 colors:
-  bg-canvas: "#F6F8FB"
+  bg-canvas: "#F7F6FC"
   surface-card: "#ffffff"
-  surface-subtle: "#F8FAFC"
-  surface-hover: "#F1F5F9"
-  text-primary: "#111827"
-  text-secondary: "#64748B"
-  text-muted: "#94A3B8"
-  border-subtle: "#E2E8F0"
-  border-medium: "#CBD5E1"
-  indigo-500: "#4F46E5"
-  indigo-600: "#4338CA"
-  indigo-wash: "#EEF0FF"
+  surface-subtle: "#FAF9FE"
+  surface-hover: "#F1EFFA"
+  text-primary: "#16142E"
+  text-secondary: "#5E5A7A"
+  text-muted: "#7D7997"
+  border-subtle: "#E4E1F2"
+  border-medium: "#D3CFE6"
+  indigo-500: "#312E9E"
+  indigo-600: "#262380"
+  indigo-wash: "#ede9fe"
   color-success: "#059669"
   color-warning: "#D97706"
   color-danger: "#DC2626"
@@ -104,6 +104,21 @@ components:
     rounded: "{rounded.md}"
     padding: "0 18px"
     height: "60px"
+## Workspace theme (current)
+
+The workspace, database, projects and settings screens use the same tokens as the landing page (`.claude/skills/design-theme`) through shadcn components. The YAML above lists the light values; the section below overrides anything it contradicts.
+
+- **Tokens:** `:root` in `src/index.css` holds the light values (lavender canvas `#F7F6FC`, ink `#16142E`, deep indigo `#312E9E` for actions). `:root[data-theme="dark"]` holds a neutral charcoal set (`#141416` canvas, `#1E1E21` cards, `#EDEDEF` text, off-white primary, periwinkle `#A5B4FC` accent). Dark is never purple-tinted. Components use tokens (`var(--surface-card)`, `--on-primary`), never hex.
+- **Toggle:** `ThemeToggle` sits in every app top bar. It writes `data-theme` on `<html>` and saves to `localStorage` under `landing-theme`, shared with the landing page; the default follows `prefers-color-scheme`.
+- **Components:** shadcn `Button`, `Card`, `Badge`, `Table`, `DropdownMenu`, `Skeleton`, `Tooltip`. Dashboards compose `shared/components/Dashboard.tsx` (`DashboardGrid`, `Panel`, `Metric`, `Meter`). State colour (green, amber, red) means state only.
+- **Fit to screen:** on desktop (≥769px) the Workspaces, Projects, Codebase Overview and Database Overview pages never scroll the page. Panels clip or scroll inside themselves; phones keep normal scrolling.
+- **Routes:** codebase and database workspaces open only from a project, at `/workspaces/:workspaceId/projects/:projectId`. `/db` and `/workspace` forward to the matching project.
+
+### Overview dashboards
+
+- **Codebase:** health and size row; architecture (cycles, rule violations); issues by severity; security (code findings, vulnerable packages); hotspots; next steps; ownership risk.
+- **Database:** health row (health, latency, connections, operations, size, issues); throughput and latency chart; connections; health checks; slowest queries; schema summary; recent activity.
+
 ---
 
 # Design System: Structrace

@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { computeOwnershipRisk, type OwnershipRiskSummary } from '../../git-insights/services/ownershipRisk';
+import { EmptyNote, Metric, Panel } from '../../../shared/components/Dashboard';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Props {
   repoInfo: { owner: string; repo: string } | null | undefined;
   files: { path?: string; name?: string }[];
+  className?: string;
 }
 
 type State =
@@ -12,10 +15,9 @@ type State =
   | { status: 'ready'; summary: OwnershipRiskSummary }
   | { status: 'unavailable'; reason: string };
 
-const CONTRIBUTOR_ROWS = 5;
-const OWNER_ROWS = 5;
+const OWNER_ROWS = 4;
 
-export default function OwnershipRiskPanel({ repoInfo, files }: Props) {
+export default function OwnershipRiskPanel({ repoInfo, files, className }: Props) {
   const [state, setState] = useState<State>({ status: 'idle' });
 
   useEffect(() => {
@@ -47,81 +49,43 @@ export default function OwnershipRiskPanel({ repoInfo, files }: Props) {
   }, [repoInfo, files]);
 
   return (
-    <article className="overview-panel ov-area-own">
-      <div className="overview-panel-heading">
-        <div><h2>Ownership risk</h2></div>
-        <small>Top {state.status === 'ready' ? state.summary.sampledFolders : 8} areas · last 30 commits each</small>
-      </div>
-
+    <Panel title="Ownership risk" meta={`Top ${state.status === 'ready' ? state.summary.sampledFolders : 8} areas · last 30 commits each`} className={className}>
       {state.status === 'loading' && (
-        <div className="ov-owner-skeleton" aria-hidden="true">
-          {[64, 44, 78, 52, 70].map((width, index) => <span key={index} style={{ width: `${width}%` }} />)}
+        <div className="flex flex-col gap-2" aria-hidden="true">
+          {[64, 44, 78, 52].map((width, index) => <Skeleton key={index} className="h-4" style={{ width: `${width}%` }} />)}
         </div>
       )}
-
-      {state.status === 'unavailable' && <p className="overview-panel-empty">{state.reason}</p>}
-
+      {state.status === 'unavailable' && <EmptyNote>{state.reason}</EmptyNote>}
       {state.status === 'ready' && <OwnershipSummary summary={state.summary} />}
-    </article>
+    </Panel>
   );
 }
 
 function OwnershipSummary({ summary }: { summary: OwnershipRiskSummary }) {
   const singleOwner = summary.folders.filter(folder => folder.authors.length === 1);
-  const contributors = summary.contributors.slice(0, CONTRIBUTOR_ROWS);
   const concentrated = summary.busFactor !== null && summary.busFactor <= 2;
+  const lead = summary.contributors[0];
 
   return (
-    <div className="ov-owner-body">
-      <div>
-        <div className="ov-stat-grid ov-stat-grid-2">
-          <div className={concentrated ? 'risk' : undefined}>
-            <strong>{summary.busFactor ?? '—'}</strong>
-            <span>Bus factor</span>
-          </div>
-          <div className={singleOwner.length ? 'risk' : undefined}>
-            <strong>{singleOwner.length}<em className="ov-owner-of">/{summary.ownedFolders}</em></strong>
-            <span>Single-owner areas</span>
-          </div>
-        </div>
-        <p className="ov-owner-verdict">
-          {summary.busFactor === null
-            ? 'Contributor history was not available for this repository.'
-            : concentrated
-              ? `${summary.busFactor === 1 ? 'One person has' : `${summary.busFactor} people have`} written most of this codebase. Losing ${summary.busFactor === 1 ? 'them' : 'either'} would take most of the working knowledge with ${summary.busFactor === 1 ? 'them' : 'it'}.`
-              : `Commits spread across ${summary.busFactor} people before reaching half the codebase.`}
-        </p>
+    <div className="flex min-h-0 flex-col gap-2">
+      <div className="grid grid-cols-2 gap-2">
+        <Metric label="Bus factor" value={summary.busFactor ?? '—'} tone={concentrated ? 'bad' : 'good'}
+          sub={summary.busFactor === null ? 'No history' : concentrated ? 'Knowledge is concentrated' : 'Spread out'} />
+        <Metric label="Single-owner areas" value={`${singleOwner.length}/${summary.ownedFolders}`} tone={singleOwner.length ? 'warn' : 'good'}
+          sub={lead ? `${lead.name} wrote ${Math.round(lead.share * 100)}%` : undefined} />
       </div>
-
-      {contributors.length > 0 && (
-        <div>
-          <p className="ov-owner-subhead">Share of commits</p>
-          <div className="ov-owner-bars">
-            {contributors.map(person => (
-              <div className="ov-owner-bar" key={person.name}>
-                <div><span>{person.name}</span><b>{Math.round(person.share * 100)}%</b></div>
-                <div className="ov-owner-track"><i style={{ width: `${Math.max(2, Math.round(person.share * 100))}%` }} /></div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {singleOwner.length > 0 ? (
+        <ul className="flex min-h-0 flex-col divide-y text-xs">
+          {singleOwner.slice(0, OWNER_ROWS).map(folder => (
+            <li key={folder.folder} className="flex items-center justify-between gap-3 py-1.5">
+              <span className="truncate font-mono">{folder.folder}</span>
+              <span className="shrink-0 text-muted-foreground">{folder.authors[0].name} · {folder.fileCount} file{folder.fileCount === 1 ? '' : 's'}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyNote>No sampled area depends on a single author.</EmptyNote>
       )}
-
-      <div>
-        <p className="ov-owner-subhead">Areas with one author</p>
-        {singleOwner.length > 0 ? (
-          <div className="ov-since-list">
-            {singleOwner.slice(0, OWNER_ROWS).map(folder => (
-              <div key={folder.folder}>
-                <span className="ov-owner-folder">{folder.folder}</span>
-                <span className="ov-owner-name">{folder.authors[0].name} · {folder.fileCount} file{folder.fileCount === 1 ? '' : 's'}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="ov-owner-clear">No sampled area depends on a single author.</p>
-        )}
-      </div>
     </div>
   );
 }

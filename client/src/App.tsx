@@ -1,16 +1,17 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { lazy, Suspense, useLayoutEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { applyTheme, initialTheme } from './shared/hooks/useTheme';
 import './App.css';
 
 const LandingPage = lazy(() => import('./features/landing/pages/LandingPage'));
-const DatabaseVisualizer = lazy(() => import('./features/database/pages/DatabaseVisualizer'));
-const WorkspaceArea = lazy(() => import('./features/workspace/pages/WorkspaceArea'));
 const LoginPage = lazy(() => import('./features/auth/pages/LoginPage'));
 const RegisterPage = lazy(() => import('./features/auth/pages/RegisterPage'));
 const WelcomePage = lazy(() => import('./features/auth/pages/WelcomePage'));
 const WorkspacesPage = lazy(() => import('./features/organization/pages/WorkspacesPage'));
 const ProjectsPage = lazy(() => import('./features/organization/pages/ProjectsPage'));
+const ProjectPage = lazy(() => import('./features/organization/pages/ProjectPage'));
+const LegacyProjectRedirect = lazy(() => import('./features/organization/pages/ProjectPage').then(module => ({ default: module.LegacyProjectRedirect })));
 
 export function RouteFallback() {
   return (
@@ -29,6 +30,9 @@ export function RouteFallback() {
 }
 
 function App() {
+  const { pathname } = useLocation();
+  // The landing page carries its own theme; the app screens theme <html>.
+  useLayoutEffect(() => applyTheme(pathname === '/' ? null : initialTheme()), [pathname]);
   return (
     <TooltipProvider delayDuration={200}>
       <div className="app-container">
@@ -38,10 +42,11 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/welcome" element={<WelcomePage />} />
-            <Route path="/db" element={<DatabaseVisualizer />} />
-            <Route path="/workspace" element={<WorkspaceArea />} />
+            <Route path="/db" element={<LegacyProjectRedirect />} />
+            <Route path="/workspace" element={<LegacyProjectRedirect />} />
             <Route path="/workspaces" element={<WorkspacesPage />} />
             <Route path="/workspaces/:workspaceId/projects" element={<ProjectsPage />} />
+            <Route path="/workspaces/:workspaceId/projects/:projectId" element={<ProjectPage />} />
           </Routes>
         </Suspense>
       </div>

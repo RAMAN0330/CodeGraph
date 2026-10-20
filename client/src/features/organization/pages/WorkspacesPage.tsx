@@ -7,6 +7,7 @@ import { peekPendingRepository } from '../services/pendingRepository';
 import { relativeTime } from '../services/relativeTime';
 import { TopbarSearch } from '../components/TopbarSearch';
 import { TopbarAccount } from '../components/TopbarAccount';
+import { ThemeToggle } from '../../../shared/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,7 +57,7 @@ export default function WorkspacesPage() {
   const pendingProjectCount = pendingDelete ? projectsFor(pendingDelete.id).length : 0;
 
   return <main className="organization-page workspace-details-page">
-    <header className="organization-topbar workspace-details-topbar"><div className="organization-brand"><span className="organization-brand-mark"><GitBranch size={20} /></span><strong>Structrace</strong><span className="organization-brand-divider" /><em>Workspaces</em></div><div className="topbar-actions"><TopbarSearch value={query} onChange={setQuery} placeholder="Search workspaces" className="topbar-search-slot" /><TopbarAccount /></div></header>
+    <header className="organization-topbar workspace-details-topbar"><div className="organization-brand"><span className="organization-brand-mark"><GitBranch size={20} /></span><strong>Structrace</strong><span className="organization-brand-divider" /><em>Workspaces</em></div><div className="topbar-actions"><TopbarSearch value={query} onChange={setQuery} placeholder="Search workspaces" className="topbar-search-slot" /><ThemeToggle /><TopbarAccount /></div></header>
     {pendingRepository && workspaces.length > 0 && <p className="pending-repository-banner" role="status"><GitBranch size={15} aria-hidden="true" /><span>Open a workspace to add <strong>{pendingRepository}</strong> as a project.</span></p>}
     {loadError && <p className="organization-error organization-load-error" role="alert">{loadError} <Button variant="link" onClick={() => { setLoaded(false); refresh(); }}>Retry</Button></p>}
     {!loaded ? <section className="workspace-catalog" aria-busy="true"><div className="workspace-grid">{[0, 1, 2].map(key => <div key={key} className="workspace-card workspace-card-skeleton" />)}</div></section>

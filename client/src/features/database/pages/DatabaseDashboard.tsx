@@ -26,12 +26,11 @@ interface DatabaseDashboardProps {
   onOpenWorkspace: () => void;
   onBackToProjects: () => void;
   onOpenSettings: () => void;
-  onNewConnection?: () => void;
   onOpenMigration?: () => void;
 }
 
 export default function DatabaseDashboard({
-  projectId, projectName, workspaceName, schema, onOpenWorkspace, onBackToProjects, onOpenSettings, onNewConnection, onOpenMigration,
+  projectId, projectName, workspaceName, schema, onOpenWorkspace, onBackToProjects, onOpenSettings, onOpenMigration,
 }: DatabaseDashboardProps) {
   const [storedSection, setSection] = usePersistentState<DbNavId>(`cg.db.${projectId}.section`, 'overview');
   const section: DbNavId = (DB_NAV_IDS as readonly string[]).includes(storedSection) ? storedSection : 'overview';
@@ -62,17 +61,16 @@ export default function DatabaseDashboard({
         onTogglePause={() => setPaused(p => !p)}
         onRefresh={refresh}
         onOpenSettings={onOpenSettings}
-        onNewConnection={onNewConnection}
         onOpenMigration={onOpenMigration}
       />
       <DbSidebar active={section} onChange={setSection} />
-      <div className="db-content">
+      <div className={`db-content${section === 'overview' ? ' db-content-fit' : ''}`}>
         {/* A definite height here (matching db-content, which itself stretches
             to the sidebar's height via the shell grid) lets a full-height page
             like Schema fill exactly that space; pages with more natural
             content simply overflow past it and the panel scrolls as before. */}
-        <div style={{ height: '100%' }}>
-          {section === 'overview' && <OverviewPage projectId={projectId} paused={paused} onNavigate={setSection} />}
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {section === 'overview' && <OverviewPage projectId={projectId} schema={schema} paused={paused} onNavigate={setSection} />}
           {section === 'performance' && <PerformancePage projectId={projectId} paused={paused} />}
           {section === 'queries' && <QueriesPage projectId={projectId} paused={paused} />}
           {section === 'sql' && <SqlWorkspacePage projectId={projectId} schema={schema} pendingSql={pendingSql} onPendingSqlConsumed={clearPendingSql} />}

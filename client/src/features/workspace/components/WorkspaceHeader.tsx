@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Search, GitBranch, ChevronDown, Check } from 'lucide-react';
-import { organizationStore } from '../../organization/services/organizationStore';
+import { ThemeToggle } from '../../../shared/components/ThemeToggle';
 import { moduleForSection } from '../config/workspaceModules';
 import SavedViews, { type ViewState } from './SavedViews';
 import { Button } from '@/components/ui/button';
@@ -129,18 +129,8 @@ export default function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const navigate = useNavigate();
   const activeModule = moduleForSection(activeSection);
-  const [projectLink, setProjectLink] = useState('/workspaces');
-  useEffect(() => {
-    if (!repoInfo) { setProjectLink('/workspaces'); return; }
-    const fullName = `${repoInfo.owner}/${repoInfo.repo}`.toLowerCase();
-    let cancelled = false;
-    organizationStore.load().then(state => {
-      if (cancelled) return;
-      const project = state.projects.find(item => item.repositoryFullName?.toLowerCase() === fullName);
-      setProjectLink(project ? `/workspaces/${project.workspaceId}/projects` : '/workspaces');
-    });
-    return () => { cancelled = true; };
-  }, [repoInfo]);
+  const { workspaceId } = useParams();
+  const projectLink = workspaceId ? `/workspaces/${workspaceId}/projects` : '/workspaces';
 
   return (
     <header className="workspace-header">
@@ -162,6 +152,7 @@ export default function WorkspaceHeader({
 
       <div className="workspace-header-utilities">
         <SearchControl disabled={!hasData} onOpen={onPaletteOpen} />
+        <ThemeToggle />
         {hasData && repoInfo && currentView && onOpenView && <SavedViews owner={repoInfo.owner} repo={repoInfo.repo} current={currentView} onOpen={onOpenView} />}
         {hasData && onBranchSwitch && (
           <BranchPicker current={currentBranch || 'main'} branches={branches || []} loading={!!branchLoading} onSwitch={onBranchSwitch} />
