@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { StateCard } from '../../../../shared/components/StateCard';
+import { BellOff } from 'lucide-react';
 import { GG, GGErrorBanner, ggInput, ggLabel } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import { Button } from '@/components/ui/button';
@@ -64,7 +66,7 @@ export default function AlertsPage({ projectId, paused }: AlertsPageProps) {
       {tab === 'active' && (
         <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, padding: 18 }}>
           {!overview ? <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 12 }}>Loading…</p> : overview.activeAlerts.length === 0 ? (
-            <p style={{ color: GG.fg4, fontFamily: GG.mono, fontSize: 12 }}>No active alerts. All monitored thresholds are within range.</p>
+            <StateCard icon={BellOff} title="No active alerts">All monitored thresholds are within range.</StateCard>
           ) : overview.activeAlerts.map((alert, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: i > 0 ? `1px solid ${GG.line}` : 'none' }}>
               <div>

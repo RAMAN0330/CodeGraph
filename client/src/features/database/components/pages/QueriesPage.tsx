@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
+import { StateCard } from '../../../../shared/components/StateCard';
+import { DatabaseZap } from 'lucide-react';
 import { GG, GGErrorBanner, ggInput } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import type { TopQueryRow } from '../../types';
@@ -47,10 +49,7 @@ export default function QueriesPage({ projectId, paused }: QueriesPageProps) {
 
   if (!data.available) {
     return (
-      <div style={{ padding: 24, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, maxWidth: 700 }}>
-        <h2 style={{ margin: '0 0 6px', fontFamily: GG.mono, fontSize: 15, color: GG.fg }}>Query statistics are not available</h2>
-        <p style={{ margin: 0, color: GG.fg3, fontSize: 13, lineHeight: 1.6 }}>{data.reason}</p>
-      </div>
+      <StateCard icon={DatabaseZap} title="Query statistics are not available">{data.reason}</StateCard>
     );
   }
 

@@ -1,4 +1,6 @@
 import { useCallback } from 'react';
+import { StateCard } from '../../../../shared/components/StateCard';
+import { Network } from 'lucide-react';
 import { GG, GGErrorBanner } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 
@@ -14,10 +16,7 @@ export default function ReplicationPage({ projectId, paused }: ReplicationPagePr
 
   if (data.mode === 'standalone') {
     return (
-      <div style={{ padding: 24, background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, maxWidth: 700 }}>
-        <h2 style={{ margin: '0 0 6px', fontFamily: GG.mono, fontSize: 15, color: GG.fg }}>Not applicable</h2>
-        <p style={{ margin: 0, color: GG.fg3, fontSize: 13, lineHeight: 1.6 }}>{data.note ?? 'This instance has no replication configured.'}</p>
-      </div>
+      <StateCard icon={Network} title="Standalone instance">{data.note ?? 'This instance has no replicas configured, so there is no replication lag to track.'}</StateCard>
     );
   }
 

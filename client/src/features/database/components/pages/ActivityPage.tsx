@@ -1,4 +1,6 @@
 import { useCallback, useState } from 'react';
+import { StateCard } from '../../../../shared/components/StateCard';
+import { Activity } from 'lucide-react';
 import { GG, GGErrorBanner } from '../dbConnectTheme';
 import { dbTelemetryApi, useDbTelemetry } from '../../services/dbTelemetryApi';
 import type { ActivityEvent } from '../../types';
@@ -43,9 +45,7 @@ export default function ActivityPage({ projectId, paused }: ActivityPageProps) {
       </div>
       <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 12, overflow: 'hidden' }}>
         {filtered.length === 0 ? (
-          <p style={{ padding: 24, textAlign: 'center', color: GG.fg4, fontFamily: GG.mono, fontSize: 12 }}>
-            No activity recorded yet. Events appear here as they're detected during live polling.
-          </p>
+          <StateCard icon={Activity} title="No activity yet">Events appear here as they are detected during live polling.</StateCard>
         ) : filtered.map((event, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 18px', borderTop: i > 0 ? `1px solid ${GG.line}` : 'none' }}>
             <span style={{ fontFamily: GG.mono, fontSize: 11, color: GG.fg4, flex: '0 0 auto', width: 74 }}>{new Date(event.at).toLocaleTimeString()}</span>
