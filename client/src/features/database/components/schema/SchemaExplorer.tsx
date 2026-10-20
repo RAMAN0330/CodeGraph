@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Maximize2, Search } from 'lucide-react';
 import { GG, ggInput } from '../dbConnectTheme';
+import RelationFlow from './RelationFlow';
 import ERDiagramGraph from '../ERDiagramGraph';
 import DomainMap from './DomainMap';
 import TableMap from './TableMap';
@@ -11,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
-type ExplorerTab = 'graph' | 'objects' | 'dependencies' | 'indexes';
+type ExplorerTab = 'flow' | 'graph' | 'objects' | 'dependencies' | 'indexes';
 type GraphLevel = 'domain' | 'tables' | 'graph';
 type Depth = '1hop' | 'all';
 
@@ -29,7 +30,7 @@ function groupBySchema(tables: Schema['tables']): Map<string, Schema['tables']> 
 interface SchemaExplorerProps { schema: Schema; onBrowse?: (table: SchemaTable) => void; onQuery?: (table: SchemaTable) => void; }
 
 export default function SchemaExplorer({ schema, onBrowse, onQuery }: SchemaExplorerProps) {
-  const [tab, setTab] = useState<ExplorerTab>('graph');
+  const [tab, setTab] = useState<ExplorerTab>('flow');
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState<GraphLevel>('domain');
   const [selectedSchema, setSelectedSchema] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export default function SchemaExplorer({ schema, onBrowse, onQuery }: SchemaExpl
   function selectTable(name: string) {
     setSelectedTable(name);
     setLevel('graph');
-    setTab('graph');
+    setTab(t => (t === 'flow' ? 'flow' : 'graph'));
     setSearch('');
   }
 
@@ -56,12 +57,12 @@ export default function SchemaExplorer({ schema, onBrowse, onQuery }: SchemaExpl
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%', minHeight: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 4 }}>
-          {(['graph', 'objects', 'dependencies', 'indexes'] as ExplorerTab[]).map(t => (
+          {(['flow', 'graph', 'objects', 'dependencies', 'indexes'] as ExplorerTab[]).map(t => (
             <Button key={t} variant="ghost" onClick={() => setTab(t)} style={{
               padding: '6px 12px', borderRadius: 7, border: `1px solid ${tab === t ? GG.accent + '55' : GG.lineStrong}`,
               background: tab === t ? `${GG.accent}18` : 'transparent', color: tab === t ? GG.accent : GG.fg3,
               fontFamily: GG.mono, fontSize: 11, fontWeight: 700, textTransform: 'capitalize', cursor: 'pointer',
-            }}>{t}</Button>
+            }}>{t === 'flow' ? 'relations' : t}</Button>
           ))}
         </div>
         <div style={{ position: 'relative', flex: '0 1 280px', minWidth: 200 }}>
@@ -82,6 +83,19 @@ export default function SchemaExplorer({ schema, onBrowse, onQuery }: SchemaExpl
           </div>
         )}
       </div>
+
+      {tab === 'flow' && (
+        <div style={{ display: 'grid', gridTemplateColumns: `minmax(0, 1fr) ${activeTable ? '320px' : ''}`, gap: 14, flex: 1, minHeight: 480 }}>
+          <div style={{ position: 'relative', minHeight: 0, minWidth: 0, background: GG.bg, border: `1px solid ${GG.lineStrong}`, borderRadius: 10, overflow: 'hidden' }}>
+            <RelationFlow schema={schema} selected={selectedTable} query={search} onSelect={setSelectedTable} />
+          </div>
+          {activeTable && (
+            <div style={{ background: GG.panel, border: `1px solid ${GG.lineStrong}`, borderRadius: 10, padding: 16, overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
+              <DetailDrawer table={activeTable} allTables={schema.tables} onBrowse={onBrowse} onQuery={onQuery} />
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === 'graph' && (
         <div style={{ flex: 1, minHeight: 500 }}>
