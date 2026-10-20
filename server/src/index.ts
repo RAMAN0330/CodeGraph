@@ -18,6 +18,7 @@ import { githubAppConfigured, githubAppInstallUrl, verifyWebhookSignature } from
 import { MissingAnalysisError, buildPrReview, prReviewJobFromEvent } from './services/prReview';
 import { getCachedBlob, getCachedFile, getCachedTree, pruneStaleCacheEntries, saveBlobCache, saveFileCache, saveTreeCache, touchTreeCache } from './db/repoCache';
 import { initSchema } from './db/pool';
+import { auditCsv, listAudit, parseAuditFilter, recordAudit } from './db/audit';
 import { UsernameTakenError, clearGithubConnection, createOrganizationWithAdmin, findUserById, findUserByUsername, setGithubConnection, toPublicUser, type UserRow } from './db/users';
 import { AccessError, NotFoundError, addMember, assertCanEditProject, createProject, createWorkspace, getAlertWebhook, getConnectionForQuerying, getDecryptedConnection, listProjects, listWorkspaces, removeMember, removeProject, removeWorkspace, setAlertWebhook, updateDbConnection, type Actor } from './db/projectStore';
 import { listAlerts, listSnapshots } from './db/analysisHistory';
@@ -576,7 +577,26 @@ app.get('/auth/invite/:token', authRateLimit, async (req, res) => {
   }
 });
 
+// Writes one audit entry for the signed-in user; never blocks or fails the request.
+const audit = (req: any, action: string, resource?: { type: string; id?: string | number }, meta?: Record<string, unknown>) =>
+  recordAudit({ id: req.user.id, username: req.user.username, organization_id: req.user.organization_id }, action, resource, meta, req.ip);
+
 // --- Organization (team) ---
+app.get('/api/organization/audit', requireAuth, async (req: any, res: any) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only organization admins can view the audit log.' });
+  try {
+    const entries = await listAudit(req.user.organization_id, parseAuditFilter(req.query));
+    if (req.query.format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="audit-log.csv"');
+      return res.send(auditCsv(entries));
+    }
+    res.json({ entries });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/organization/members', requireAuth, async (req: any, res: any) => {
   try {
     res.json({ members: await listMembers(req.user.organization_id), canInvite: req.user.role === 'admin' });
@@ -589,6 +609,7 @@ app.post('/api/organization/invites', requireAuth, credentialsRateLimit, async (
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Only organization admins can invite people.' });
   try {
     const { token, expiresAt } = await createInvite(req.user.organization_id, req.user.id);
+    await audit(req, 'organization.invite.create', { type: 'organization', id: req.user.organization_id });
     res.status(201).json({ url: `${env.clientOrigin.replace(/\/$/, '')}/register?invite=${token}`, expiresAt });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -599,7 +620,10 @@ app.post('/auth/login', credentialsRateLimit, (req, res, next) => {
   passport.authenticate('local', (error: unknown, user: UserRow | false, info: { message?: string } | undefined) => {
     if (error) return next(error);
     if (!user) return res.status(401).json({ error: info?.message ?? 'Invalid username or password.' });
-    loginSession(req, res, next, user, () => res.json(toPublicUser(user)));
+    loginSession(req, res, next, user, () => {
+      void recordAudit(user, 'auth.login', { type: 'user', id: user.id }, {}, req.ip);
+      res.json(toPublicUser(user));
+    });
   })(req, res, next);
 });
 
@@ -730,6 +754,7 @@ app.get('/api/projects', requireAuth, async (req: any, res: any) => {
 app.post('/api/workspaces', requireAuth, async (req: any, res: any) => {
   try {
     const workspace = await createWorkspace(actorOf(req), String(req.body?.name ?? ''));
+    await audit(req, 'workspace.create', { type: 'workspace', id: workspace.id }, { name: workspace.name });
     res.status(201).json(workspace);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -739,6 +764,7 @@ app.post('/api/workspaces', requireAuth, async (req: any, res: any) => {
 app.delete('/api/workspaces/:id', requireAuth, async (req: any, res: any) => {
   try {
     await removeWorkspace(actorOf(req), Number(req.params.id));
+    await audit(req, 'workspace.delete', { type: 'workspace', id: Number(req.params.id) });
     res.status(204).end();
   } catch (error: any) {
     res.status(errorStatus(error, 500)).json({ error: error.message });
@@ -756,6 +782,7 @@ app.post('/api/projects', requireAuth, async (req: any, res: any) => {
       repositoryFullName: req.body?.repositoryFullName !== undefined ? String(req.body.repositoryFullName) : undefined,
       dbConnection: req.body?.dbConnection,
     });
+    await audit(req, 'project.create', { type: 'project', id: project.id }, { name: project.name, type: projectType });
     res.status(201).json(project);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -765,6 +792,7 @@ app.post('/api/projects', requireAuth, async (req: any, res: any) => {
 app.delete('/api/projects/:id', requireAuth, async (req: any, res: any) => {
   try {
     await removeProject(actorOf(req), Number(req.params.id));
+    await audit(req, 'project.delete', { type: 'project', id: Number(req.params.id) });
     res.status(204).end();
   } catch (error: any) {
     res.status(errorStatus(error, 500)).json({ error: error.message });
@@ -785,6 +813,7 @@ app.put('/api/projects/:id/db-connection', requireAuth, async (req: any, res: an
   try {
     const summary = await updateDbConnection(actorOf(req), Number(req.params.id), req.body?.dbConnection);
     forgetSharedPolls(`${Number(req.params.id)}:`);
+    await audit(req, 'connection.update', { type: 'project', id: Number(req.params.id) }, { host: summary.host, database: summary.database });
     res.json(summary);
   } catch (error: any) {
     res.status(errorStatus(error, 400)).json({ error: error.message });
@@ -833,6 +862,7 @@ app.post('/api/projects/:id/sql/run', requireAuth, sqlRateLimit, async (req: any
   try {
     const result = req.body?.explain ? await explainQuery(connection, sql) : await runQuery(connection, sql, req.body?.limit);
     await recordHistory(projectId, req.user.id, { sql, durationMs: result.durationMs, rowCount: 'rowCount' in result ? result.rowCount : null }).catch(() => undefined);
+    await audit(req, req.body?.explain ? 'sql.explain' : 'sql.run', { type: 'project', id: projectId }, { sql: sql.slice(0, 300) });
     res.json(result);
   } catch (error: any) {
     if (!(error instanceof SqlInputError)) await recordHistory(projectId, req.user.id, { sql, error: error.message }).catch(() => undefined);
@@ -942,6 +972,7 @@ app.delete('/api/projects/:id/db/alerts/:ruleId', requireAuth, async (req: any, 
 app.post('/api/projects/:id/members', requireAuth, async (req: any, res: any) => {
   try {
     const member = await addMember(actorOf(req), Number(req.params.id), String(req.body?.username ?? ''));
+    await audit(req, 'project.member.add', { type: 'project', id: Number(req.params.id) }, { username: String(req.body?.username ?? '') });
     res.status(201).json(member);
   } catch (error: any) {
     res.status(errorStatus(error, 400)).json({ error: error.message });
@@ -951,6 +982,7 @@ app.post('/api/projects/:id/members', requireAuth, async (req: any, res: any) =>
 app.delete('/api/projects/:id/members/:memberId', requireAuth, async (req: any, res: any) => {
   try {
     await removeMember(actorOf(req), Number(req.params.id), Number(req.params.memberId));
+    await audit(req, 'project.member.remove', { type: 'project', id: Number(req.params.id) }, { memberId: Number(req.params.memberId) });
     res.status(204).end();
   } catch (error: any) {
     res.status(errorStatus(error, 500)).json({ error: error.message });
