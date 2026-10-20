@@ -12,7 +12,7 @@
 .dg-node-quiet{fill:var(--surface-card);stroke:var(--border-medium);stroke-dasharray:4 4}
 .dg-halo{fill:none;stroke:var(--tone);stroke-opacity:.25;stroke-width:8}
 .dg-count{fill:var(--tone);font-size:15px;font-weight:800}
-.dg-count-hub{fill:#ffffff;font-size:22px}
+.dg-count-hub{fill:var(--primary-foreground,#ffffff);font-size:22px}
 
 .dg-tier{fill:color-mix(in srgb,var(--tone) 4%,var(--surface-card));stroke:color-mix(in srgb,var(--tone) 22%,var(--surface-card));stroke-width:1.2}
 .dg-tier-label{fill:var(--text-secondary);font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}

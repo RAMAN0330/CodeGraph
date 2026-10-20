@@ -20,15 +20,16 @@
     var(--background);
   background-attachment:fixed;
 }
-/* Dark is a soft dusk, not near-black: muted indigo canvas, lifted cards, pastel accents. */
+/* Dark is a smooth neutral charcoal, not pure black and not tinted: soft greys,
+   an off-white primary, and colour only in the one gradient phrase and the data. */
 @media(prefers-color-scheme:dark){
   .landing-page{
     color-scheme:dark;
-    --background:#2b2847;--foreground:#f1effa;--card:#36325a;--primary:#aaa6ff;--primary-hover:#bdbaff;--primary-foreground:#1f1c3a;
-    --brand-2:#bba6fb;--brand-3:#f5b583;--gradient-end:#f5b583;--accent:#433e6e;--muted:#322e54;--muted-foreground:#c9c5e2;--border:#47426e;--border-medium:#57527f;
-    --canvas-blob-1:rgba(187,166,251,.20);--canvas-blob-2:rgba(245,181,131,.14);--canvas-grid:rgba(241,239,250,.05);
-    --glass-edge:rgba(255,255,255,.12);--glass-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 18px 44px -14px rgba(16,12,40,.45);
-    --teal-500:#aaa6ff;--chart-cyan:#4fd1e0;--chart-purple:#cfa6f2;--color-warning:#fcd34d;--color-danger:#ff7a7e;--color-success:#4ade9a;
+    --background:#141416;--foreground:#ededef;--card:#1e1e21;--primary:#f4f4f5;--primary-hover:#ffffff;--primary-foreground:#18181b;
+    --brand-2:#a5b4fc;--brand-3:#f5b583;--gradient-end:#f5b583;--accent:#2a2a2e;--muted:#1a1a1d;--muted-foreground:#a1a1aa;--border:#2c2c31;--border-medium:#3a3a40;
+    --canvas-blob-1:rgba(165,180,252,.07);--canvas-blob-2:rgba(245,181,131,.05);--canvas-grid:rgba(255,255,255,.035);
+    --glass-edge:rgba(255,255,255,.08);--glass-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 18px 44px -14px rgba(0,0,0,.6);
+    --teal-500:#a5b4fc;--chart-cyan:#4fd1e0;--chart-purple:#d4b4f5;--color-warning:#fcd34d;--color-danger:#ff7a7e;--color-success:#4ade9a;
   }
 }
 .landing-page ::selection{background:color-mix(in srgb,var(--brand-2) 24%,transparent);color:var(--ink)}
