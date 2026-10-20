@@ -1,14 +1,15 @@
 # Root-level context, used only by legacy-api's Docker build (server/Dockerfile.node),
-# which needs to reach client/src/features/analysis/services/analysisRules.ts —
-# see that Dockerfile's COPY step for why. Every other service still builds
-# from its own subdirectory context (client/, server-go/) and uses its own
-# .dockerignore; this one exists purely to keep legacy-api's wider context
-# from sending node_modules/.git/build output to the daemon on every build.
+# which needs to reach the shared rule files under client/src — see that
+# Dockerfile's COPY steps for why. Every other service (client/, engine/,
+# server-go/) builds from its own subdirectory and uses its own .dockerignore;
+# this one keeps legacy-api's wider context from sending dependencies, build
+# output and the other services' binaries to the daemon on every build.
 **/node_modules
 **/dist
-**/.venv
-**/__pycache__
 **/*.log
 .git
 client/coverage
 server/coverage
+engine/target
+server-go/bin
+server-go/api
