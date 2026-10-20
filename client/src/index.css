@@ -28,6 +28,21 @@
   --accent-orange: #D97706;
   --chart-purple: #7c3fa8;
   --chart-cyan: #147a89;
+  /* Categorical data palette, fixed order, validated for CVD (dataviz validator). State colours stay separate. */
+  --viz-1: #4F46E5;
+  --viz-2: #D9650B;
+  --viz-3: #0891B2;
+  --viz-4: #C026D3;
+  /* One accent per workspace module: header icon tile and anything that refers to the module. */
+  --mod-explore: #4F46E5;
+  --mod-insights: #7C3FA8;
+  --mod-architecture: #147A89;
+  --mod-security: #DC2626;
+  --mod-patterns: #0E7490;
+  --mod-actions: #312E9E;
+  --mod-quality: #C2570C;
+  --mod-database: #B45309;
+  --mod-settings: #5E5A7A;
 
   --bg-main: var(--bg-canvas);
   --bg-card: var(--surface-card);
@@ -106,6 +121,19 @@ h1, h2, h3, h4, h5, h6 {
   --accent-orange: #F5B583;
   --chart-purple: #C4A1F0;
   --chart-cyan: #67D3E0;
+  --viz-1: #7479EE;
+  --viz-2: #E2701C;
+  --viz-3: #0597B0;
+  --viz-4: #C83BDF;
+  --mod-explore: #A5B4FC;
+  --mod-insights: #C4A1F0;
+  --mod-architecture: #67D3E0;
+  --mod-security: #FF7A7E;
+  --mod-patterns: #5EC8DA;
+  --mod-actions: #C7D2FE;
+  --mod-quality: #F5B583;
+  --mod-database: #FCD34D;
+  --mod-settings: #A1A1AA;
   --glass-overlay-bg: rgba(30, 30, 33, 0.94);
   --shadow-premium: 0 8px 32px rgba(0,0,0,0.4);
 }
